@@ -9,6 +9,7 @@ use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicResource;
 use App\Models\Student\AcademicUnitResult;
 use App\Models\Student\FinancialAdjustment;
+use App\Models\Student\ServiceRequest;
 use App\Models\Student\StudentObligation;
 use App\Models\Student\StudentPayment;
 use App\Models\User;
@@ -18,9 +19,9 @@ use Illuminate\Validation\ValidationException;
 
 final class StudentDossierService
 {
-    public function __construct(private AcademicAccessService $academic, private StudentFinanceService $finance) {}
+    public function __construct(private AcademicAccessService $academic, private StudentFinanceService $finance, private StudentRequestService $studentRequests) {}
 
-    public function details(AcademicEnrollment $entry, User $staff, string $section = "all", int $page = 1): array
+    public function details(AcademicEnrollment $entry, User $staff, string $section = 'all', int $page = 1): array
     {
         $access = $staff->can('manage academic access');
         $load = fn (array $sections) => $section === 'all' || in_array($section, $sections, true);
@@ -91,7 +92,12 @@ final class StudentDossierService
             'results' => $resources->where('kind', 'result')->map(fn ($resource) => $resource->only(['id', 'title', 'updated_at']))->values(),
             'documents' => $resources->where('kind', 'document')->map(fn ($resource) => ['id' => $resource->id, 'title' => $resource->title, 'updated_at' => $resource->updated_at, 'url' => $resource->path ? route('dashboard.admin.student-academic.documents.download', [$entry->id, $resource->id]) : null])->values(),
             'finance' => $finance && $load(['Finances']) ? $this->finances($entry, $page) : null,
-            'requests' => $access && $load(['Demandes']) ? \App\Models\Student\ServiceRequest::whereIn('academic_enrollment_id', $ids)->latest()->simplePaginate(25, ['id', 'academic_enrollment_id', 'category', 'subject', 'body', 'status', 'response', 'created_at'], 'records_page', $page) : null,
+            'requests' => $access && $load(['Demandes']) ? ServiceRequest::with(['officialResult.run', 'appointmentReservation'])->whereIn('academic_enrollment_id', $ids)->latest('id')
+                ->simplePaginate(25, ['*'], 'records_page', $page)
+                ->through(fn (ServiceRequest $ticket) => $this->studentRequests->staffRow($ticket, $staff, [
+                    'dossier_academic' => $entry->id,
+                    'records_page' => $page > 1 ? $page : null,
+                ])) : null,
             'records' => ['page' => $page, 'more' => ($resourcePage?->hasMorePages() ?? false) || ($attendancePage?->hasMorePages() ?? false) || ($timelinePage?->hasMorePages() ?? false)],
             'timeline' => $timeline,
         ];
@@ -108,7 +114,10 @@ final class StudentDossierService
             if (!$version || !in_array($version->status, ['published', 'replaced', 'archived'], true)) {
                 throw ValidationException::withMessages(['score' => 'Cette inscription doit être rattachée à une maquette publiée.']);
             }
-            $version->units()->where('level_id', $entry->level_id)->findOrFail($unitId);
+            $unit = $version->units()->where('level_id', $entry->level_id)->withCount('items')->findOrFail($unitId);
+            if ($unit->isComposite($unit->items_count)) {
+                throw ValidationException::withMessages(['score' => 'Une UE composée doit passer par la délibération du jury avec les résultats de chaque cours requis.']);
+            }
             $result = AcademicUnitResult::updateOrCreate(
                 ['academic_enrollment_id' => $entry->id, 'curriculum_unit_id' => $unitId],
                 $data,
@@ -137,7 +146,7 @@ final class StudentDossierService
             return [
                 'id' => $unit->id, 'code' => $unit->code, 'name' => $unit->name, 'period' => $unit->period_name,
                 'credits' => $credits === null ? null : (float) $credits,
-                'score' => $result ? (float) $result->score : null, 'validated' => $result?->validated,
+                'score' => $result ? (float) $result->score : null, 'validated' => $result?->validated, 'is_composite' => $unit->isComposite($unit->items->count()),
             ];
         });
 

@@ -13,6 +13,8 @@ export type Field = {
     clears?: string;
     help?: string;
     value?: FormValue;
+    scheduleCurrencyField?: string;
+    allowZeroScheduleAmount?: boolean;
 };
 export type FormSpec = {
     title: string;
@@ -22,6 +24,7 @@ export type FormSpec = {
     fields: Field[];
     values?: Record<string, FormValue>;
     submitLabel?: string;
+    eyebrow?: string;
 };
 export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormSpec; onClose: () => void; onSuccess: (message: string) => void }) {
     const id = useId();
@@ -41,6 +44,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
             formId={id}
             onClose={onClose}
             submitLabel={spec.submitLabel || 'Enregistrer'}
+            eyebrow={spec.eyebrow}
             busy={form.processing}
             wide
             errors={form.errors}
@@ -55,7 +59,10 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                         preserveScroll: true,
                         forceFormData: spec.fields.some((field) => field.type === 'file'),
                         errorBag: `academic-${id.replace(/\W/g, '')}`,
-                        onSuccess: (page) => onSuccess(String(page.props.success || 'Modification enregistrée.')),
+                        onSuccess: (page) => {
+                            const flash = page.props.flash as { success?: string } | undefined;
+                            onSuccess(String(page.props.success || flash?.success || 'Modification enregistrée.'));
+                        },
                     });
                 }}
             >
@@ -64,10 +71,11 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                         const inputId = `${id}-${field.name}`;
                         if (field.type === 'schedule') {
                             const rows = (Array.isArray(form.data[field.name]) ? form.data[field.name] : []) as { amount: string; due_at: string }[];
+                            const currency = field.scheduleCurrencyField ? form.data[field.scheduleCurrencyField] : 'USD';
                             return (
                                 <section className="academic-plan" key={field.name}>
                                     <h3>{field.label}</h3>
-                                    <p>{field.help}</p>
+                                    {field.help && <p>{field.help}</p>}
                                     {rows.map((row, index) => (
                                         <div key={index}>
                                             <label>
@@ -85,10 +93,10 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                                 />
                                             </label>
                                             <label>
-                                                Montant (USD)
+                                                Montant{currency ? ` (${currency})` : ''}
                                                 <input
                                                     type="number"
-                                                    min="0.01"
+                                                    min={field.allowZeroScheduleAmount ? '0' : '0.01'}
                                                     step="0.01"
                                                     required
                                                     value={row.amount}
@@ -178,7 +186,16 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                             value={String(form.data[field.name] ?? '')}
                                             required={field.required}
                                             step={field.type === 'number' ? '0.01' : undefined}
-                                            onChange={(event) => form.setData(field.name, event.target.value)}
+                                            onInput={
+                                                field.type === 'datetime-local'
+                                                    ? (event) => form.setData(field.name, event.currentTarget.value)
+                                                    : undefined
+                                            }
+                                            onChange={
+                                                field.type === 'datetime-local'
+                                                    ? undefined
+                                                    : (event) => form.setData(field.name, event.currentTarget.value)
+                                            }
                                         />
                                     )
                                 )}

@@ -29,14 +29,14 @@ function token() {
 export default function () {
     const account = accounts[__VU - 1];
     if (!loggedIn) {
-        http.get(base + '/login', { tags: { name: 'login_form' } });
-        const result = http.post(base + '/login', JSON.stringify({ email: account.email, password: account.password }), {
+        http.get(base + '/app/login', { tags: { name: 'login_form' } });
+        const result = http.post(base + '/app/login', JSON.stringify({ email: account.email, password: account.password }), {
             redirects: 0, headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': token() }, tags: { name: 'login' },
         });
-        loggedIn = check(result, { authenticated: r => r.status === 302 && (r.headers.Location || '').includes('/dashboard') });
+        loggedIn = check(result, { authenticated: r => r.status === 302 && (r.headers.Location || '').includes('/app/dashboard') });
         functionalErrors.add(!loggedIn);
         if (!loggedIn) fail('Authentification échouée ; vérifier comptes et limitation de débit.');
-        const initial = http.get(`${base}/dashboard/student?academic=${account.academic_id}`, { redirects: 0, tags: { name: 'initial_student_page' } });
+        const initial = http.get(`${base}/app/dashboard/student?academic=${account.academic_id}`, { redirects: 0, tags: { name: 'initial_student_page' } });
         const page = JSON.parse(initial.html().find('[data-page]').attr('data-page') || '{}');
         if (initial.status !== 200 || page.component !== 'dashboard/student/Portal') fail('Contexte étudiant indisponible.');
         pageVersion = page.version || '';
@@ -49,7 +49,7 @@ export default function () {
     const sections = mode === 'results' ? ['results'] : ['overview', 'courses', 'schedule', 'profile', 'fees', 'transactions', 'documents'];
     if (mode === 'mixed' && account.results_enabled) sections.push('results');
     const section = sections[Math.floor(Math.random() * sections.length)];
-    const response = http.get(`${base}/dashboard/student/${section}?academic=${account.academic_id}`, {
+    const response = http.get(`${base}/app/dashboard/student/${section}?academic=${account.academic_id}`, {
         redirects: 0, headers: { 'X-Inertia': 'true', 'X-Inertia-Version': pageVersion, 'X-Requested-With': 'XMLHttpRequest', Accept: 'text/html, application/xhtml+xml' }, tags: { name: `student_${section}` },
     });
     const ok = check(response, { 'page étudiante': r => {
@@ -57,12 +57,12 @@ export default function () {
     } });
     functionalErrors.add(!ok);
     if (account.material_id && Math.random() < 0.1) {
-        const file = http.get(`${base}/dashboard/student/resources/${account.material_id}/download?academic=${account.academic_id}`, { redirects: 0, tags: { name: 'private_material' } });
+        const file = http.get(`${base}/app/dashboard/student/resources/${account.material_id}/download?academic=${account.academic_id}`, { redirects: 0, tags: { name: 'private_material' } });
         functionalErrors.add(!check(file, { 'support autorisé': r => r.status === 200 }));
     }
     // Opt-in writes only, to an open assignment belonging to this test student.
     if (__ENV.ALLOW_WRITES === 'true' && account.assignment_id && Math.random() < 0.05) {
-        const submission = http.post(`${base}/dashboard/student/resources/${account.assignment_id}/submit?academic=${account.academic_id}`, { body: 'Soumission de charge sur environnement de test autorisé.' }, {
+        const submission = http.post(`${base}/app/dashboard/student/resources/${account.assignment_id}/submit?academic=${account.academic_id}`, { body: 'Soumission de charge sur environnement de test autorisé.' }, {
             redirects: 0, headers: { 'X-XSRF-TOKEN': token() }, tags: { name: 'assignment_submit' },
         });
         functionalErrors.add(!check(submission, { 'dépôt accepté': r => [302, 303].includes(r.status) }));

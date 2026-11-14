@@ -164,7 +164,7 @@ export const admissionSteps = [
     {
         title: 'Complétez votre demande',
         text: 'Obtenez le formulaire auprès du service compétent. Vous pouvez aussi créer votre espace candidat sur cette plateforme.',
-        link: '/register',
+        link: '/app/register',
         action: 'Créer mon espace',
     },
     {

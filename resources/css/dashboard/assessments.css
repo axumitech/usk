@@ -546,3 +546,93 @@
         justify-self: start;
     }
 }
+.assessments-gradebook-return {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--usk-night-mint, #21674e);
+    font-size: 0.83rem;
+    font-weight: 720;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.assessment-draft-fields legend > svg {
+    display: inline;
+    margin-inline-end: 0.3rem;
+    color: var(--assessment-accent);
+    vertical-align: -0.15em;
+}
+
+.assessment-file-formats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.assessment-draft-form .assessment-file-formats label {
+    min-height: 2.65rem;
+    padding-inline: 0.65rem;
+    border: 1px solid var(--assessment-line);
+    border-radius: 0.55rem;
+    background: var(--assessment-surface);
+    cursor: pointer;
+}
+
+.assessment-draft-form .assessment-file-formats label:has(:checked) {
+    border-color: var(--assessment-accent);
+    background: var(--assessment-soft);
+}
+
+.assessment-subject-file,
+.assessment-publication-status {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--assessment-line);
+    border-radius: 0.65rem;
+    background: var(--assessment-soft);
+    color: var(--assessment-accent);
+    font-size: 0.84rem;
+    overflow-wrap: anywhere;
+}
+
+.assessment-subject-file {
+    width: fit-content;
+    max-width: 100%;
+    min-height: 2.75rem;
+    font-weight: 710;
+}
+
+.assessment-subject-file:hover {
+    text-decoration: underline;
+}
+
+.assessment-subject-file svg,
+.assessment-publication-status svg {
+    flex: none;
+}
+
+.assessment-publication-status p {
+    margin: 0;
+}
+
+.assessments-badge[data-state='scheduled'] {
+    background: var(--usk-night-warm, #f7ead0);
+    color: var(--usk-night-gold, #805b23);
+}
+
+.assessments-badge[data-state='blocked'],
+.assessment-publication-status[data-error] {
+    background: var(--usk-night-danger-surface, #f8e9e3);
+    color: var(--usk-night-danger, #8f4034);
+}
+
+.assessments-participants-filters .assessments-filter-actions button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}

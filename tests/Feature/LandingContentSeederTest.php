@@ -36,7 +36,7 @@ class LandingContentSeederTest extends TestCase
         $this->assertSame(2, PostModel::whereNotNull('video_url')->count());
         $this->assertCount(3, PostModel::whereNull('video_url')->firstOrFail()->gallery);
         $this->get('/blog')->assertOk()->assertInertia(fn (Assert $page) => $page->has('posts.data', 3));
-        $this->actingAs($admin)->get('/dashboard/admin/dashboard/blog/'.$article->slug)
+        $this->actingAs($admin)->get('/app/dashboard/admin/dashboard/blog/'.$article->slug)
             ->assertOk()->assertInertia(fn (Assert $page) => $page->where('post.main_image_1', $article->main_image_1));
     }
 }

@@ -1,9 +1,23 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import TeacherModuleHeading from '@/components/teaching/TeacherModuleHeading';
 import { dateTime } from '@/pages/dashboard/teaching/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowDown, ArrowRight, BookOpen, CalendarDays, ClipboardCheck, ClipboardList, FileText, Plus, Search } from 'lucide-react';
-import { useState } from 'react';
+import {
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    BookOpen,
+    CalendarClock,
+    CalendarDays,
+    ClipboardCheck,
+    ClipboardList,
+    FileText,
+    Paperclip,
+    Plus,
+    Search,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import '../../../../css/dashboard/assessments.css';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
@@ -23,6 +37,8 @@ type Summary = {
     session_code: string;
     opens_at: string | null;
     closes_at: string | null;
+    scheduled_publish_at: string | null;
+    scheduled_publish_blocked: boolean;
     revision: number;
 };
 type Details = Summary & {
@@ -38,6 +54,11 @@ type Details = Summary & {
     academic_content_section_id: number | null;
     rubric: { label: string; maximum: number }[];
     session: (Session & { ends_at: string; cancelled_at: string | null }) | null;
+    subject: { filename: string | null; size_bytes: number | null; download_url: string } | null;
+    submission_formats: string[];
+    submission_max_kb: number;
+    scheduled_publish_notify: boolean;
+    scheduled_publish_error: string | null;
 };
 type Participant = {
     id: number;
@@ -45,6 +66,8 @@ type Participant = {
     academic_enrollment_id: number;
     group: string | null;
     group_points: number | null;
+    academic_group: string | null;
+    matricule: string | null;
     participation: string;
     correction_state: string;
     revision: number;
@@ -61,6 +84,9 @@ type Props = {
     admin: boolean;
     canEdit: boolean;
     offering: number | null;
+    gradebook_url: string | null;
+    draft_options: { formats: string[]; default_formats: string[]; maximum_kb: number };
+    participant_groups: { value: string; label: string; kind: 'work' | 'class' | 'unassigned' }[];
     filters: Record<string, string | number | undefined>;
     categories: Record<string, string>;
     participation: string[];
@@ -117,6 +143,7 @@ const points = (value: number | null | undefined) => (value == null ? '' : (valu
 const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true };
 const checkNotice: Field = { name: 'notify', label: 'Notifier les étudiants concernés', type: 'checkbox' };
 const zone = 'Africa/Kinshasa';
+const megabytes = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
 function dateInput(value: string | null | undefined) {
     if (!value) return '';
     return new Intl.DateTimeFormat('sv-SE', {
@@ -130,6 +157,12 @@ function dateInput(value: string | null | undefined) {
     })
         .format(new Date(value))
         .replace(' ', 'T');
+}
+
+function publicationBadge(item: Summary) {
+    if (item.scheduled_publish_blocked) return { state: 'blocked', label: 'Publication bloquée' };
+    if (item.scheduled_publish_at) return { state: 'scheduled', label: 'Programmée' };
+    return { state: item.state, label: states[item.state] ?? item.state };
 }
 
 function Errors({ errors }: { errors: Record<string, string> }) {
@@ -154,6 +187,11 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
         modality: item?.modality ?? 'submission',
         opens_at: dateInput(item?.opens_at),
         closes_at: dateInput(item?.closes_at),
+        scheduled_publish_at: dateInput(item?.scheduled_publish_at),
+        scheduled_publish_notify: item?.scheduled_publish_notify ?? false,
+        subject: null as File | null,
+        remove_subject: false,
+        submission_formats: item?.submission_formats ?? props.draft_options.default_formats,
         academic_session_id: item?.academic_session_id?.toString() ?? '',
         academic_content_section_id: item?.academic_content_section_id?.toString() ?? '',
         maximum_points: points(item?.maximum_points),
@@ -169,6 +207,9 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
     const title = item ? 'Modifier le brouillon' : 'Nouvelle évaluation';
     const course = item?.course ?? props.offers.data.find((offer) => offer.id === props.offering)?.title;
     const submission = form.data.modality === 'submission';
+    const maximumAllowed = props.draft_options.maximum_kb / 1024;
+    const [maximum, setMaximum] = useState(String((item?.submission_max_kb ?? props.draft_options.maximum_kb) / 1024));
+    const acceptedDocuments = props.draft_options.formats.map((extension) => `.${extension}`).join(',');
 
     return (
         <section className="assessment-draft" aria-label={title}>
@@ -185,7 +226,16 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
                 className="assessment-draft-form"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.transform((data) => ({ ...data, group_work: submission && data.group_work }));
+                    if (submission && form.data.submission_formats.length === 0) {
+                        form.setError('submission_formats', 'Sélectionnez au moins un format de dépôt.');
+                        return;
+                    }
+                    form.transform(({ submission_formats, ...data }) => ({
+                        ...data,
+                        group_work: submission && data.group_work,
+                        scheduled_publish_notify: Boolean(data.scheduled_publish_at && data.scheduled_publish_notify),
+                        ...(submission ? { submission_formats, submission_max_kb: Math.floor(Number(maximum) * 1024) } : {}),
+                    }));
                     form.post(item ? route(props.prefix + 'edit', item.resource_id) : route(props.prefix + 'store', props.offering!), {
                         preserveScroll: true,
                         onSuccess: onClose,
@@ -251,6 +301,36 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
                             ))}
                         </select>
                     </label>
+                </fieldset>
+                <fieldset className="assessment-draft-fields">
+                    <legend>
+                        <Paperclip size={16} aria-hidden="true" /> Sujet et documents
+                    </legend>
+                    {item?.subject && (
+                        <a className="assessment-subject-file assessment-field-wide" href={item.subject.download_url}>
+                            <FileText size={18} aria-hidden="true" /> {item.subject.filename || 'Télécharger le sujet actuel'}
+                        </a>
+                    )}
+                    <label className="assessment-field-wide">
+                        {item?.subject ? 'Remplacer le sujet' : 'Joindre le sujet'}
+                        <input
+                            type="file"
+                            accept={acceptedDocuments}
+                            disabled={form.data.remove_subject}
+                            onChange={(event) => form.setData('subject', event.currentTarget.files?.[0] ?? null)}
+                        />
+                        <small>{megabytes.format(maximumAllowed)} Mo maximum par fichier.</small>
+                    </label>
+                    {item?.subject && !form.data.subject && (
+                        <label className="assessment-draft-check assessment-field-wide">
+                            <input
+                                type="checkbox"
+                                checked={form.data.remove_subject}
+                                onChange={(event) => form.setData('remove_subject', event.target.checked)}
+                            />
+                            Retirer le sujet actuel
+                        </label>
+                    )}
                 </fieldset>
                 <fieldset className="assessment-draft-fields">
                     <legend>Modalité et calendrier</legend>
@@ -355,6 +435,72 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
                         </>
                     )}
                 </fieldset>
+                {submission && (
+                    <fieldset className="assessment-draft-fields">
+                        <legend>Règles de dépôt des copies</legend>
+                        <div className="assessment-file-formats assessment-field-wide" role="group" aria-label="Formats de dépôt autorisés">
+                            {props.draft_options.formats.map((extension) => (
+                                <label className="assessment-draft-check" key={extension}>
+                                    <input
+                                        type="checkbox"
+                                        checked={form.data.submission_formats.includes(extension)}
+                                        onChange={(event) => {
+                                            form.clearErrors('submission_formats');
+                                            form.setData(
+                                                'submission_formats',
+                                                event.target.checked
+                                                    ? [...form.data.submission_formats, extension]
+                                                    : form.data.submission_formats.filter((format) => format !== extension),
+                                            );
+                                        }}
+                                    />
+                                    {extension.toUpperCase()}
+                                </label>
+                            ))}
+                        </div>
+                        <label>
+                            Taille maximale par fichier (Mo)
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                min={1 / 1024}
+                                max={maximumAllowed}
+                                step="any"
+                                required
+                                value={maximum}
+                                onChange={(event) => setMaximum(event.currentTarget.value)}
+                            />
+                            <small>Limite de la plateforme à {megabytes.format(maximumAllowed)} Mo.</small>
+                        </label>
+                    </fieldset>
+                )}
+                <fieldset className="assessment-draft-fields">
+                    <legend>
+                        <CalendarClock size={17} aria-hidden="true" /> Publication
+                    </legend>
+                    <label>
+                        Programmer la publication (heure de Kinshasa)
+                        <input
+                            type="datetime-local"
+                            value={form.data.scheduled_publish_at}
+                            onInput={(event) => form.setData('scheduled_publish_at', event.currentTarget.value)}
+                        />
+                        <small>
+                            {submission ? 'Au plus tard à l’ouverture des dépôts.' : 'Avant le début de l’épreuve.'} Laissez la date vide pour publier
+                            manuellement.
+                        </small>
+                    </label>
+                    {form.data.scheduled_publish_at && (
+                        <label className="assessment-draft-check">
+                            <input
+                                type="checkbox"
+                                checked={form.data.scheduled_publish_notify}
+                                onChange={(event) => form.setData('scheduled_publish_notify', event.target.checked)}
+                            />
+                            Notifier les étudiants à la publication
+                        </label>
+                    )}
+                </fieldset>
                 <fieldset className="assessment-draft-fields">
                     <legend>Barème et appréciations</legend>
                     <label>
@@ -441,7 +587,11 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
                 )}
                 <Errors errors={form.errors} />
                 <footer className="assessment-draft-footer">
-                    <span>{item ? 'Modification du brouillon' : 'Le brouillon sera visible ici avant publication.'}</span>
+                    <span>
+                        {form.data.scheduled_publish_at
+                            ? 'La publication se déclenchera à la date choisie.'
+                            : 'Le brouillon sera visible ici avant publication.'}
+                    </span>
                     <div>
                         <button className="admin-secondary" type="button" onClick={onClose} disabled={form.processing}>
                             Fermer
@@ -585,10 +735,25 @@ function CorrectionForm({ props, item, row }: { props: Props; item: Details; row
 }
 
 export default function Assessments(props: Props) {
-    const { prefix, selected, record, filters, canEdit, offering, admin } = props;
+    const { prefix, selected, record, filters, canEdit, offering, admin, gradebook_url: gradebookUrl } = props;
+    const teacher = prefix === 'dashboard.teaching.assessments.';
     const [modal, setModal] = useState<FormSpec | null>(null);
     const [draft, setDraft] = useState<{ mode: 'create' | 'edit'; id: number } | null>(null);
     const [status, setStatus] = useState('');
+    const gradebookCorrection = useRef<HTMLElement | null>(null);
+    const gradebookParticipants = useRef<HTMLHeadingElement | null>(null);
+    const assessmentId = selected?.resource_id;
+    const recordId = record?.id;
+    useEffect(() => {
+        if (!gradebookUrl || !assessmentId) return;
+
+        const frame = requestAnimationFrame(() => {
+            const target = recordId ? gradebookCorrection.current : gradebookParticipants.current;
+            target?.scrollIntoView({ block: 'start' });
+            target?.focus({ preventScroll: true });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [assessmentId, gradebookUrl, recordId]);
     const index = route(prefix + 'index');
     const link = (updates: Record<string, number | string | undefined>) => route(prefix + 'index', { ...filters, ...updates });
     const action = (title: string, path: string, values: FormSpec['values'], fields: Field[] = [reason]) =>
@@ -609,8 +774,50 @@ export default function Assessments(props: Props) {
             { action: kind, revision: selected.revision },
             kind === 'close' ? [reason] : [reason, checkNotice],
         );
+    const schedulePublication = () => {
+        if (!selected) return;
+        setModal({
+            title: selected.scheduled_publish_at ? 'Modifier la publication programmée' : 'Programmer la publication',
+            description: 'Choisissez une date en heure de Kinshasa. Effacez-la pour revenir à une publication manuelle.',
+            action: route(prefix + 'lifecycle', selected.resource_id),
+            eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined,
+            values: { action: 'schedule', revision: selected.revision },
+            fields: [
+                {
+                    name: 'scheduled_publish_at',
+                    label: 'Date de publication (Kinshasa)',
+                    type: 'datetime-local',
+                    value: dateInput(selected.scheduled_publish_at),
+                    help: selected.modality === 'submission' ? 'Au plus tard à l’ouverture des dépôts.' : 'Avant le début de l’épreuve.',
+                },
+                {
+                    name: 'scheduled_publish_notify',
+                    label: 'Notifier les étudiants à la publication',
+                    type: 'checkbox',
+                    value: selected.scheduled_publish_notify,
+                },
+                reason,
+            ],
+        });
+    };
     const state = (kind: string, title: string) =>
         selected && record && action(title, route(prefix + 'record', [selected.resource_id, record.id]), { action: kind, revision: record.revision });
+    const createAction =
+        canEdit && offering ? (
+            <button
+                type="button"
+                className={teacher ? 'teacher-module-action' : 'admin-primary assessments-action'}
+                id="assessment-create"
+                aria-expanded={draft?.mode === 'create' && draft.id === offering}
+                onClick={() => setDraft({ mode: 'create', id: offering })}
+            >
+                <Plus size={17} aria-hidden="true" /> Créer une évaluation
+            </button>
+        ) : (
+            <a className={teacher ? 'teacher-module-action' : 'admin-secondary assessments-action'} href="#assessment-courses">
+                Choisir un cours <ArrowDown size={16} aria-hidden="true" />
+            </a>
+        );
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Évaluations et corrections" />
@@ -624,27 +831,27 @@ export default function Assessments(props: Props) {
                     }}
                 />
             )}
-            <main className="student-portal academic-administration assessments-workspace">
-                <header className="assessments-heading">
-                    <div>
-                        <Link
-                            className="assessments-back"
-                            href={route(admin ? 'dashboard.admin.teaching.index' : 'dashboard.teaching.index', offering ? { offering } : {})}
-                        >
-                            <BookOpen size={16} aria-hidden="true" /> Enseignements
-                        </Link>
-                        <h1>Évaluations et corrections</h1>
-                    </div>
-                    {canEdit && offering ? (
-                        <button className="admin-primary assessments-action" onClick={() => setDraft({ mode: 'create', id: offering })}>
-                            <Plus size={17} aria-hidden="true" /> Créer une évaluation
-                        </button>
-                    ) : (
-                        <a className="admin-secondary assessments-action" href="#assessment-courses">
-                            Choisir un cours <ArrowDown size={16} aria-hidden="true" />
-                        </a>
-                    )}
-                </header>
+            <div className={`student-portal academic-administration assessments-workspace${teacher ? 'teacher-module-page' : ''}`}>
+                {teacher ? (
+                    <TeacherModuleHeading
+                        title="Évaluations et corrections"
+                        description="Préparez vos évaluations, retrouvez les copies et suivez les notes."
+                        icon={ClipboardCheck}
+                        home={gradebookUrl ?? route('dashboard.teaching.index', { year: filters.year })}
+                        homeLabel={gradebookUrl ? 'Retour au carnet de notes' : undefined}
+                        action={createAction}
+                    />
+                ) : (
+                    <header className="assessments-heading">
+                        <div>
+                            <Link className="assessments-back" href={route('dashboard.admin.teaching.index', offering ? { offering } : {})}>
+                                <BookOpen size={16} aria-hidden="true" /> Enseignements
+                            </Link>
+                            <h1>Évaluations et corrections</h1>
+                        </div>
+                        {createAction}
+                    </header>
+                )}
                 {status && (
                     <p className="portal-alert" role="status">
                         {status}
@@ -747,35 +954,42 @@ export default function Assessments(props: Props) {
                         </form>
                         {props.items.data.length ? (
                             <ul className="assessments-list">
-                                {props.items.data.map((item) => (
-                                    <li key={item.resource_id}>
-                                        <Link
-                                            className="assessments-row"
-                                            aria-current={selected?.resource_id === item.resource_id ? 'true' : undefined}
-                                            href={`${link({
-                                                offering: item.offering_id,
-                                                resource: item.resource_id,
-                                                record: undefined,
-                                                copy_version: undefined,
-                                            })}#assessment-detail`}
-                                        >
-                                            <span className="assessments-icon">
-                                                <ClipboardList size={18} aria-hidden="true" />
-                                            </span>
-                                            <span className="assessments-row-main">
-                                                <strong>{item.title}</strong>
-                                                <small>
-                                                    {item.course} · {props.categories[item.category] ?? item.category}
-                                                </small>
-                                                {item.opens_at && <small>Ouverture · {dateTime(item.opens_at)}</small>}
-                                            </span>
-                                            <span className="assessments-badge" data-state={item.state}>
-                                                {states[item.state] ?? item.state}
-                                            </span>
-                                            <ArrowRight className="assessments-row-arrow" size={17} aria-hidden="true" />
-                                        </Link>
-                                    </li>
-                                ))}
+                                {props.items.data.map((item) => {
+                                    const badge = publicationBadge(item);
+                                    return (
+                                        <li key={item.resource_id}>
+                                            <Link
+                                                className="assessments-row"
+                                                aria-current={selected?.resource_id === item.resource_id ? 'true' : undefined}
+                                                href={`${link({
+                                                    offering: item.offering_id,
+                                                    resource: item.resource_id,
+                                                    record: undefined,
+                                                    copy_version: undefined,
+                                                    participant_q: undefined,
+                                                    participant_group: undefined,
+                                                    correction: undefined,
+                                                    participation: undefined,
+                                                })}#assessment-detail`}
+                                            >
+                                                <span className="assessments-icon">
+                                                    <ClipboardList size={18} aria-hidden="true" />
+                                                </span>
+                                                <span className="assessments-row-main">
+                                                    <strong>{item.title}</strong>
+                                                    <small>
+                                                        {item.course} · {props.categories[item.category] ?? item.category}
+                                                    </small>
+                                                    {item.opens_at && <small>Ouverture · {dateTime(item.opens_at)}</small>}
+                                                </span>
+                                                <span className="assessments-badge" data-state={badge.state}>
+                                                    {badge.label}
+                                                </span>
+                                                <ArrowRight className="assessments-row-arrow" size={17} aria-hidden="true" />
+                                            </Link>
+                                        </li>
+                                    );
+                                })}
                             </ul>
                         ) : (
                             <div className="assessments-empty">
@@ -790,10 +1004,10 @@ export default function Assessments(props: Props) {
                     </section>
                     <aside className="assessments-panel assessments-courses" id="assessment-courses" aria-labelledby="assessment-courses-heading">
                         <div className="assessments-panel-heading">
-                            <h2 id="assessment-courses-heading">Offres de cours</h2>
+                            <h2 id="assessment-courses-heading">{teacher ? 'Mes cours' : 'Offres de cours'}</h2>
                             <span className="assessments-count">{props.offers.total}</span>
                         </div>
-                        <p className="assessments-muted">Sélectionnez une offre pour consulter ses évaluations.</p>
+                        <p className="assessments-muted">Sélectionnez un cours pour consulter ses évaluations.</p>
                         {props.offers.data.length ? (
                             <ul className="assessments-list assessments-course-list">
                                 {props.offers.data.map((offer) => (
@@ -801,7 +1015,16 @@ export default function Assessments(props: Props) {
                                         <Link
                                             className="assessments-course"
                                             aria-current={offering === offer.id ? 'true' : undefined}
-                                            href={link({ offering: offer.id, resource: undefined, record: undefined, copy_version: undefined })}
+                                            href={link({
+                                                offering: offer.id,
+                                                resource: undefined,
+                                                record: undefined,
+                                                copy_version: undefined,
+                                                participant_q: undefined,
+                                                participant_group: undefined,
+                                                correction: undefined,
+                                                participation: undefined,
+                                            })}
                                         >
                                             <BookOpen size={16} aria-hidden="true" />
                                             <span>{offer.title}</span>
@@ -831,8 +1054,8 @@ export default function Assessments(props: Props) {
                     <section className="portal-panel assessments-detail" id="assessment-detail">
                         <div className="assessments-panel-heading">
                             <h2>{selected.title}</h2>
-                            <span className="assessments-badge" data-state={selected.state}>
-                                {states[selected.state] ?? selected.state}
+                            <span className="assessments-badge" data-state={publicationBadge(selected).state}>
+                                {publicationBadge(selected).label}
                             </span>
                         </div>
                         <p>
@@ -850,6 +1073,35 @@ export default function Assessments(props: Props) {
                         )}
                         {selected.body && <p style={{ whiteSpace: 'pre-wrap' }}>{selected.body}</p>}
                         {selected.objectives && <p>{selected.objectives}</p>}
+                        {(selected.scheduled_publish_at || selected.scheduled_publish_error) && (
+                            <div className="assessment-publication-status" data-error={Boolean(selected.scheduled_publish_error) || undefined}>
+                                <CalendarClock size={18} aria-hidden="true" />
+                                <div>
+                                    {selected.scheduled_publish_at && (
+                                        <p>
+                                            <strong>{selected.scheduled_publish_blocked ? 'Date prévue' : 'Publication programmée'}</strong> ·{' '}
+                                            {dateTime(selected.scheduled_publish_at)} (Kinshasa)
+                                        </p>
+                                    )}
+                                    {selected.scheduled_publish_error && (
+                                        <p role="alert">Publication non effectuée. {selected.scheduled_publish_error}</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {selected.subject && (
+                            <p>
+                                <a className="assessment-subject-file" href={selected.subject.download_url}>
+                                    <Paperclip size={17} aria-hidden="true" /> {selected.subject.filename || 'Télécharger le sujet'}
+                                </a>
+                            </p>
+                        )}
+                        {selected.modality === 'submission' && (
+                            <p className="assessments-muted">
+                                Dépôts · {selected.submission_formats.map((format) => format.toUpperCase()).join(', ')} ·{' '}
+                                {megabytes.format(selected.submission_max_kb / 1024)} Mo par fichier
+                            </p>
+                        )}
                         <p>
                             {selected.maximum_points == null ? 'Appréciation qualitative' : `Barème sur ${points(selected.maximum_points)}`}{' '}
                             {selected.weight && ` · Pondération indicative ${selected.weight} %`}
@@ -864,7 +1116,11 @@ export default function Assessments(props: Props) {
                                         Modifier le brouillon
                                     </button>
                                     <button className="admin-primary" onClick={() => lifecycle('publish', 'Publier l’évaluation')}>
-                                        Publier
+                                        Publier maintenant
+                                    </button>
+                                    <button className="admin-secondary" onClick={schedulePublication}>
+                                        <CalendarClock size={16} aria-hidden="true" />{' '}
+                                        {selected.scheduled_publish_at ? 'Modifier la programmation' : 'Programmer'}
                                     </button>
                                 </>
                             )}
@@ -944,24 +1200,88 @@ export default function Assessments(props: Props) {
                                 </Link>
                             </p>
                         )}
-                        <h3>Participants et corrections</h3>
+                        <h3
+                            id="assessment-participants"
+                            tabIndex={gradebookUrl && !record ? -1 : undefined}
+                            ref={gradebookUrl && !record ? gradebookParticipants : undefined}
+                        >
+                            Participants et corrections
+                        </h3>
                         <p>
                             {props.work_counts.draft ?? 0} à traiter · {props.work_counts.finalized ?? 0} finalisée(s) ·{' '}
                             {props.work_counts.validated ?? 0} validée(s)
                         </p>
                         <form
-                            className="assessments-filters"
+                            className="assessments-filters assessments-participants-filters"
+                            key={JSON.stringify([
+                                selected.resource_id,
+                                filters.participant_q,
+                                filters.participant_group,
+                                filters.correction,
+                                filters.participation,
+                            ])}
                             onSubmit={(e) => {
                                 e.preventDefault();
                                 const data = new FormData(e.currentTarget);
-                                router.get(index, {
-                                    offering,
-                                    resource: selected.resource_id,
-                                    correction: String(data.get('correction') || ''),
-                                    participation: String(data.get('participation') || ''),
-                                });
+                                router.get(
+                                    index,
+                                    {
+                                        year: filters.year,
+                                        from_gradebook: filters.from_gradebook,
+                                        gradebook_semester: filters.gradebook_semester,
+                                        grades_students_page: filters.grades_students_page,
+                                        grades_assessments_page: filters.grades_assessments_page,
+                                        offering,
+                                        resource: selected.resource_id,
+                                        correction: String(data.get('correction') || ''),
+                                        participation: String(data.get('participation') || ''),
+                                        participant_q: String(data.get('participant_q') || '').trim(),
+                                        participant_group: String(data.get('participant_group') || ''),
+                                    },
+                                    { preserveScroll: true },
+                                );
                             }}
                         >
+                            <label>
+                                Nom ou matricule
+                                <input
+                                    name="participant_q"
+                                    type="search"
+                                    maxLength={100}
+                                    placeholder="Rechercher un étudiant"
+                                    defaultValue={filters.participant_q}
+                                />
+                            </label>
+                            {props.participant_groups.length > 0 && (
+                                <label>
+                                    Groupe
+                                    <select name="participant_group" defaultValue={filters.participant_group}>
+                                        <option value="">Tous les groupes</option>
+                                        {props.participant_groups.some(({ kind }) => kind === 'work') && (
+                                            <optgroup label="Groupes de travail">
+                                                {props.participant_groups
+                                                    .filter(({ kind }) => kind === 'work')
+                                                    .map(({ value, label }) => (
+                                                        <option value={value} key={value}>
+                                                            {label}
+                                                        </option>
+                                                    ))}
+                                            </optgroup>
+                                        )}
+                                        {props.participant_groups.some(({ kind }) => kind !== 'work') && (
+                                            <optgroup label="Groupes pédagogiques">
+                                                {props.participant_groups
+                                                    .filter(({ kind }) => kind !== 'work')
+                                                    .map(({ value, label }) => (
+                                                        <option value={value} key={value}>
+                                                            {label}
+                                                        </option>
+                                                    ))}
+                                            </optgroup>
+                                        )}
+                                    </select>
+                                </label>
+                            )}
                             <label>
                                 Correction{' '}
                                 <select name="correction" defaultValue={filters.correction}>
@@ -985,37 +1305,73 @@ export default function Assessments(props: Props) {
                                 </select>
                             </label>
                             <div className="assessments-filter-actions">
-                                <button className="admin-secondary">Filtrer les participants</button>
+                                <button className="admin-secondary">
+                                    <Search size={16} aria-hidden="true" /> Filtrer les copies
+                                </button>
+                                {(filters.participant_q || filters.participant_group || filters.correction || filters.participation) && (
+                                    <Link
+                                        href={link({
+                                            participant_q: undefined,
+                                            participant_group: undefined,
+                                            correction: undefined,
+                                            participation: undefined,
+                                            record: undefined,
+                                            copy_version: undefined,
+                                        })}
+                                        preserveScroll
+                                    >
+                                        Effacer les filtres
+                                    </Link>
+                                )}
                             </div>
                         </form>
                         {props.records?.data.length ? (
-                            <ul className="assessments-list assessments-participants">
-                                {props.records.data.map((row) => (
-                                    <li key={row.id}>
-                                        <Link
-                                            href={link({
-                                                offering: offering ?? undefined,
-                                                resource: selected.resource_id,
-                                                record: row.id,
-                                                copy_version: undefined,
-                                            })}
-                                        >
-                                            {row.name ?? `Dossier ${row.academic_enrollment_id}`}
-                                        </Link>
-                                        {' · '}
-                                        {participationLabels[row.participation]} · {states[row.correction_state]}
-                                        {row.group && ` · ${row.group}`}
-                                    </li>
-                                ))}
-                            </ul>
+                            <>
+                                <p className="assessments-muted" aria-live="polite">
+                                    {props.records.total} participant{props.records.total > 1 ? 's' : ''}
+                                </p>
+                                <ul className="assessments-list assessments-participants">
+                                    {props.records.data.map((row) => (
+                                        <li key={row.id}>
+                                            <Link
+                                                href={`${link({
+                                                    offering: offering ?? undefined,
+                                                    resource: selected.resource_id,
+                                                    record: row.id,
+                                                    copy_version: undefined,
+                                                })}#assessment-correction`}
+                                            >
+                                                {row.name ?? `Dossier ${row.academic_enrollment_id}`}
+                                            </Link>
+                                            {' · '}
+                                            {participationLabels[row.participation]} · {states[row.correction_state]}
+                                            {row.matricule && ` · ${row.matricule}`}
+                                            {row.academic_group && ` · ${row.academic_group}`}
+                                            {row.group && ` · Groupe de travail ${row.group}`}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
                         ) : (
-                            <p className="assessments-empty">Aucun participant dans cette vue.</p>
+                            <p className="assessments-empty" role="status">
+                                Aucun participant dans cette vue.
+                            </p>
                         )}
                         <Pagination value={props.records} />
                     </section>
                 )}
                 {selected && record && (
-                    <section className="portal-panel">
+                    <section
+                        className="portal-panel"
+                        id="assessment-correction"
+                        tabIndex={gradebookUrl ? -1 : undefined}
+                        ref={gradebookUrl ? gradebookCorrection : undefined}
+                    >
+                        {gradebookUrl && (
+                            <Link className="assessments-gradebook-return" href={gradebookUrl}>
+                                <ArrowLeft size={16} aria-hidden="true" /> Retour au carnet de notes
+                            </Link>
+                        )}
                         <h2>Correction de {record.name ?? `dossier ${record.academic_enrollment_id}`}</h2>
                         <p>
                             {participationLabels[record.participation]} · {states[record.correction_state]}{' '}
@@ -1081,7 +1437,7 @@ export default function Assessments(props: Props) {
                         <Pagination value={props.history} />
                     </section>
                 )}
-            </main>
+            </div>
         </Dashboard>
     );
 }

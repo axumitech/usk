@@ -33,7 +33,7 @@ class NewsVideoTest extends TestCase
 
     public function test_admin_can_create_video_article_and_it_appears_publicly(): void
     {
-        $this->actingAs($this->admin())->post('/dashboard/admin/posts', ['title' => 'Conférence en vidéo', 'status' => 'published', 'video_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'])->assertSessionHasNoErrors()->assertRedirect();
+        $this->actingAs($this->admin())->post('/app/dashboard/admin/posts', ['title' => 'Conférence en vidéo', 'status' => 'published', 'video_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'])->assertSessionHasNoErrors()->assertRedirect();
         $post = PostModel::firstOrFail();
         $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', $post->video_url);
         $this->get('/blog')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Blogpage')->where('posts.data.0.video_url', $post->video_url));
@@ -44,16 +44,16 @@ class NewsVideoTest extends TestCase
     {
         Storage::fake('public');
         $user = $this->admin();
-        $this->actingAs($user)->post('/dashboard/admin/posts', ['title' => 'Reportage campus', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('campus.mp4', 100, 'video/mp4'), 'gallery' => [UploadedFile::fake()->image('photo.jpg')]])->assertSessionHasNoErrors();
+        $this->actingAs($user)->post('/app/dashboard/admin/posts', ['title' => 'Reportage campus', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('campus.mp4', 100, 'video/mp4'), 'gallery' => [UploadedFile::fake()->image('photo.jpg')]])->assertSessionHasNoErrors();
         $post = PostModel::firstOrFail();
         Storage::disk('public')->assertExists($post->video_url);
         $this->assertCount(1, $post->gallery);
         $original = $post->video_url;
-        $this->put('/dashboard/admin/posts/'.$post->id, ['title' => 'Nouveau titre'])->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/posts/'.$post->id, ['title' => 'Nouveau titre'])->assertSessionHasNoErrors();
         $this->assertSame($original, $post->fresh()->video_url);
-        $this->put('/dashboard/admin/posts/'.$post->id, ['video_url' => 'https://vimeo.com/123456789'])->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/posts/'.$post->id, ['video_url' => 'https://vimeo.com/123456789'])->assertSessionHasNoErrors();
         $this->assertSame('https://vimeo.com/123456789', $post->fresh()->video_url);
-        $this->put('/dashboard/admin/posts/'.$post->id, ['remove_video' => true])->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/posts/'.$post->id, ['remove_video' => true])->assertSessionHasNoErrors();
         $this->assertNull($post->fresh()->video_url);
     }
 
@@ -61,10 +61,10 @@ class NewsVideoTest extends TestCase
     {
         $this->actingAs($this->admin());
         foreach (['javascript:alert(1)', 'https://youtube.com.evil.test/watch?v=dQw4w9WgXcQ', 'https://example.com/page', 'http://example.com/video.mp4'] as $url) {
-            $this->post('/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_url' => $url])->assertSessionHasErrors('video_url');
+            $this->post('/app/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_url' => $url])->assertSessionHasErrors('video_url');
         }
-        $this->post('/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('document.pdf', 10, 'application/pdf')])->assertSessionHasErrors('video_file');
-        $this->post('/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('large.mp4', 102401, 'video/mp4')])->assertSessionHasErrors('video_file');
+        $this->post('/app/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('document.pdf', 10, 'application/pdf')])->assertSessionHasErrors('video_file');
+        $this->post('/app/dashboard/admin/posts', ['title' => 'Test', 'status' => 'draft', 'video_file' => UploadedFile::fake()->create('large.mp4', 102401, 'video/mp4')])->assertSessionHasErrors('video_file');
     }
 
     public function test_drafts_archives_and_future_publications_are_not_public(): void
@@ -90,7 +90,7 @@ class NewsVideoTest extends TestCase
     {
         $user = $this->admin();
         $user->syncRoles([]);
-        $this->actingAs($user)->post('/dashboard/admin/posts', ['title' => 'Test', 'status' => 'published', 'video_url' => 'https://example.com/video.mp4'])->assertForbidden();
+        $this->actingAs($user)->post('/app/dashboard/admin/posts', ['title' => 'Test', 'status' => 'published', 'video_url' => 'https://example.com/video.mp4'])->assertForbidden();
     }
 
     public function test_blog_filters_apply_before_pagination_and_direct_form_routes_open_existing_modals(): void

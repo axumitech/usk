@@ -117,7 +117,7 @@ export default function EnrollmentPageSection() {
         }
         setWorking(true);
         try {
-            if (await saveProgress(step)) router.visit('/dashboard/enrollments');
+            if (await saveProgress(step)) router.visit('/app/dashboard/enrollments');
         } finally {
             setWorking(false);
         }
@@ -126,7 +126,7 @@ export default function EnrollmentPageSection() {
         <Dashboard>
             <div className="enrollment-flow">
                 <div className="enrollment-page-top">
-                    <Link href="/dashboard/enrollments">
+                    <Link href="/app/dashboard/enrollments">
                         <ArrowLeft size={16} /> Mes inscriptions
                     </Link>
                     <span>

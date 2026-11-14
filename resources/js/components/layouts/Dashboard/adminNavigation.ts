@@ -7,7 +7,6 @@ import {
     FileText,
     Gavel,
     GraduationCap,
-    Headphones,
     IdCard,
     Landmark,
     LayoutDashboard,
@@ -21,7 +20,7 @@ import {
 type Destination = { href: string; anyPermission?: string[]; institutionWide?: boolean; native?: boolean };
 type Entry = [label: string, destination: Destination];
 
-const admin = '/dashboard/admin';
+const admin = '/app/dashboard/admin';
 const access = 'manage academic access';
 const publish = 'publish academic content';
 const finance = 'manage academic finance';
@@ -49,7 +48,7 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         title: 'Vue d’ensemble',
         shortLabel: 'Vue d’ensemble',
         icon: LayoutDashboard,
-        items: [['Tableau de bord', { href: '/dashboard' }]],
+        items: [['Tableau de bord', { href: '/app/dashboard' }]],
     },
     {
         id: 'structure',
@@ -93,7 +92,11 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         title: 'Étudiants',
         shortLabel: 'Étudiants',
         icon: Users,
-        items: [['Répertoire et dossiers étudiants', destination('student-academic?tab=students', ...studentPermissions)]],
+        items: [
+            ['Répertoire et dossiers étudiants', destination('student-academic?tab=students', ...studentPermissions)],
+            ['Demandes de scolarité', requests],
+            ['Agenda des rendez-vous', destination('student-academic/requests/agenda', access)],
+        ],
     },
     {
         id: 'inscriptions',
@@ -102,10 +105,7 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         icon: GraduationCap,
         items: [
             ['Inscriptions confirmées', destination('student-academic?tab=students&enrollment_status=confirmed', ...studentPermissions)],
-            [
-                'Inscriptions en attente',
-                destination('student-academic?tab=students&enrollment_status=pending_confirmation', ...studentPermissions),
-            ],
+            ['Inscriptions en attente', destination('student-academic?tab=students&enrollment_status=pending_confirmation', ...studentPermissions)],
             ['Réinscriptions', renewals],
             ['Progression académique', destination('progression', access, publish, 'manage academic progression', 'approve academic progression')],
             ['Situations, affectations et transferts', destination('student-academic/administration', ...studentPermissions)],
@@ -183,7 +183,7 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         items: [
             ['Comptes étudiants, paiements et échéanciers', destination('finance', finance)],
             ['Confirmation des inscriptions', destination('finance/confirmations', finance)],
-            ['Barèmes des frais', destination('finance#tariffs', finance)],
+            ['Barèmes des frais', destination('finance/tariffs', finance)],
             ['Rapprochements', destination('finance#reconciliation', finance)],
         ],
     },
@@ -205,13 +205,6 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         shortLabel: 'Annonces',
         icon: Megaphone,
         items: [['Annonces', destination('posts')]],
-    },
-    {
-        id: 'assistance',
-        title: 'Demandes et assistance',
-        shortLabel: 'Assistance',
-        icon: Headphones,
-        items: [['Demandes et réclamations', requests]],
     },
     {
         id: 'rapports',

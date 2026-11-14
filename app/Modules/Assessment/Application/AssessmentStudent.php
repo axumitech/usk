@@ -51,12 +51,13 @@ final class AssessmentStudent
             default => 'available',
         };
 
-        return [
+        return AssessmentDraftOptions::submissionRules($item) + [
             'category' => config('assessment.categories')[$item->category] ?? $item->category,
             'session_code' => $item->session_code, 'modality' => $item->modality,
             'teacher' => $resource->offering->professor?->full_name,
             'objectives' => $item->objectives, 'attempt_limit' => $item->attempt_limit, 'late_deadline' => $deadline,
             'maximum_points' => $item->maximum_points, 'status' => $status, 'can_submit' => $canSubmit,
+            'rubric' => $mayParticipate ? $item->rubric ?? [] : [],
             'group' => $group?->label, 'participation' => $record?->participation,
             'session' => $resource->session?->is_published ? $resource->session->only(['starts_at', 'ends_at', 'room', 'cancelled_at']) : null,
             'feedback' => $released ? [

@@ -1,0 +1,17 @@
+{
+  "id": "/app/",
+  "name": "Université Simon Kimbangu",
+  "short_name": "USK",
+  "description": "Espace universitaire de l’Université Simon Kimbangu",
+  "lang": "fr",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#073e32",
+  "theme_color": "#073e32",
+  "icons": [
+    { "src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

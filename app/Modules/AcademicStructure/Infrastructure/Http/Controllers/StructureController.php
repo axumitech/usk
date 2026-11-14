@@ -19,18 +19,22 @@ use App\Models\Site;
 use App\Models\Student\AcademicAudit;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicSemester;
+use App\Modules\AcademicStructure\Application\Services\AnnualCurriculumFees;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
 use App\Modules\AcademicStructure\Infrastructure\Http\Requests\SaveStructureRequest;
+use App\Modules\Student\Application\Services\AcademicStaffScope;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class StructureController extends Controller
 {
-    public function __construct(private StructureService $structure, private CurriculumService $curricula) {}
+    public function __construct(private StructureService $structure, private CurriculumService $curricula, private AnnualCurriculumFees $fees) {}
 
     public function index(Request $request)
     {
@@ -48,9 +52,9 @@ class StructureController extends Controller
             abort_unless(! $program || $program->id === $version->academic_program_id, 404);
             $program ??= $this->structure->program($version->academic_program_id);
         }
-        abort_if($program && ! \App\Modules\Teaching\Application\Services\TeachingScope::allows($request->user(), (int) $program->faculty_id), 403);
+        abort_if($program && ! TeachingScope::allows($request->user(), (int) $program->faculty_id), 403);
         $years = AcademicYear::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))
-            ->orderByDesc('start_date')->get(['id', 'title', 'university_id']);
+            ->orderByDesc('start_date')->get(['id', 'title', 'university_id', 'start_date', 'end_date']);
         $packYear = $version?->academic_year_id ?? ($filters['year'] ?? $years->first()?->id);
         $scheduleYear = $version?->academic_year_id ?? $version?->cohort?->academic_year_id;
         $facultyPack = $institution && $years->contains('id', $packYear) && (($filters['tab'] ?? null) === 'curriculum' || $version)
@@ -58,10 +62,19 @@ class StructureController extends Controller
             : [];
 
         $manage = Gate::allows('manage', AcademicProgram::class);
+        $finance = $request->user()->can('manage academic finance');
+        $canPublish = Gate::allows('curriculum', AcademicProgram::class);
+        $canGenerateFees = $finance && $canPublish;
+        $hasFacultyScope = $request->user()->academicFaculties()->exists();
+        $canGenerateAnnualFees = $canGenerateFees && ! $hasFacultyScope;
+        $annualBatch = session('annualBatch');
+        if (! $canGenerateAnnualFees) {
+            unset($annualBatch['finance']);
+        }
         $programs = AcademicProgram::with(['faculty:id,name', 'cycle:id,name', 'levels:id,title,code'])->withCount('versions')->whereHas('faculty', $scope)
-            ->when($request->user()->academicFaculties()->exists(), fn ($q) => $q->whereIn('faculty_id', $request->user()->academicFaculties()->select('faculties.id')))
+            ->when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', $request->user()->academicFaculties()->select('faculties.id')))
             ->when($filters['q'] ?? null, fn ($q, $search) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%')))->orderBy('name')->paginate(20, ['*'], 'programs_page')->withQueryString();
-        $studentQuery = fn () => \App\Modules\Student\Application\Services\AcademicStaffScope::apply(AcademicEnrollment::query(), $request->user())->with(['profile.user:id,first_name,last_name', 'level:id,title', 'academicYear:id,title'])
+        $studentQuery = fn () => AcademicStaffScope::apply(AcademicEnrollment::query(), $request->user())->with(['profile.user:id,first_name,last_name', 'level:id,title', 'academicYear:id,title'])
             ->when($filters['student_q'] ?? null, fn ($q, $value) => $q->where(fn ($q) => $q->where('matricule', 'like', '%'.$value.'%')->orWhereHas('profile.user', fn ($q) => $q->where('first_name', 'like', '%'.$value.'%')->orWhere('last_name', 'like', '%'.$value.'%'))))
             ->whereHas('level.faculty', fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1));
 
@@ -69,6 +82,9 @@ class StructureController extends Controller
             'institution' => $institution, 'sites' => Site::get(['id', 'site_name', 'address', 'contact_email', 'contact_phone']),
             'faculties' => Faculty::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))->orderBy('name')->get(['id', 'name', 'university_id']),
             'years' => $years, 'packYear' => $packYear === null ? null : (int) $packYear, 'facultyPack' => $facultyPack,
+            'annualFinance' => fn () => $finance && $institution && $years->contains('id', $packYear) && (($filters['tab'] ?? null) === 'curriculum' || $version)
+                ? $this->fees->view($institution, (int) $packYear, $request->user(), $program, isset($filters['level']) ? (int) $filters['level'] : null)
+                : null,
             'levels' => Level::whereHas('faculty', fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))->orderBy('title')->get(['id', 'faculty_id', 'title', 'code']),
             'departments' => AcademicDepartment::whereHas('faculty', $scope)->orderBy('name')->get(),
             'cycles' => AcademicCycle::where('university_id', $institution?->id ?? -1)->orderBy('name')->get(),
@@ -87,8 +103,9 @@ class StructureController extends Controller
             'affected' => $version && $manage ? $studentQuery()->where('curriculum_version_id', $version->id)->orderBy('id')->paginate(20, ['*'], 'students_page')->withQueryString() : null,
             'unmapped' => $manage ? $studentQuery()->whereNull('curriculum_version_id')->orderBy('id')->paginate(20, ['*'], 'unmapped_page')->withQueryString() : null,
             'audit' => $version ? AcademicAudit::where('entity_type', 'curriculum_versions')->where('entity_id', $version->id)->latest()->limit(20)->get(['id', 'actor_id', 'action', 'reason', 'created_at']) : [],
-            'abilities' => ['manage' => $manage, 'curriculum' => Gate::allows('curriculum', AcademicProgram::class)],
-            'filters' => $filters, 'success' => session('success'), 'annualBatch' => session('annualBatch'), 'scheduleGeneration' => session('scheduleGeneration'),
+            'abilities' => ['manage' => $manage, 'curriculum' => $canPublish, 'finance' => $canGenerateAnnualFees, 'programFinance' => $canGenerateFees],
+            'filters' => $filters, 'success' => session('success'), 'annualBatch' => $annualBatch, 'scheduleGeneration' => session('scheduleGeneration'),
+            'feeGeneration' => $finance ? session('feeGeneration') : null,
         ]);
     }
 
@@ -119,21 +136,53 @@ class StructureController extends Controller
     public function annualDrafts(Request $request)
     {
         Gate::authorize('curriculum', AcademicProgram::class);
-        $data = $request->validate(['academic_year_id' => 'required|integer|exists:academic_years,id']);
-        $result = $this->curricula->draftAnnualBatch($data['academic_year_id'], $request->user(), $this->scheduleRooms($request));
+        $data = $request->validate([
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'fee_due_dates' => 'nullable|array|list|size:2',
+            'fee_due_dates.*' => 'required|date_format:Y-m-d',
+        ]);
+        $result = $this->curricula->draftAnnualBatch($data['academic_year_id'], $request->user(), $this->scheduleRooms($request), $data['fee_due_dates'] ?? null);
 
         return redirect()->route('dashboard.admin.academic-structure.index', ['tab' => 'curriculum', 'year' => $data['academic_year_id']])->with('annualBatch', $result);
     }
 
     public function draft(Request $request)
     {
+        Gate::authorize('curriculum', AcademicProgram::class);
+        $fees = $request->validate([
+            'fee_due_dates' => 'nullable|array|list|size:2',
+            'fee_due_dates.*' => 'required|date_format:Y-m-d',
+        ]);
+        $dueDates = $fees['fee_due_dates'] ?? null;
+        $year = null;
+        if ($dueDates !== null) {
+            abort_unless($request->user()->can('manage academic finance'), 403);
+            $data = $request->validate([
+                'academic_year_id' => 'required|integer', 'clone_id' => 'prohibited', 'admission_cohort_id' => 'prohibited',
+            ]);
+            $year = $this->structure->year($data['academic_year_id']);
+            $this->fees->validateDueDates($year, $dueDates);
+        }
+
+        $feeReport = null;
+        $createVersion = fn () => $this->curricula->draft($request->all(), $request->user());
         try {
-            $version = $this->curricula->draft($request->all(), $request->user());
+            if ($year === null) {
+                $version = $createVersion();
+            } else {
+                [$version, $feeReport] = DB::transaction(function () use ($year, $dueDates, $createVersion, $request) {
+                    $lockedYear = AcademicYear::lockForUpdate()->findOrFail($year->id);
+                    $version = $createVersion();
+
+                    return [$version, $this->fees->generate($lockedYear, $version->program_snapshot['level_order'], $dueDates, $request->user())];
+                }, 3);
+            }
         } catch (UniqueConstraintViolationException $exception) {
             throw ValidationException::withMessages(['code' => 'Ce code de version existe déjà dans le programme.']);
         }
 
         return $this->versionRedirect($version)
+            ->with('feeGeneration', $feeReport)
             ->with('scheduleGeneration', $this->curricula->scheduleDraft($version->id, $request->user()));
     }
 

@@ -23,10 +23,10 @@ class LevelPricingTest extends TestCase
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1', 'is_active' => true]);
         $detail = LevelDetail::create(['level_id' => $level, 'price' => 405, 'fees' => 0]);
         $payload = ['level_id' => $level, 'price' => 405.50, 'price_foreign' => 605.75, 'duration_years' => 1, 'fees' => 0, 'has_certificate' => false];
-        $url = '/dashboard/admin/levels/details/'.$detail->id;
+        $url = '/app/dashboard/admin/levels/details/'.$detail->id;
         $this->actingAs($admin)->put($url, $payload)->assertSessionHasNoErrors();
         $this->assertDatabaseHas('level_details', ['id' => $detail->id, 'price' => 405.50, 'price_foreign' => 605.75]);
-        $this->get('/dashboard/admin/levels/details/'.$level)->assertOk()->assertInertia(fn (Assert $page) => $page->where('levelDetail.price', 405.5)->where('levelDetail.price_foreign', 605.75));
+        $this->get('/app/dashboard/admin/levels/details/'.$level)->assertOk()->assertInertia(fn (Assert $page) => $page->where('levelDetail.price', 405.5)->where('levelDetail.price_foreign', 605.75));
         $this->get('/course/'.$level)->assertOk()->assertInertia(fn (Assert $page) => $page->where('course.detail.price', fn ($price) => (float) $price === 405.5)->where('course.detail.price_foreign', fn ($price) => (float) $price === 605.75));
 
         unset($payload['price_foreign']);
@@ -55,7 +55,7 @@ class LevelPricingTest extends TestCase
         $payload = ['level_id' => $level, 'duration_years' => 1, 'fees' => 0, 'price' => 1, 'price_foreign' => 2,
             'price_national_first' => '250.10', 'price_national_second' => '155.20',
             'price_foreign_first' => '370.35', 'price_foreign_second' => '235.45'];
-        $url = '/dashboard/admin/levels/details/'.$detail->id;
+        $url = '/app/dashboard/admin/levels/details/'.$detail->id;
         $this->actingAs($admin)->put($url, $payload)->assertSessionHasNoErrors();
         $this->assertDatabaseHas('level_details', ['id' => $detail->id, 'price' => 405.30, 'price_foreign' => 605.80, 'price_national_first' => 250.10, 'price_foreign_second' => 235.45]);
         $this->get('/course/'.$level)->assertOk()->assertInertia(fn (Assert $page) => $page

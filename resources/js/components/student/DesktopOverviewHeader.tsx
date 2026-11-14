@@ -14,7 +14,7 @@ export default function DesktopOverviewHeader({
     return (
         <div className="student-desktop-intro">
             <nav className="student-desktop-breadcrumb" aria-label="Fil d’Ariane de votre espace">
-                <Link href={`/dashboard/student?academic=${academic.id}`}>
+                <Link href={`/app/dashboard/student?academic=${academic.id}`}>
                     <LayoutDashboard size={15} />
                     Accueil
                 </Link>
@@ -34,7 +34,7 @@ export default function DesktopOverviewHeader({
                                 <strong>{alert.title}</strong>
                                 <p>{alert.message}</p>
                             </div>
-                            <Link href={`/dashboard/student/${alert.section}?academic=${academic.id}`}>
+                            <Link href={`/app/dashboard/student/${alert.section}?academic=${academic.id}`}>
                                 Consulter
                                 <ArrowUpRight size={15} />
                             </Link>

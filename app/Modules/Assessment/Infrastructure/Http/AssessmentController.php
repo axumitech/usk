@@ -12,6 +12,8 @@ use App\Models\Student\ContentSection;
 use App\Modules\Assessment\Application\AssessmentAccess;
 use App\Modules\Assessment\Application\AssessmentCopies;
 use App\Modules\Assessment\Application\AssessmentCorrections;
+use App\Modules\Assessment\Application\AssessmentDraftOptions;
+use App\Modules\Assessment\Application\AssessmentParticipantFilters;
 use App\Modules\Assessment\Application\AssessmentWorkflow;
 use App\Modules\Teaching\Application\Services\CourseAudience;
 use App\Modules\Teaching\Application\Services\LearningAccess;
@@ -28,7 +30,13 @@ final class AssessmentController
 
     private const REVISION = 'required|integer|min:1';
 
-    public function __construct(private AssessmentAccess $access, private AssessmentWorkflow $workflow, private AssessmentCorrections $corrections) {}
+    public function __construct(
+        private AssessmentAccess $access,
+        private AssessmentWorkflow $workflow,
+        private AssessmentCorrections $corrections,
+        private AssessmentDraftOptions $draftOptions,
+        private AssessmentParticipantFilters $participantFilters,
+    ) {}
 
     public function index(Request $request)
     {
@@ -38,6 +46,10 @@ final class AssessmentController
             'resource' => 'nullable|integer', 'record' => 'nullable|integer', 'copy_version' => 'nullable|integer|min:1',
             'state' => 'nullable|in:draft,published,closed,cancelled', 'category' => 'nullable|string|max:60',
             'correction' => 'nullable|in:draft,finalized,validated', 'participation' => ['nullable', Rule::in(AssessmentRecord::PARTICIPATION)],
+            'from_gradebook' => 'nullable|boolean', 'gradebook_semester' => 'nullable|in:all,1,2',
+            'grades_students_page' => 'nullable|integer|min:1', 'grades_assessments_page' => 'nullable|integer|min:1',
+            'participant_q' => 'nullable|string|max:100',
+            'participant_group' => ['nullable', AssessmentParticipantFilters::GROUP_RULE],
         ]);
         $scope = $this->access->scope($actor);
         $offer = isset($filter['offering']) ? (clone $scope)->findOrFail($filter['offering']) : null;
@@ -49,15 +61,19 @@ final class AssessmentController
         }
         $assessment = $resource?->assessment;
         $prefix = $request->routeIs('dashboard.admin.*') ? 'dashboard.admin.assessments.' : 'dashboard.teaching.assessments.';
+        $gradebookUrl = $offer && $prefix === 'dashboard.teaching.assessments.' && ($filter['from_gradebook'] ?? false)
+            ? route('dashboard.teaching.index', [
+                'view' => 'courses', 'offering' => $offer->id, 'tab' => 'grades', 'year' => $offer->academic_year_id,
+                'semester' => $filter['gradebook_semester'] ?? 'all',
+            ] + Arr::only($filter, ['grades_students_page', 'grades_assessments_page']), false)
+            : null;
         $offerList = (clone $scope)->when($filter['year'] ?? null, fn ($q, $id) => $q->where('academic_year_id', $id));
         $list = AcademicAssessment::whereHas('resource', fn ($q) => $q->whereIn('academic_offering_id', (clone $offerList)->select('id'))
             ->when($offer, fn ($q) => $q->where('academic_offering_id', $offer->id))
             ->when($filter['q'] ?? null, fn ($q, $term) => $q->where('title', 'like', '%'.$term.'%')))
             ->when($filter['category'] ?? null, fn ($q, $category) => $q->where('category', $category));
-        $records = $assessment?->records()->with(['group', 'enrollment.profile.user'])
-            ->when($filter['correction'] ?? null, fn ($q, $state) => $q->where('correction_state', $state))
-            ->when($filter['participation'] ?? null, fn ($q, $state) => $q->where('participation', $state));
-        $record = isset($filter['record']) && $assessment ? $assessment->records()->with(['group', 'enrollment.profile.user'])->findOrFail($filter['record']) : null;
+        $records = $assessment ? $this->participantFilters->records($assessment, $filter) : null;
+        $record = isset($filter['record']) && $assessment ? $assessment->records()->with(['group', 'enrollment.profile.user', 'enrollment.group.intake'])->findOrFail($filter['record']) : null;
         $copy = $record ? AcademicSubmission::where('academic_resource_id', $resource->id)
             ->where('academic_enrollment_id', $record->group?->leader_enrollment_id ?? $record->academic_enrollment_id)->first() : null;
         $history = $record?->history()->orderByDesc('revision')->paginate(10, ['*'], 'history_page')->withQueryString()
@@ -70,6 +86,8 @@ final class AssessmentController
             'criterion_points', 'feedback', 'feedback_filename', 'released_at', 'academic_enrollment_id']) + [
                 'name' => $row->enrollment?->profile?->user?->full_name,
                 'group' => $row->group?->label, 'group_points' => $row->group?->shared_points,
+                'academic_group' => CourseAudience::groupLabel($row->enrollment?->group),
+                'matricule' => $row->enrollment?->matricule ?? $row->enrollment?->profile?->matricule,
             ];
         $copyVersion = $copy ? (int) ($filter['copy_version'] ?? $copy->version) : null;
         $snapshot = $copy ? app(AssessmentCopies::class)->snapshot($copy, $copyVersion) : null;
@@ -85,9 +103,16 @@ final class AssessmentController
         $upcoming = (clone $published)->whereHas('resource', fn ($q) => $q->where('opens_at', '>', now()))->count();
         $open = $published->whereHas('resource', fn ($q) => $q->where('opens_at', '<=', now())->where('closes_at', '>=', now()))->count();
         $canEdit = $offer && app(LearningAccess::class)->canManage($actor, $offer);
+        $draftOptions = $resource ? $this->draftOptions->presentation($resource) : [];
+        if (! empty($draftOptions['subject'])) {
+            $draftOptions['subject']['download_url'] = route($prefix.'subject', $resource->id, false);
+        }
 
         return Inertia::render('dashboard/teaching/Assessments', [
             'prefix' => $prefix, 'admin' => $actor->hasRole('admin'), 'canEdit' => $canEdit, 'filters' => $filter, 'offering' => $offer?->id,
+            'gradebook_url' => $gradebookUrl,
+            'draft_options' => $this->draftOptions->formConfig(),
+            'participant_groups' => $assessment ? $this->participantFilters->groups($assessment) : [],
             'categories' => config('assessment.categories'), 'participation' => AssessmentRecord::PARTICIPATION,
             'state_counts' => $stateCounts, 'work_counts' => $workCounts, 'upcoming_count' => $upcoming, 'open_count' => $open,
             'offers' => $offerList->with(['course', 'academicYear', 'group.intake'])->orderByDesc('academic_year_id')->orderBy('id')
@@ -104,7 +129,9 @@ final class AssessmentController
                 'group_work' => $assessment->group_work, 'feedback_policy' => $assessment->feedback_policy, 'rubric' => $assessment->rubric,
                 'academic_session_id' => $resource->academic_session_id, 'academic_content_section_id' => $resource->academic_content_section_id,
                 'session' => $resource->session?->only(['id', 'starts_at', 'ends_at', 'room', 'is_published', 'cancelled_at']),
-            ] : null,
+                'scheduled_publish_notify' => (bool) $assessment->scheduled_publish_notify,
+                'scheduled_publish_error' => $assessment->scheduled_publish_error,
+            ] + $draftOptions : null,
             'groups' => $assessment?->groups()->orderBy('id')->paginate(20, ['*'], 'groups_page')->withQueryString(),
             'records' => $records?->orderBy('id')->paginate(25, ['*'], 'records_page')->withQueryString()->through($recordRow),
             'record' => $record ? $recordRow($record) : null, 'history' => $history, 'candidates' => $groupCandidates,
@@ -117,28 +144,39 @@ final class AssessmentController
 
     public function store(Request $request, AcademicOffering $offering)
     {
-        $resource = $this->workflow->draft($offering, $request->user(), $request->validate($this->draftRules()));
+        $resource = $this->draftOptions->save($this->workflow, $offering, $request->user(), $request->validate($this->draftRules()), subject: $request->file('subject'));
 
-        return to_route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.assessments.index' : 'dashboard.teaching.assessments.index',
-            ['offering' => $offering->id, 'resource' => $resource->id], 303);
+        return $this->detailsRedirect($request, $resource);
     }
 
     public function edit(Request $request, AcademicResource $resource)
     {
-        $this->workflow->draft($resource->offering, $request->user(), $request->validate($this->draftRules() + [
+        $this->draftOptions->save($this->workflow, $resource->offering, $request->user(), $request->validate($this->draftRules() + [
             'revision' => self::REVISION, 'reason' => self::REASON,
-        ]), $resource);
+        ]), resource: $resource, subject: $request->file('subject'));
 
-        return back(303);
+        return $this->detailsRedirect($request, $resource)->with('success', 'Brouillon enregistré.');
     }
 
     public function lifecycle(Request $request, AcademicResource $resource)
     {
-        $this->workflow->lifecycle($resource, $request->user(), $request->validate([
-            'action' => 'required|in:publish,close,cancel', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
-        ]));
+        $data = $request->validate([
+            'action' => 'required|in:publish,close,cancel,schedule', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
+            'scheduled_publish_at' => 'present_if:action,schedule|nullable|date_format:Y-m-d\TH:i', 'scheduled_publish_notify' => 'boolean',
+        ]);
+        $this->workflow->lifecycle($resource, $request->user(), $data);
+        if ($data['action'] === 'schedule') {
+            return $this->detailsRedirect($request, $resource)->with('success', isset($data['scheduled_publish_at'])
+                ? 'Publication programmée.' : 'Programmation retirée.');
+        }
 
         return back(303);
+    }
+
+    private function detailsRedirect(Request $request, AcademicResource $resource)
+    {
+        return to_route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.assessments.index' : 'dashboard.teaching.assessments.index',
+            ['offering' => $resource->academic_offering_id, 'resource' => $resource->id], 303);
     }
 
     public function group(Request $request, AcademicResource $resource)
@@ -202,6 +240,14 @@ final class AssessmentController
         return $copies->download($submission, isset($data['version']) ? (int) $data['version'] : null);
     }
 
+    public function subject(Request $request, AcademicResource $resource, LearningFiles $files)
+    {
+        $this->access->read($request->user(), $resource->offering);
+        abort_unless($resource->assessment()->exists() && $resource->path, 404);
+
+        return $files->stream($resource->only(AcademicResource::EDITION_FIELDS));
+    }
+
     public function feedback(Request $request, AcademicResource $resource, AssessmentRecord $record, LearningFiles $files)
     {
         $this->access->read($request->user(), $resource->offering);
@@ -232,6 +278,8 @@ final class AssessmentController
             'resource_id' => $item->academic_resource_id, 'offering_id' => $item->resource->academic_offering_id,
             'title' => $item->resource->title, 'course' => $item->resource->offering->course?->title,
             'opens_at' => $item->resource->opens_at, 'closes_at' => $item->resource->closes_at,
+            'scheduled_publish_at' => $item->scheduled_publish_at?->toISOString(),
+            'scheduled_publish_blocked' => $item->scheduled_publish_error !== null,
         ];
     }
 
@@ -241,11 +289,12 @@ final class AssessmentController
             'title' => 'required|string|max:180', 'body' => 'nullable|string|max:20000', 'objectives' => 'nullable|string|max:5000',
             'category' => ['required', Rule::in(array_keys(config('assessment.categories')))], 'session_code' => 'required|alpha_dash:ascii|max:60',
             'modality' => 'required|in:submission,in_person', 'opens_at' => 'nullable|date', 'closes_at' => 'nullable|date',
+            'scheduled_publish_at' => 'nullable|date_format:Y-m-d\TH:i', 'scheduled_publish_notify' => 'boolean',
             'academic_session_id' => 'nullable|integer|min:1', 'academic_content_section_id' => 'nullable|integer|min:1',
             'maximum_points' => 'nullable|string|max:12', 'weight' => 'nullable|string|max:12',
             'attempt_limit' => 'required|integer|between:1,20', 'late_minutes' => 'required|integer|between:0,10080',
             'group_work' => 'required|boolean', 'feedback_policy' => 'required|in:finalized,validated',
             'rubric' => 'nullable|array|max:20', 'rubric.*.label' => 'required|string|max:120', 'rubric.*.maximum' => 'required|string|max:12',
-        ];
+        ] + $this->draftOptions->rules();
     }
 }

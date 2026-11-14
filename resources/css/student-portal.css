@@ -335,44 +335,6 @@
     max-width: 510px;
     margin: 0;
 }
-.portal-course-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-}
-.portal-course {
-    padding: 25px;
-    background: var(--usk-night-surface, white);
-    border: 1px solid var(--portal-line);
-    border-radius: 10px;
-    color: var(--usk-night-mint, #91a573);
-    min-width: 0;
-}
-.portal-course > span {
-    display: block;
-    font-size: 9px;
-    letter-spacing: 0.6px;
-    color: var(--usk-night-muted, var(--usk-day-muted, #9ca58b));
-    margin: 18px 0 8px;
-}
-.usk-dashboard .portal-course h3 {
-    font-size: 18px;
-}
-.portal-course p {
-    font-size: 12px;
-    color: var(--portal-muted);
-    line-height: 1.8;
-    margin: 12px 0 22px;
-}
-.portal-course footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 10px;
-    border-top: 1px solid var(--usk-night-border, #eaf0df);
-    padding-top: 16px;
-    color: var(--usk-night-mint, var(--usk-day-muted, #8e9e7c));
-}
 .portal-sessions {
     display: grid;
     gap: 14px;
@@ -696,8 +658,7 @@
     font-weight: 600;
 }
 @media (max-width: 1000px) {
-    .portal-feature-grid,
-    .portal-course-grid {
+    .portal-feature-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .portal-academic-summary {
@@ -759,8 +720,7 @@
     .portal-financial-banner > div {
         min-width: 200px;
     }
-    .portal-feature-grid,
-    .portal-course-grid {
+    .portal-feature-grid {
         grid-template-columns: 1fr;
     }
     .portal-feature-card {
@@ -2835,43 +2795,6 @@
 .is-overview .portal-body {
     padding-top: 18px;
 }
-
-/* Course catalogue grouped by semester. */
-.portal-semester-groups { display: grid; gap: 32px; min-width: 0; }
-.portal-semester-group { min-width: 0; }
-.portal-semester-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--usk-night-border, #dce3d8); }
-.usk-dashboard .portal-semester-heading h2 { margin: 0; color: var(--usk-night-text, #073e32); font-size: 24px; }
-.portal-semester-heading p { margin: 5px 0 0; color: var(--usk-night-mint, var(--usk-day-muted, #65725e)); font-size: 13px; }
-.portal-semester-heading > span { padding: 8px 14px; border-radius: 20px; background: var(--usk-night-raised, #eef5f0); color: var(--usk-night-mint, #24694e); font-size: 14px; font-weight: 600; }
-
-.student-schedule { display: grid; gap: 20px; min-width: 0; }
-.student-schedule-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; }
-.student-schedule-heading h2 { margin: 0 0 8px; color: var(--usk-night-text, #073e32); font-size: 28px; }
-.student-schedule-heading p { color: var(--usk-night-mint, var(--usk-day-muted, #65725e)); font-size: 14px; }
-.student-schedule-heading > span { display: flex; align-items: center; gap: 8px; color: var(--usk-night-mint, #24694e); font-size: 13px; }
-.student-schedule-date { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.student-schedule-date input { border: 1px solid var(--usk-night-border, #dce3d8); border-radius: 8px; min-height: 42px; padding: 8px 12px; background: var(--usk-night-background, #fffdf8); font-size: 13px; }
-.student-schedule-empty { color: var(--usk-night-mint, var(--usk-day-muted, #65725e)); font-size: 14px; padding: 14px 18px; border-radius: 10px; background: var(--usk-night-raised, #eef5f0); }
-.student-schedule-overlay { position: fixed; inset: 0; background: color-mix(in srgb, var(--usk-night-brand-deep, #062c25) 40%, transparent); z-index: 100; }
-.student-schedule-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 101; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 32px; background: var(--usk-night-surface, #fffdf8); border-radius: 16px; color: var(--usk-night-text, #16352c); font-family: 'DM Sans', sans-serif; box-shadow: 0 20px 80px #062c2533; }
-.student-schedule-dialog h2 { margin: 18px 0 10px; color: var(--usk-night-text, #073e32); font-family: 'Libre Caslon Display', Georgia, serif; font-size: 30px; line-height: 1.2; }
-.student-schedule-eyebrow { color: var(--usk-night-gold, #8c702e); font-size: 10px; letter-spacing: .12em; }
-.student-schedule-close { position: absolute; right: 14px; top: 14px; display: grid; place-items: center; height: 36px; width: 36px; color: var(--usk-night-mint, var(--usk-day-muted, #65725e)); border-radius: 8px; }
-.student-schedule-close:hover { background: var(--usk-night-raised, #eef5f0); }
-.student-schedule-details { display: grid; gap: 18px; margin-top: 26px; }
-.student-schedule-details p { display: flex; align-items: center; gap: 12px; font-size: 14px; line-height: 1.6; }
-.student-schedule-details svg { flex-shrink: 0; color: var(--usk-night-mint, #24694e); }
-.student-schedule .calendar-event { gap: 3px; padding: 6px; }
-
-.usk-dashboard .student-portal.is-schedule .student-schedule-heading h1 {
-    margin: 0 0 10px;
-    color: var(--usk-night-text, #073e32);
-    font-size: clamp(25px, 3vw, 36px);
-    line-height: 1.2;
-}
-.student-schedule-heading small { display: block; margin-top: 6px; color: var(--usk-night-mint, var(--usk-day-muted, #788571)); font-size: 12px; }
-.student-schedule-context { display: grid; gap: 8px; max-width: 520px; color: var(--usk-night-mint, var(--usk-day-muted, #65725e)); font-size: 13px; }
-.student-schedule-context select { min-width: 0; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--usk-night-border, #dce3d8); border-radius: 8px; background: var(--usk-night-background, #fffdf8); }
 
 .overview-level-courses article { position: relative; }
 .student-course-title-link { display: inline-flex; align-items: center; gap: 8px; }

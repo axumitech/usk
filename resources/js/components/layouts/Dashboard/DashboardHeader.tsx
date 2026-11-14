@@ -1,4 +1,5 @@
 import AdminNotifications from '@/components/admin/AdminNotifications';
+import StudentNotificationBell from '@/components/student/StudentNotificationBell';
 import { Link } from '@inertiajs/react';
 import { ArrowUpRight, Menu, X } from 'lucide-react';
 import React from 'react';
@@ -49,12 +50,13 @@ const DashboardHeader = ({
                 </div>
                 <div>
                     {themeEnabled && <DashboardThemeMenu />}
-                    {enrollmentSpace ? <AdminNotifications audience="student" /> : administration && <AdminNotifications />}
+                    {enrollmentSpace && (studentPortal ? <StudentNotificationBell /> : <AdminNotifications audience="student" />)}
+                    {!enrollmentSpace && administration && <AdminNotifications />}
                     {!studentPortal && (
-                        <Link href="/" className="admin-site-link" aria-label="Voir le site">
+                        <a href="/" target="_blank" rel="noopener" className="admin-site-link" aria-label="Voir le site (nouvel onglet)">
                             <span className="usk-site-link-label">Voir le site</span>
                             <ArrowUpRight size={15} aria-hidden="true" />
-                        </Link>
+                        </a>
                     )}
                 </div>
             </header>
@@ -88,9 +90,14 @@ const DashboardHeader = ({
                     )}
 
                     <nav className="hidden items-center space-x-6 lg:flex">
-                        <Link href={route('home')} className="font-medium text-gray-700 transition-colors duration-200 hover:text-emerald-600">
-                            Accueil
-                        </Link>
+                        <a
+                            href={route('home')}
+                            target="_blank"
+                            rel="noopener"
+                            className="font-medium text-gray-700 transition-colors duration-200 hover:text-emerald-600"
+                        >
+                            Site public
+                        </a>
                         {teaching && (
                             <>
                                 <Link

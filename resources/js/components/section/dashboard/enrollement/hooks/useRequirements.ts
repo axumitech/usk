@@ -34,7 +34,7 @@ export function useRequirements(params: Params) {
             try {
                 setLoading(true);
                 setError(null);
-                const url = '/dashboard/enrollment/requirements';
+                const url = '/app/dashboard/enrollment/requirements';
 
                 const res = await axios.get(url, {
                     params: {

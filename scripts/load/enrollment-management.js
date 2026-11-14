@@ -21,16 +21,16 @@ export default function () {
         if (!account.csrf || !account.operation_key) throw new Error('Jeton CSRF et clé opération requis pour les comptes jetables de recette.');
         const body = JSON.stringify({ expected_status: account.expected_status || (mode === 'confirmation' ? 'pending_confirmation' : 'confirmed'), operation_key: account.operation_key, enrollment_status: mode === 'confirmation' ? 'confirmed' : 'suspended', reason: 'Scénario de concurrence autorisé sur un dossier jetable de recette.' });
         const writeParams = { ...params, headers: { ...params.headers, 'Content-Type': 'application/json', 'X-CSRF-TOKEN': account.csrf } };
-        const url = `${base}/dashboard/admin/student-academic/${account.academic_id}/transition`;
+        const url = `${base}/app/dashboard/admin/student-academic/${account.academic_id}/transition`;
         const responses = http.batch([['POST', url, body, writeParams], ['POST', url, body, writeParams]]);
         for (const response of responses) check(response, { 'decision accepted or replayed': result => result.status === 303 });
         sleep(1);
         return;
     }
     const paths = [
-        '/dashboard/admin/student-academic?page=1',
-        `/dashboard/admin/student-academic/${account.academic_id}`,
-        `/dashboard/admin/student-academic/administration?academic=${account.academic_id}`,
+        '/app/dashboard/admin/student-academic?page=1',
+        `/app/dashboard/admin/student-academic/${account.academic_id}`,
+        `/app/dashboard/admin/student-academic/administration?academic=${account.academic_id}`,
     ];
     for (const path of paths) {
         const response = http.get(base + path, params);

@@ -18,14 +18,14 @@ vm.runInNewContext(outputText,{module,exports:module.exports,require(name){
     return require(name);
 }});
 const {LockedFeatureCard,PaymentOverview}=module.exports;
-const props={title:'Mes supports',subtitle:'Les ressources publiées',icon:()=>null,href:'/dashboard/student/materials?academic=1',regularizationHref:'/dashboard/student/fees?academic=1'};
+const props={title:'Mes supports',subtitle:'Les ressources publiées',icon:()=>null,href:'/app/dashboard/student/materials?academic=1',regularizationHref:'/app/dashboard/student/fees?academic=1'};
 test('Un service verrouillé présente la raison et le lien de régularisation sans lien vers une route interdite',()=>{
     const html=renderToStaticMarkup(React.createElement(LockedFeatureCard,{...props,available:true,permission:{allowed:false,reason:'Acompte confirmé insuffisant.'}}));
-    assert.match(html,/Acompte confirmé insuffisant/);assert.match(html,/href="\/dashboard\/student\/fees\?academic=1"/);assert.doesNotMatch(html,/href="\/dashboard\/student\/materials/);
+    assert.match(html,/Acompte confirmé insuffisant/);assert.match(html,/href="\/app\/dashboard\/student\/fees\?academic=1"/);assert.doesNotMatch(html,/href="\/app\/dashboard\/student\/materials/);
 });
 test('Un service autorisé ouvre la ressource du contexte académique courant',()=>{
     const html=renderToStaticMarkup(React.createElement(LockedFeatureCard,{...props,available:true,permission:{allowed:true,reason:null}}));
-    assert.match(html,/href="\/dashboard\/student\/materials\?academic=1"/);assert.doesNotMatch(html,/is-locked/);
+    assert.match(html,/href="\/app\/dashboard\/student\/materials\?academic=1"/);assert.doesNotMatch(html,/is-locked/);
 });
 test('Sans barème affecté, les indicateurs ne prétendent pas que les frais sont réglés',()=>{
     const html=renderToStaticMarkup(React.createElement(PaymentOverview,{balance:{assessed:false,total_cents:0,waived_cents:0,paid_cents:0,balance_cents:0,currency:'USD'}}));

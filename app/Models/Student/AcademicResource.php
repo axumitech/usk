@@ -2,6 +2,8 @@
 
 namespace App\Models\Student;
 
+use App\Models\Classes;
+use App\Models\Professor;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,7 +16,7 @@ class AcademicResource extends Model
     protected $table = 'academic_resources';
 
     protected $fillable = ['academic_offering_id', 'student_profile_id', 'kind', 'title', 'body', 'disk', 'path', 'filename', 'mime', 'opens_at', 'closes_at', 'is_published', 'url',
-        'academic_content_section_id', 'academic_session_id', 'supplementary_for_id', 'author_id', 'position',
+        'academic_content_section_id', 'academic_session_id', 'supplementary_for_id', 'announcement_class_id', 'author_id', 'position',
         'revision', 'current_version', 'size_bytes', 'sha256', 'published_at', 'archived_at', 'operation_key', 'operation_hash'];
 
     protected $hidden = ['path', 'disk', 'operation_key', 'operation_hash'];
@@ -33,6 +35,7 @@ class AcademicResource extends Model
     public function scopeForStudent(Builder $query, AcademicEnrollment $entry): Builder
     {
         return $query->where(fn ($q) => $q->whereNull('student_profile_id')->orWhere('student_profile_id', $entry->student_profile_id))
+            ->where(fn ($q) => $q->whereNull('announcement_class_id')->orWhere('announcement_class_id', $entry->class_id ?? -1))
             ->where(fn ($q) => $q->where('kind', '!=', 'result')->orWhere('student_profile_id', $entry->student_profile_id));
     }
 
@@ -80,5 +83,15 @@ class AcademicResource extends Model
     public function offering()
     {
         return $this->belongsTo(AcademicOffering::class, 'academic_offering_id');
+    }
+
+    public function announcementGroup()
+    {
+        return $this->belongsTo(Classes::class, 'announcement_class_id');
+    }
+
+    public function authorProfessor()
+    {
+        return $this->belongsTo(Professor::class, 'author_id', 'user_id');
     }
 }

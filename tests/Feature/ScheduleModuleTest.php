@@ -55,22 +55,22 @@ class ScheduleModuleTest extends TestCase
         $this->travelTo(\Carbon\Carbon::parse('2026-10-25 12:00', 'Africa/Kinshasa'));
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($offering, ['repeat_count' => 3]))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, ['repeat_count' => 3]))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('academic_sessions', 3);
         $session = AcademicSession::orderBy('starts_at')->firstOrFail();
         $this->assertSame('2026-11-02 07:00:00', $session->starts_at->format('Y-m-d H:i:s'));
-        $this->get('/dashboard/admin/schedule?week=2026-11-03&level_id='.$offering->level_id)->assertOk()->assertInertia(fn (Assert $p) => $p->component('dashboard/schedule/Index')->where('filters.week', '2026-11-02')->has('sessions', 1));
-        $curriculum = '/dashboard/admin/academic-structure?tab=curriculum&version=1';
+        $this->get('/app/dashboard/admin/schedule?week=2026-11-03&level_id='.$offering->level_id)->assertOk()->assertInertia(fn (Assert $p) => $p->component('dashboard/schedule/Index')->where('filters.week', '2026-11-02')->has('sessions', 1));
+        $curriculum = '/app/dashboard/admin/academic-structure?tab=curriculum&version=1';
         $edit = $this->payload($offering, ['starts_at' => '2026-11-02T09:00', 'ends_at' => '2026-11-02T11:00', 'room' => 'Salle de cours']);
         unset($edit['is_published']);
-        $this->from($curriculum)->put('/dashboard/admin/schedule/'.$session->id, $edit)
+        $this->from($curriculum)->put('/app/dashboard/admin/schedule/'.$session->id, $edit)
             ->assertRedirect($curriculum)->assertSessionHasNoErrors();
         $this->assertDatabaseHas('academic_sessions', [
             'id' => $session->id, 'starts_at' => '2026-11-02 08:00:00', 'room' => 'Salle de cours', 'is_published' => true,
         ]);
-        $this->put('/dashboard/admin/schedule/'.$session->id, $this->payload($offering, ['room' => 'Auditoire B', 'is_published' => false]))->assertSessionHasErrors('is_published');
-        $this->delete('/dashboard/admin/schedule/'.$session->id)->assertSessionHasErrors('session');
-        $this->post('/dashboard/admin/schedule/'.$session->id.'/transition', ['action' => 'cancel', 'reason' => 'Annulation confirmée par le service.'])->assertStatus(303);
+        $this->put('/app/dashboard/admin/schedule/'.$session->id, $this->payload($offering, ['room' => 'Auditoire B', 'is_published' => false]))->assertSessionHasErrors('is_published');
+        $this->delete('/app/dashboard/admin/schedule/'.$session->id)->assertSessionHasErrors('session');
+        $this->post('/app/dashboard/admin/schedule/'.$session->id.'/transition', ['action' => 'cancel', 'reason' => 'Annulation confirmée par le service.'])->assertStatus(303);
         $this->assertNotNull($session->fresh()->cancelled_at);
         $this->assertDatabaseCount('academic_sessions', 3);
     }
@@ -80,14 +80,14 @@ class ScheduleModuleTest extends TestCase
         $teacher = Professor::create(['first_name' => 'Anne', 'last_name' => 'Mbemba', 'email' => 'anne@example.test']);
         $first = $this->offering(professor: $teacher);
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($first, ['is_published' => false]))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($first, ['is_published' => false]))->assertSessionHasNoErrors();
         $other = $this->offering();
-        $this->post('/dashboard/admin/schedule', $this->payload($other, ['room' => '  auditoire   a  ']))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, ['room' => '  auditoire   a  ']))->assertSessionHasErrors('starts_at');
         $sameTeacher = $this->offering(professor: $teacher);
-        $this->post('/dashboard/admin/schedule', $this->payload($sameTeacher, ['room' => 'Salle B']))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($sameTeacher, ['room' => 'Salle B']))->assertSessionHasErrors('starts_at');
         $sameLevel = $this->offering($first->level);
-        $this->post('/dashboard/admin/schedule', $this->payload($sameLevel, ['room' => 'Salle C']))->assertSessionHasErrors('starts_at');
-        $this->post('/dashboard/admin/schedule', $this->payload($sameLevel, ['starts_at' => '2026-11-02T10:00', 'ends_at' => '2026-11-02T12:00']))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($sameLevel, ['room' => 'Salle C']))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($sameLevel, ['starts_at' => '2026-11-02T10:00', 'ends_at' => '2026-11-02T12:00']))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('academic_sessions', 2);
     }
 
@@ -95,9 +95,9 @@ class ScheduleModuleTest extends TestCase
     {
         $first = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($first, ['starts_at' => '2026-11-09T08:00', 'ends_at' => '2026-11-09T10:00']))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($first, ['starts_at' => '2026-11-09T08:00', 'ends_at' => '2026-11-09T10:00']))->assertSessionHasNoErrors();
         $other = $this->offering();
-        $this->post('/dashboard/admin/schedule', $this->payload($other, ['repeat_count' => 3]))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, ['repeat_count' => 3]))->assertSessionHasErrors('starts_at');
         $this->assertDatabaseCount('academic_sessions', 1);
     }
 
@@ -105,9 +105,9 @@ class ScheduleModuleTest extends TestCase
     {
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($offering, ['ends_at' => '2026-11-02T07:00']))->assertSessionHasErrors('ends_at');
-        $this->post('/dashboard/admin/schedule', $this->payload($offering, ['starts_at' => '2027-09-27T08:00', 'ends_at' => '2027-09-27T10:00', 'repeat_count' => 2]))->assertSessionHasErrors('starts_at');
-        $this->post('/dashboard/admin/schedule', $this->payload($offering, ['repeat_count' => 27]))->assertSessionHasErrors('repeat_count');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, ['ends_at' => '2026-11-02T07:00']))->assertSessionHasErrors('ends_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, ['starts_at' => '2027-09-27T08:00', 'ends_at' => '2027-09-27T10:00', 'repeat_count' => 2]))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, ['repeat_count' => 27]))->assertSessionHasErrors('repeat_count');
         $this->assertDatabaseCount('academic_sessions', 0);
     }
 
@@ -122,10 +122,10 @@ class ScheduleModuleTest extends TestCase
         $first->update(['class_id' => $group('Groupe A')]);
         $second = $this->offering($first->level, group: $group('Groupe B'));
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($first))->assertSessionHasNoErrors();
-        $this->post('/dashboard/admin/schedule', $this->payload($second, ['room' => 'Salle B']))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($first))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($second, ['room' => 'Salle B']))->assertSessionHasNoErrors();
         $common = $this->offering($first->level);
-        $this->post('/dashboard/admin/schedule', $this->payload($common, ['room' => 'Salle C']))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($common, ['room' => 'Salle C']))->assertSessionHasErrors('starts_at');
     }
 
     public function test_reassigning_an_already_scheduled_course_checks_teacher_availability(): void
@@ -134,9 +134,9 @@ class ScheduleModuleTest extends TestCase
         $first = $this->offering(professor: $teacher);
         $other = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($first))->assertSessionHasNoErrors();
-        $this->post('/dashboard/admin/schedule', $this->payload($other, ['room' => 'Salle B']))->assertSessionHasNoErrors();
-        $this->put('/dashboard/admin/professors/assignments/'.$other->id, ['course_id' => $other->course_id, 'academic_year_id' => $other->academic_year_id, 'professor_id' => $teacher->id, 'is_published' => true])->assertSessionHasErrors('professor_id');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($first))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, ['room' => 'Salle B']))->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/professors/assignments/'.$other->id, ['course_id' => $other->course_id, 'academic_year_id' => $other->academic_year_id, 'professor_id' => $teacher->id, 'is_published' => true])->assertSessionHasErrors('professor_id');
     }
 
     private function semesterPayload(AcademicOffering $offering, array $extra = []): array
@@ -153,11 +153,11 @@ class ScheduleModuleTest extends TestCase
     {
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule/semester', $this->semesterPayload($offering, ['weekdays' => [1, 3]]))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule/semester', $this->semesterPayload($offering, ['weekdays' => [1, 3]]))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('academic_sessions', 5);
         $this->assertSame(['2026-11-02 07:00', '2026-11-04 07:00', '2026-11-09 07:00', '2026-11-11 07:00', '2026-11-16 07:00'], AcademicSession::orderBy('starts_at')->get()->map(fn ($s) => $s->starts_at->format('Y-m-d H:i'))->all());
-        $this->get('/dashboard/admin/schedule?week=2026-11-02&semester=1')->assertInertia(fn (Assert $p) => $p->has('sessions', 2)->has('offerings', 1));
-        $this->get('/dashboard/admin/schedule?week=2026-11-02&semester=2')->assertInertia(fn (Assert $p) => $p->has('sessions', 0)->has('offerings', 0));
+        $this->get('/app/dashboard/admin/schedule?week=2026-11-02&semester=1')->assertInertia(fn (Assert $p) => $p->has('sessions', 2)->has('offerings', 1));
+        $this->get('/app/dashboard/admin/schedule?week=2026-11-02&semester=2')->assertInertia(fn (Assert $p) => $p->has('sessions', 0)->has('offerings', 0));
     }
 
     public function test_semester_plan_is_atomic_if_the_last_occurrence_conflicts(): void
@@ -165,8 +165,8 @@ class ScheduleModuleTest extends TestCase
         $offering = $this->offering();
         $other = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule', $this->payload($other, ['starts_at' => '2026-11-16T08:00', 'ends_at' => '2026-11-16T10:00']))->assertSessionHasNoErrors();
-        $this->post('/dashboard/admin/schedule/semester', $this->semesterPayload($offering))->assertSessionHasErrors('starts_at');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, ['starts_at' => '2026-11-16T08:00', 'ends_at' => '2026-11-16T10:00']))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule/semester', $this->semesterPayload($offering))->assertSessionHasErrors('starts_at');
         $this->assertDatabaseCount('academic_sessions', 1);
     }
 
@@ -174,7 +174,7 @@ class ScheduleModuleTest extends TestCase
     {
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $url = '/dashboard/admin/schedule/semester';
+        $url = '/app/dashboard/admin/schedule/semester';
         $this->post($url, $this->semesterPayload($offering, ['semester' => 2]))->assertSessionHasErrors('academic_offering_id');
         $this->post($url, $this->semesterPayload($offering, ['weekdays' => []]))->assertSessionHasErrors('weekdays');
         $this->post($url, $this->semesterPayload($offering, ['period_start' => '2026-11-03', 'period_end' => '2026-11-04']))->assertSessionHasErrors('weekdays');
@@ -192,7 +192,7 @@ class ScheduleModuleTest extends TestCase
     {
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
+        $this->post('/app/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
             ['weekday' => 3, 'start_time' => '16:00', 'end_time' => '18:00', 'room' => 'Salle B'],
         ]))->assertSessionHasNoErrors();
@@ -209,11 +209,11 @@ class ScheduleModuleTest extends TestCase
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
             ['weekday' => 1, 'start_time' => '09:00', 'end_time' => '11:00', 'room' => 'Salle B'],
         ];
-        $this->post('/dashboard/admin/schedule/semester', $this->slotsPayload($offering, $slots))->assertSessionHasErrors('slots.1.start_time');
+        $this->post('/app/dashboard/admin/schedule/semester', $this->slotsPayload($offering, $slots))->assertSessionHasErrors('slots.1.start_time');
         $this->assertDatabaseCount('academic_sessions', 0);
         $slots[1]['start_time'] = '14:00';
         $slots[1]['end_time'] = '16:00';
-        $this->post('/dashboard/admin/schedule/semester', $this->slotsPayload($offering, $slots))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule/semester', $this->slotsPayload($offering, $slots))->assertSessionHasNoErrors();
         $this->assertDatabaseCount('academic_sessions', 6);
     }
 
@@ -221,7 +221,7 @@ class ScheduleModuleTest extends TestCase
     {
         $offering = $this->offering();
         $this->actingAs($this->user());
-        $this->post('/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
+        $this->post('/app/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'A'],
             ['weekday' => 3, 'start_time' => '16:00', 'end_time' => '15:00', 'room' => ''],
         ]))->assertSessionHasErrors('slots.1.end_time');
@@ -233,8 +233,8 @@ class ScheduleModuleTest extends TestCase
         $this->actingAs($this->user());
         $offering = $this->offering();
         $other = $this->offering();
-        $url = '/dashboard/admin/schedule/semester';
-        $this->post('/dashboard/admin/schedule', $this->payload($other, ['room' => null]))->assertSessionHasNoErrors();
+        $url = '/app/dashboard/admin/schedule/semester';
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, ['room' => null]))->assertSessionHasNoErrors();
 
         $payload = $this->slotsPayload($offering, [
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00'],
@@ -269,16 +269,16 @@ class ScheduleModuleTest extends TestCase
         $this->actingAs($this->user());
         $offering = $this->offering();
         $other = $this->offering();
-        $this->post('/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
+        $this->post('/app/dashboard/admin/schedule/semester', $this->slotsPayload($offering, [
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
             ['weekday' => 1, 'start_time' => '14:00', 'end_time' => '16:00', 'room' => 'Salle A'],
             ['weekday' => 3, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
         ]))->assertSessionHasNoErrors();
         $session = $offering->sessions()->where('starts_at', '2026-11-09 07:00:00')->sole();
-        $this->post('/dashboard/admin/schedule', $this->payload($other, [
+        $this->post('/app/dashboard/admin/schedule', $this->payload($other, [
             'starts_at' => '2026-11-16T10:00', 'ends_at' => '2026-11-16T12:00', 'room' => 'Salle B',
         ]))->assertSessionHasNoErrors();
-        $url = '/dashboard/admin/schedule/'.$session->id;
+        $url = '/app/dashboard/admin/schedule/'.$session->id;
         $edit = $this->payload($offering, [
             'scope' => 'semester', 'starts_at' => '2026-11-09T10:00', 'ends_at' => '2026-11-09T12:00', 'room' => 'Salle B',
         ]);
@@ -302,7 +302,7 @@ class ScheduleModuleTest extends TestCase
     {
         $this->actingAs($this->user());
         $offering = $this->offering();
-        $this->post('/dashboard/admin/schedule/semester', array_replace($this->slotsPayload($offering, [
+        $this->post('/app/dashboard/admin/schedule/semester', array_replace($this->slotsPayload($offering, [
             ['weekday' => 1, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
             ['weekday' => 1, 'start_time' => '14:00', 'end_time' => '16:00', 'room' => 'Salle A'],
             ['weekday' => 3, 'start_time' => '08:00', 'end_time' => '10:00', 'room' => 'Salle A'],
@@ -312,11 +312,11 @@ class ScheduleModuleTest extends TestCase
         ])->orderBy('starts_at')->get();
         $otherSlots = $offering->sessions()->whereNotIn('id', $mondays->modelKeys())->pluck('id')->all();
 
-        $this->delete('/dashboard/admin/schedule/'.$mondays[0]->id, ['scope' => 'session'])
+        $this->delete('/app/dashboard/admin/schedule/'.$mondays[0]->id, ['scope' => 'session'])
             ->assertSessionHasNoErrors()->assertSessionHas('success', 'Séance supprimée.');
         $this->assertSame(2, $offering->sessions()->whereIn('id', $mondays->modelKeys())->count());
 
-        $this->delete('/dashboard/admin/schedule/'.$mondays[2]->id, ['scope' => 'semester'])
+        $this->delete('/app/dashboard/admin/schedule/'.$mondays[2]->id, ['scope' => 'semester'])
             ->assertSessionHasNoErrors()->assertSessionHas('success', '2 séances du semestre supprimées.');
         $this->assertEqualsCanonicalizing($otherSlots, $offering->sessions()->pluck('id')->all());
     }
@@ -324,10 +324,10 @@ class ScheduleModuleTest extends TestCase
     public function test_student_cannot_manage_the_schedule(): void
     {
         $this->actingAs($this->user('student'));
-        $this->post('/dashboard/admin/schedule/semester', [])->assertForbidden();
-        $this->get('/dashboard/admin/schedule')->assertForbidden();
-        $this->post('/dashboard/admin/schedule', [])->assertForbidden();
-        $this->put('/dashboard/admin/schedule/1', [])->assertForbidden();
-        $this->delete('/dashboard/admin/schedule/1')->assertForbidden();
+        $this->post('/app/dashboard/admin/schedule/semester', [])->assertForbidden();
+        $this->get('/app/dashboard/admin/schedule')->assertForbidden();
+        $this->post('/app/dashboard/admin/schedule', [])->assertForbidden();
+        $this->put('/app/dashboard/admin/schedule/1', [])->assertForbidden();
+        $this->delete('/app/dashboard/admin/schedule/1')->assertForbidden();
     }
 }

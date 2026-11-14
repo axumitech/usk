@@ -51,7 +51,7 @@ export default function AudienceConsent() {
         event(`source_${source}`, path);
         const click = (clickEvent: MouseEvent) => {
             const link = (clickEvent.target as Element)?.closest<HTMLAnchorElement>('a');
-            if (link?.getAttribute('href')?.match(/^\/dashboard\/enrollments/)) event('admission_start', '/admission');
+            if (link?.getAttribute('href')?.match(/^\/app\/dashboard\/enrollments/)) event('admission_start', '/admission');
         };
         document.addEventListener('click', click);
         return () => document.removeEventListener('click', click);

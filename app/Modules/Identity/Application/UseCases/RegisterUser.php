@@ -21,10 +21,11 @@ final class RegisterUser
         ?string $postName,
         ?string $gender,
         string $email,
-        string $password
+        string $password,
+        string $nationalityCode,
     ): User {
         $hash = $this->hasher->hash($password);
-        $user = User::register($lastName, $firstName, $postName, $gender, $email, $hash);
+        $user = User::register($lastName, $firstName, $postName, $gender, $email, $hash, $nationalityCode);
         $user->assignRole('user');
         $saved = $this->repo->save($user);
 

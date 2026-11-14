@@ -28,11 +28,11 @@ class PhaseOneSecurityTest extends TestCase
     public function test_login_errors_do_not_disclose_account_existence(): void
     {
         $user = User::factory()->create();
-        $known = $this->from('/login')->post('/login', ['email' => $user->email, 'password' => 'wrong']);
+        $known = $this->from('/app/login')->post('/app/login', ['email' => $user->email, 'password' => 'wrong']);
         $message = session('errors')->first('email');
-        $unknown = $this->from('/login')->post('/login', ['email' => 'absent@example.test', 'password' => 'wrong']);
-        $known->assertRedirect('/login');
-        $unknown->assertRedirect('/login');
+        $unknown = $this->from('/app/login')->post('/app/login', ['email' => 'absent@example.test', 'password' => 'wrong']);
+        $known->assertRedirect('/app/login');
+        $unknown->assertRedirect('/app/login');
         $this->assertSame($message, session('errors')->first('email'));
         $this->assertGuest();
     }
@@ -40,7 +40,7 @@ class PhaseOneSecurityTest extends TestCase
     public function test_logout_invalidates_session_data_and_rotates_csrf_token(): void
     {
         $this->actingAs(User::factory()->create())->withSession(['private_marker' => 'old', '_token' => 'old-token'])
-            ->post('/logout')->assertRedirect('/login')->assertSessionMissing('private_marker');
+            ->post('/app/logout')->assertRedirect('/app/login')->assertSessionMissing('private_marker');
         $this->assertNotSame('old-token', session()->token());
         $this->assertGuest();
     }
@@ -62,10 +62,10 @@ class PhaseOneSecurityTest extends TestCase
         Storage::fake('local');
         $owner = User::factory()->create();
         $other = User::factory()->create();
-        $upload = $this->actingAs($owner)->postJson('/dashboard/enrollments/documents/upload', [
+        $upload = $this->actingAs($owner)->postJson('/app/dashboard/enrollments/documents/upload', [
             'key' => 'diploma', 'file' => UploadedFile::fake()->image('diploma.png'),
         ])->assertOk()->json('temp');
-        $this->actingAs($other)->postJson('/dashboard/enrollments/save-progress', [
+        $this->actingAs($other)->postJson('/app/dashboard/enrollments/save-progress', [
             'last_step' => 1, 'form_snapshot' => ['documents' => ['diploma' => [
                 'temp' => $upload, 'filename' => 'diploma.png', 'mime' => 'image/png',
             ]]],
@@ -79,11 +79,11 @@ class PhaseOneSecurityTest extends TestCase
     {
         Storage::fake('temp');
         $this->actingAs(User::factory()->create())
-            ->postJson('/dashboard/enrollments/documents/upload', ['key' => 'diploma', 'file' => UploadedFile::fake()->create('bad.html', 1, 'text/html')])
+            ->postJson('/app/dashboard/enrollments/documents/upload', ['key' => 'diploma', 'file' => UploadedFile::fake()->create('bad.html', 1, 'text/html')])
             ->assertUnprocessable()->assertJsonValidationErrors('file');
         Storage::shouldReceive('disk')->with('temp')->once()->andReturnSelf();
         Storage::shouldReceive('put')->once()->andReturn(false);
-        $this->postJson('/dashboard/enrollments/documents/upload', ['key' => 'diploma', 'file' => UploadedFile::fake()->image('ok.png')])->assertStatus(503);
+        $this->postJson('/app/dashboard/enrollments/documents/upload', ['key' => 'diploma', 'file' => UploadedFile::fake()->image('ok.png')])->assertStatus(503);
     }
 
     public function test_http_preflight_reports_failures_without_printing_response_content(): void

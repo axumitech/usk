@@ -1,0 +1,190 @@
+.school-availability-heading,
+.school-availability-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.55rem 0.9rem;
+}
+
+.usk-dashboard .school-availability-heading h2 {
+    margin: 0;
+    color: var(--agenda-ink);
+    font-size: clamp(1.14rem, 4vw, 1.4rem);
+    font-weight: 780;
+}
+
+.school-availability-heading p,
+.school-availability-footer p {
+    margin: 0.2rem 0 0;
+    color: var(--agenda-muted);
+    font-size: 0.85rem;
+}
+
+.school-availability-state {
+    display: inline-flex;
+    padding: 0.3rem 0.54rem;
+    border-radius: 0.45rem;
+    background: var(--agenda-warm);
+    color: var(--agenda-gold);
+    font-size: 0.78rem;
+    font-weight: 720;
+}
+
+.school-availability-state[data-open='true'] {
+    background: var(--agenda-tint);
+    color: var(--agenda-accent);
+}
+
+.school-availability-form fieldset,
+.school-availability-week {
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.school-availability-day {
+    display: grid;
+    gap: 0.45rem;
+    align-items: start;
+    min-width: 0;
+    padding: 0.65rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.7rem;
+    background: var(--agenda-raised);
+}
+
+.school-availability-day > header {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.usk-dashboard .school-availability-day h3 {
+    margin: 0;
+    color: var(--agenda-ink);
+    font-size: 0.95rem;
+    font-weight: 780;
+}
+
+.school-availability-day > header span {
+    color: var(--agenda-muted);
+    font-size: 0.76rem;
+}
+
+.school-availability-ranges {
+    display: grid;
+    min-width: 0;
+    gap: 0.45rem;
+}
+
+.school-availability-ranges:empty {
+    display: none;
+}
+
+.school-availability-range {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.school-availability-range label {
+    display: grid;
+    min-width: 0;
+    gap: 0.18rem;
+    color: var(--agenda-muted);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.school-availability-range input {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.55rem;
+    background: var(--agenda-card);
+    color: var(--agenda-ink);
+    font-size: 1rem;
+}
+
+.school-availability-range .school-availability-remove {
+    width: 2.75rem;
+    padding: 0;
+    color: var(--usk-night-danger, #882d24);
+}
+
+.school-availability-remove:hover {
+    background: var(--usk-night-danger-surface, #faeeea);
+}
+
+.school-availability-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--usk-night-danger, #882d24);
+    font-size: 0.8rem;
+}
+
+.school-availability-reload {
+    margin-inline-start: 0.4rem;
+    color: var(--agenda-accent);
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.school-availability-form button {
+    cursor: pointer;
+}
+
+.school-availability-form button:disabled {
+    opacity: 0.66;
+    cursor: wait;
+}
+
+.school-availability-footer {
+    align-items: center;
+    margin-top: 0.28rem;
+}
+
+.school-availability-footer p {
+    flex: 1 1 15rem;
+}
+
+.school-availability-save {
+    border-color: transparent;
+    background: var(--usk-night-brand-deep, #22523e);
+    color: #fff;
+}
+
+.school-availability-save:hover {
+    background: var(--usk-night-brand, #27654b);
+}
+
+@media (min-width: 48rem) {
+    .school-availability-day {
+        grid-template-columns: 7rem minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .school-availability-day > header {
+        align-items: start;
+        flex-direction: column;
+        gap: 0.12rem;
+    }
+
+    .school-availability-add {
+        grid-column: 3;
+    }
+
+    .school-availability-range {
+        grid-template-columns: minmax(0, 10rem) minmax(0, 10rem) auto;
+        justify-content: start;
+    }
+}

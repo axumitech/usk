@@ -14,8 +14,7 @@ const links = [
 ];
 export default function Header() {
     const usk = useInstitution();
-    const { url, props } = usePage<{ auth: { user: { id: number } | null } }>();
-    const studentHref = props.auth?.user ? '/dashboard' : '/login';
+    const { url } = usePage();
     const [open, setOpen] = useState(false);
     useEffect(() => {
         setOpen(false);
@@ -38,9 +37,9 @@ export default function Header() {
                     <span>Kinshasa, République démocratique du Congo</span>
                     <div>
                         <a href={`mailto:${usk.email}`}>{usk.email}</a>
-                        <Link href={studentHref}>
+                        <a href="/app/">
                             Espace étudiant <ArrowUpRight size={12} />
-                        </Link>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -107,9 +106,9 @@ export default function Header() {
                             </div>
                             <div className="usk-menu-bottom">
                                 <a href={`mailto:${usk.email}`}>{usk.email}</a>
-                                <Link href={studentHref} onClick={() => setOpen(false)}>
+                                <a href="/app/" onClick={() => setOpen(false)}>
                                     Espace étudiant <ArrowUpRight size={16} />
-                                </Link>
+                                </a>
                                 <Link className="usk-button usk-button-gold" href="/admission" onClick={() => setOpen(false)}>
                                     Rejoindre l’USK <ArrowUpRight size={18} />
                                 </Link>

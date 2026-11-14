@@ -30,6 +30,7 @@ final class ResultDocuments
         abort_unless($volume >= 1 && $volume <= $volumes, 404);
         $draft = $kind === 'minutes' && ! in_array($run->state, ['approved', 'published'], true);
         abort_unless($kind === 'minutes' || ($run->state === 'published' && $result?->academic_deliberation_id === $run->id), 404);
+        abort_if($kind === 'transcript' && isset($run->context['period_code']), 404);
         abort_if($draft && $run->state === 'abandoned', 404);
         if ($draft) {
             return $this->pdf->download($this->render($run, $kind, $run->reference, true, null, $volume, $volumes), $kind.'-provisoire.pdf');

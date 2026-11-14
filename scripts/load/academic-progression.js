@@ -35,7 +35,7 @@ export const options = {
 export default function () {
     const account = accounts[(__VU - 1) % accounts.length];
     const academic = Number(account.academic_id);
-    const prefix = '/dashboard/admin/progression';
+    const prefix = '/app/dashboard/admin/progression';
     if (!account.cookie || !academic) throw new Error('Contexte de recette incomplet.');
     const params = { redirects: 0, headers: { Cookie: account.cookie, Accept: 'text/html' } };
     if (writes) {
@@ -49,8 +49,8 @@ export default function () {
         });
     } else {
         const paths = {
-            portal: `/dashboard/student/academics?academic=${academic}`,
-            history: `/dashboard/admin/student-academic/${academic}?section=Parcours`,
+            portal: `/app/dashboard/student/academics?academic=${academic}`,
+            history: `/app/dashboard/admin/student-academic/${academic}?section=Parcours`,
             cohort: `${prefix}?year=${Number(account.year_id)}`,
         };
         check(http.get(origin + paths[mode], params), { 'consultation réussie': (result) => result.status === 200 });

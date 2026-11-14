@@ -19,7 +19,7 @@ class AcademicOffering extends Model
 
     protected $fillable = ['course_id', 'level_id', 'academic_department_id', 'academic_year_id', 'class_id', 'professor_id', 'semester', 'is_optional', 'is_published', 'assistant_professor_id', 'group_leader_name', 'delivery_mode', 'curriculum_item_id', 'academic_semester_id', 'required_unit_id', 'teaching_key', 'starts_on', 'ends_on', 'archived_at'];
 
-    protected $casts = ['is_optional' => 'boolean', 'is_published' => 'boolean', 'archived_at' => 'datetime'];
+    protected $casts = ['is_optional' => 'boolean', 'is_published' => 'boolean', 'archived_at' => 'datetime', 'teaching_overview_revision' => 'integer'];
 
     protected static function booted(): void
     {

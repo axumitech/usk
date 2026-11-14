@@ -2,6 +2,7 @@
 
 namespace App\Modules\Teaching\Application\Services;
 
+use App\Models\Classes;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
 use Carbon\CarbonInterface;
@@ -9,6 +10,16 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class CourseAudience
 {
+    public static function groupLabel(?Classes $group): ?string
+    {
+        return $group ? ($group->intake?->name ?: 'Groupe '.$group->id) : null;
+    }
+
+    public static function studentRow(AcademicEnrollment $entry): array
+    {
+        return ['id' => $entry->id, 'name' => $entry->profile->user->full_name, 'matricule' => $entry->matricule ?? $entry->profile->matricule];
+    }
+
     private function yearAndVersion(AcademicOffering $offering): Builder
     {
         return AcademicEnrollment::where('academic_year_id', $offering->academic_year_id)

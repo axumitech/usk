@@ -69,7 +69,7 @@ final class ResultsController
         $decisionCount = $run?->results()->whereNull('decision')->count();
         $rows = $run?->results()->when($filters['q'] ?? null, fn ($q, $name) => $q->where(function ($q) use ($name) {
             $q->where('snapshot->matricule', 'like', '%'.$name.'%')->orWhere('snapshot->student', 'like', '%'.$name.'%');
-        }))->orderBy('id')->paginate(25, ['*'], 'dossiers_page')->withQueryString()->through(fn ($row) => $this->summary($row));
+        }))->orderBy('id')->paginate(25, ['*'], 'dossiers_page')->withQueryString()->through(fn ($row) => $this->summary($row, $run));
         $members = User::role('admin')->permission(ResultsAccess::JURY)->whereNotNull('email_verified_at')
             ->when($version, fn ($q) => $q->where(fn ($q) => $q->whereDoesntHave('academicFaculties')->orWhereHas('academicFaculties', fn ($faculty) => $faculty->whereKey($this->access->faculty($version)))))
             ->orderBy('id')->limit(100)->get()->map(fn ($member) => ['id' => $member->id, 'name' => $member->full_name]);
@@ -78,14 +78,18 @@ final class ResultsController
             'filters' => $filters, 'permissions' => ['manage' => $actor->can(ResultsAccess::MANAGE), 'publish' => $actor->can(ResultsAccess::PUBLISH), 'jury' => $actor->can(ResultsAccess::JURY)],
             'actor' => $actor->id, 'members' => $members, 'versions' => $versions->with('program', 'academicYear')->when($filters['year'] ?? null, fn ($q, $id) => $q->where('academic_year_id', $id))
                 ->latest('id')->paginate(20, ['*'], 'versions_page')->withQueryString()->through(fn ($v) => ['id' => $v->id, 'title' => $v->program->name.' · '.$v->code.' · '.$v->academicYear->title]),
-            'version' => $version?->only(['id', 'code']), 'levels' => $levels, 'items' => $items, 'assessments' => $assessments,
+            'version' => $version ? $version->only(['id', 'code', 'periods']) : null,
+            'levels' => $levels, 'items' => $items, 'assessments' => $assessments,
             'rules' => $ruleQuery->when($version, fn ($q) => $q->where('curriculum_version_id', $version->id))->latest('id')->paginate(20, ['*'], 'rules_page')->withQueryString()
                 ->through(fn ($row) => $row->only(['id', 'code', 'reference', 'session_code', 'approved_at', 'level_id'])),
-            'rule' => $rule?->only(['id', 'code', 'reference', 'session_code', 'approved_at', 'level_id', 'configuration']),
+            'rule' => $rule ? $rule->only(['id', 'code', 'reference', 'session_code', 'approved_at', 'level_id', 'configuration']) + [
+                'periods' => $rule->version->units()->where('level_id', $rule->level_id)->get(['period_code', 'period_name'])
+                    ->unique('period_code')->values()->map(fn ($unit) => ['code' => $unit->period_code, 'name' => $unit->period_name]),
+            ] : null,
             'runs' => $runQuery->when($rule, fn ($q) => $q->where('academic_result_rule_id', $rule->id))->when($filters['state'] ?? null, fn ($q, $state) => $q->where('state', $state))
                 ->latest('id')->paginate(20, ['*'], 'runs_page')->withQueryString(),
             'run' => $run ? $run->toArray() + ['minutes_volumes' => ResultDocuments::volumeCount($run->results_count)] : null, 'dossiers' => $rows, 'undecided' => $decisionCount, 'pending_appeals' => $pendingAppeals,
-            'result' => $result ? $this->summary($result) + ['snapshot' => $result->snapshot, 'decision_reason' => $result->decision_reason,
+            'result' => $result ? $this->summary($result, $run) + ['snapshot' => $result->snapshot, 'decision_reason' => $result->decision_reason,
                 'eligible_decisions' => array_keys(array_filter($run->context['decisions'], fn ($decision) => ResultRules::permitsDecision($decision, $result->snapshot))),
             ] : null,
             'appeals' => $appeals,
@@ -149,9 +153,12 @@ final class ResultsController
 
         return response()->streamDownload(function () use ($run) {
             $stream = fopen('php://output', 'w');
-            fputcsv($stream, ['Référence', 'Matricule', 'Étudiant', 'Moyenne annuelle', 'Crédits acquis (centièmes)', 'Décision'], ';', '"', '');
+            $period = $run->context['period_code'] ?? null;
+            $gradeColumn = $period === null ? 'Moyenne annuelle' : 'Moyenne · '.$run->context['period_name'];
+            fputcsv($stream, ['Référence', 'Matricule', 'Étudiant', $gradeColumn, 'Crédits acquis (centièmes)', 'Décision'], ';', '"', '');
             foreach ($run->results()->orderBy('id')->cursor() as $row) {
-                $columns = [$row->reference, $row->snapshot['matricule'], $row->snapshot['student'], $row->snapshot['annual'],
+                $grade = $period === null ? $row->snapshot['annual'] : ($row->snapshot['periods'][$period]['grade'] ?? null);
+                $columns = [$row->reference, $row->snapshot['matricule'], $row->snapshot['student'], $grade,
                     $row->snapshot['credits']['earned'], $run->context['decisions'][$row->decision]['label']];
                 fputcsv($stream, array_map(fn ($value) => is_string($value) && preg_match('/^(?:[\t\r\n]|\s*[=+@-])/u', $value) ? "'".$value : $value, $columns), ';', '"', '');
             }
@@ -192,8 +199,12 @@ final class ResultsController
         return $files->stream(['path' => $appeal->result_attachment, 'filename' => 'justificatif-'.basename($appeal->result_attachment ?? '')]);
     }
 
-    private function summary(AcademicOfficialResult $row): array
+    private function summary(AcademicOfficialResult $row, AcademicDeliberation $run): array
     {
-        return $row->only(['id', 'reference', 'decision', 'academic_enrollment_id']) + Arr::only($row->snapshot, ['student', 'matricule', 'annual', 'credits', 'anomalies', 'eliminatory']);
+        $period = $run->context['period_code'] ?? null;
+
+        return $row->only(['id', 'reference', 'decision', 'academic_enrollment_id']) + Arr::only($row->snapshot, ['student', 'matricule', 'annual', 'credits', 'anomalies', 'eliminatory']) + [
+            'period_grade' => $period === null ? null : ($row->snapshot['periods'][$period]['grade'] ?? null),
+        ];
     }
 }

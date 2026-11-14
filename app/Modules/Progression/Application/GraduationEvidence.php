@@ -39,6 +39,7 @@ final class GraduationEvidence
         $published = AcademicOfficialResult::published()
             ->join('academic_enrollments', 'academic_enrollments.id', '=', 'academic_official_results.academic_enrollment_id')
             ->join('academic_deliberations', 'academic_deliberations.id', '=', 'academic_official_results.academic_deliberation_id')
+            ->whereNull('academic_deliberations.context->period_code')
             ->where('academic_enrollments.student_profile_id', $entry->student_profile_id)
             ->join('academic_years', 'academic_years.id', '=', 'academic_enrollments.academic_year_id')
             ->where('academic_years.start_date', '<=', $entry->academicYear->start_date)

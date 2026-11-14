@@ -25,7 +25,10 @@ class AcademicCalendarTest extends TestCase
         AcademicSemester::create(['academic_year_id' => $year->id, 'number' => 1, 'start_date' => '2026-10-15', 'end_date' => '2027-03-31']);
         AcademicSemester::create(['academic_year_id' => $other->id, 'number' => 1, 'start_date' => '2027-10-15', 'end_date' => '2028-03-31']);
         $prefix = 'dashboard.admin.academic-years.calendar.';
-        $payload = ['title' => 'Examens, première session', 'category' => 'exam', 'start_date' => '2027-01-11', 'end_date' => '2027-01-15'];
+        $payload = [
+            'title' => 'Examens, première session', 'category' => 'exam', 'start_date' => '2027-01-11', 'end_date' => '2027-01-15',
+            'location' => 'Bâtiment A', 'description' => 'Les examens débutent le lundi.', 'instructions' => 'Présenter sa carte étudiante.',
+        ];
 
         $this->post(route($prefix.'store', $year), array_replace($payload, ['start_date' => '2026-10-14']))
             ->assertSessionHasErrors('start_date');
@@ -41,6 +44,8 @@ class AcademicCalendarTest extends TestCase
         $this->get(route($prefix.'index', ['academic_year_id' => $year->id]))
             ->assertInertia(fn (Assert $page) => $page->component('dashboard/academicYear/Calendar')
                 ->where('year.id', $year->id)->has('events', 1)->where('events.0.end_date', '2027-01-16')
+                ->where('events.0.location', $payload['location'])->where('events.0.description', $payload['description'])
+                ->where('events.0.instructions', $payload['instructions'])
                 ->has('semesters', 1)->where('semesters.0.start_date', '2026-10-15'));
         $this->get(route($prefix.'export', $year))
             ->assertOk()->assertHeader('Content-Type', 'text/calendar; charset=UTF-8')
@@ -48,6 +53,8 @@ class AcademicCalendarTest extends TestCase
             ->assertSee('DTSTART;VALUE=DATE:20270111', false)
             ->assertSee('DTEND;VALUE=DATE:20270117', false)
             ->assertSee('SUMMARY:Examens\, première session', false)
+            ->assertSee('LOCATION:Bâtiment A', false)
+            ->assertSee('DESCRIPTION:Les examens débutent le lundi.\n\nPrésenter sa carte', false)
             ->assertSee('SUMMARY:Période de cours · Semestre 1', false)
             ->assertSee('DTEND;VALUE=DATE:20270401', false)
             ->assertDontSee('DTSTART;VALUE=DATE:20271015', false)

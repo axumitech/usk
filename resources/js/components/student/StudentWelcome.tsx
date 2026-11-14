@@ -79,7 +79,7 @@ export default function StudentWelcome({
         setSaving(true);
         setError(false);
         router.post(
-            `/dashboard/student/welcome/acknowledge?academic=${academic.id}`,
+            `/app/dashboard/student/welcome/acknowledge?academic=${academic.id}`,
             {},
             {
                 preserveScroll: true,

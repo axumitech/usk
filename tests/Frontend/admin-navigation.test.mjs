@@ -44,25 +44,37 @@ test('Les rubriques administratives ouvrent des routes GET distinctes et respect
 
 test('Les entrées limitées au périmètre institutionnel et les recours reprennent les conditions serveur', () => {
     const expected = [
-        ['/dashboard/admin/schedule/resources', ['publish academic content']],
-        ['/dashboard/admin/student-academic/administration/closure', ['manage academic access']],
+        ['/app/dashboard/admin/schedule/resources', ['publish academic content']],
+        ['/app/dashboard/admin/student-academic/administration/closure', ['manage academic access']],
     ];
     for (const [href, permissions] of expected) {
         const destination = destinations.get(href);
         assert.equal(destination?.institutionWide, true);
         assert.deepEqual(Array.from(destination.anyPermission), permissions);
     }
-    assert.deepEqual(Array.from(destinations.get('/dashboard/admin/academic-results#recours').anyPermission), [
+    assert.deepEqual(Array.from(destinations.get('/app/dashboard/admin/academic-results#recours').anyPermission), [
         'manage academic results',
         'publish official results',
     ]);
 });
 
+test('Le menu Étudiants donne accès aux demandes de scolarité et à l’agenda', () => {
+    const items = new Map(groups.find(({ id }) => id === 'etudiants').items);
+    for (const [label, href] of [
+        ['Demandes de scolarité', '/app/dashboard/admin/student-academic?tab=requests'],
+        ['Agenda des rendez-vous', '/app/dashboard/admin/student-academic/requests/agenda'],
+    ]) {
+        const destination = items.get(label);
+        assert.equal(destination?.href, href);
+        assert.deepEqual(Array.from(destination.anyPermission), ['manage academic access']);
+    }
+});
+
 test('Les liens vers un panneau administratif ciblent les ancres des pages existantes', () => {
     const pages = {
-        '/dashboard/admin/academic-results': 'results/Administration.tsx',
-        '/dashboard/admin/finance': 'finance/Index.tsx',
-        '/dashboard/admin/teaching': 'teaching/Index.tsx',
+        '/app/dashboard/admin/academic-results': 'results/Administration.tsx',
+        '/app/dashboard/admin/finance': 'finance/Index.tsx',
+        '/app/dashboard/admin/teaching': 'teaching/Index.tsx',
     };
     for (const href of destinations.keys()) {
         const [path, fragment] = href.split('#');

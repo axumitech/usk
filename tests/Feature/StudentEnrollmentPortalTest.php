@@ -40,7 +40,7 @@ class StudentEnrollmentPortalTest extends TestCase
         foreach (['accepted', 'pending'] as $index => $status) {
             EnrollmentDocument::create(['enrollment_id' => $entry->id, 'key' => 'proof'.$index, 'type' => 'document', 'disk' => 'local', 'path' => 'private/proof'.$index.'.pdf', 'filename' => 'preuve.pdf', 'mime' => 'application/pdf', 'size_bytes' => 100, 'sha256' => str_repeat('a', 64), 'review_status' => $status, 'verified' => $status === 'accepted']);
         }
-        $this->actingAs($student)->get('/dashboard/enrollments')->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/enrollments')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('dashboard/enrollments/Index')->where('enrollments.total', 1)
             ->where('enrollments.data.0.reference', $entry->reference)->where('enrollments.data.0.documents_count', 2)
             ->where('enrollments.data.0.accepted_documents_count', 1)->where('stats.total', 1)->where('stats.in_progress', 1)
@@ -54,11 +54,11 @@ class StudentEnrollmentPortalTest extends TestCase
         for ($index = 0; $index < 10; $index++) {
             $this->entry($student);
         }
-        $this->actingAs($student)->get('/dashboard/enrollments')->assertOk()->assertInertia(fn (Assert $page) => $page->has('enrollments.data', 9)->where('enrollments.total', 11)->where('stats.draft', 1));
-        $this->get('/dashboard/enrollments?'.http_build_query(['q' => $first->reference]))->assertOk()->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1)->where('enrollments.data.0.id', $first->id)->where('stats.total', 11));
-        $this->get('/dashboard/enrollments?status=draft')->assertOk()->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1)->where('enrollments.data.0.status', 'draft'));
-        $this->get('/dashboard/enrollments?status=made-up')->assertSessionHasErrors('status');
-        $this->get('/dashboard/enrollments?status=submitted&page=2')->assertOk()->assertInertia(fn (Assert $page) => $page->has('enrollments.data', 1)->where('enrollments.total', 10));
+        $this->actingAs($student)->get('/app/dashboard/enrollments')->assertOk()->assertInertia(fn (Assert $page) => $page->has('enrollments.data', 9)->where('enrollments.total', 11)->where('stats.draft', 1));
+        $this->get('/app/dashboard/enrollments?'.http_build_query(['q' => $first->reference]))->assertOk()->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1)->where('enrollments.data.0.id', $first->id)->where('stats.total', 11));
+        $this->get('/app/dashboard/enrollments?status=draft')->assertOk()->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1)->where('enrollments.data.0.status', 'draft'));
+        $this->get('/app/dashboard/enrollments?status=made-up')->assertSessionHasErrors('status');
+        $this->get('/app/dashboard/enrollments?status=submitted&page=2')->assertOk()->assertInertia(fn (Assert $page) => $page->has('enrollments.data', 1)->where('enrollments.total', 10));
     }
 
     public function test_detail_uses_declared_information_review_feedback_and_working_download(): void
@@ -70,23 +70,23 @@ class StudentEnrollmentPortalTest extends TestCase
         $doc = EnrollmentDocument::create(['enrollment_id' => $entry->id, 'key' => 'diploma', 'type' => 'document', 'disk' => 'local', 'path' => 'private/proof.pdf', 'filename' => 'preuve.pdf', 'mime' => 'application/pdf', 'size_bytes' => 13, 'sha256' => str_repeat('b', 64), 'review_status' => 'correction_requested', 'comment' => 'Copie illisible']);
         $entry->update(['meta' => ['analysis_started_at' => now()->toISOString(), 'correction_documents' => [$doc->uuid]]]);
         $entry->events()->create(['event' => 'document_reviewed', 'occurred_at' => now(), 'payload' => ['document_name' => 'preuve.pdf', 'verdict' => 'correction_requested', 'reason' => 'Copie illisible', 'private' => 'secret']]);
-        $this->actingAs($student)->get('/dashboard/enrollments/'.$entry->uuid)->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/enrollments/'.$entry->uuid)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('enrollment.reference', $entry->reference)->where('enrollment.declared_name', 'Nom déclaré')->where('enrollment.declared_email', 'declared@example.test')
             ->where('enrollment.academic_year.title', '2026–2027')->where('enrollment.student.post_name', 'K.')
             ->where('enrollment.documents.0.can_replace', true)->where('enrollment.documents.0.review_comment', 'Copie illisible')
             ->where('enrollment.status_history.0.document_name', 'preuve.pdf')->where('enrollment.status_history.0.verdict', 'correction_requested')
             ->missing('enrollment.form_snapshot')->missing('enrollment.documents.0.path')->missing('enrollment.status_history.0.payload'));
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertOk()->assertDownload('preuve.pdf');
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertOk()->assertHeader('content-type', 'application/pdf')->assertHeader('x-content-type-options', 'nosniff');
-        $this->actingAs($this->student('other@example.test'))->get('/dashboard/enrollments/'.$entry->uuid)->assertNotFound();
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertForbidden();
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertForbidden();
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertOk()->assertDownload('preuve.pdf');
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertOk()->assertHeader('content-type', 'application/pdf')->assertHeader('x-content-type-options', 'nosniff');
+        $this->actingAs($this->student('other@example.test'))->get('/app/dashboard/enrollments/'.$entry->uuid)->assertNotFound();
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertForbidden();
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertForbidden();
         $this->actingAs($student);
         Storage::disk('local')->put('private/proof.pdf', '<html><script>alert(1)</script></html>');
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertOk()->assertDownload('preuve.pdf');
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertOk()->assertDownload('preuve.pdf');
         Storage::disk('local')->delete('private/proof.pdf');
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertNotFound();
-        $this->get('/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertNotFound();
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/preview')->assertNotFound();
+        $this->get('/app/dashboard/enrollments/documents/'.$doc->uuid.'/download')->assertNotFound();
     }
 
     public function test_only_owned_drafts_can_be_resumed(): void
@@ -94,8 +94,8 @@ class StudentEnrollmentPortalTest extends TestCase
         $student = $this->student();
         $draft = $this->entry($student, 'draft');
         $submitted = $this->entry($student);
-        $this->actingAs($student)->get('/dashboard/enrollments/'.$draft->uuid.'/edit')->assertOk()->assertInertia(fn (Assert $page) => $page->where('draft.uuid', $draft->uuid));
-        $this->get('/dashboard/enrollments/'.$submitted->uuid.'/edit')->assertNotFound();
-        $this->actingAs($this->student('other@example.test'))->get('/dashboard/enrollments/'.$draft->uuid.'/edit')->assertNotFound();
+        $this->actingAs($student)->get('/app/dashboard/enrollments/'.$draft->uuid.'/edit')->assertOk()->assertInertia(fn (Assert $page) => $page->where('draft.uuid', $draft->uuid));
+        $this->get('/app/dashboard/enrollments/'.$submitted->uuid.'/edit')->assertNotFound();
+        $this->actingAs($this->student('other@example.test'))->get('/app/dashboard/enrollments/'.$draft->uuid.'/edit')->assertNotFound();
     }
 }

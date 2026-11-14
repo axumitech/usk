@@ -39,7 +39,9 @@
     border: 1px solid var(--usk-night-field-border, #145444);
     border-radius: 1.35rem;
     color: var(--usk-night-white, #fffcf0);
-    background: radial-gradient(ellipse at 88% -15%, var(--usk-night-brand, #538963) 0%, transparent 55%), linear-gradient(115deg, var(--usk-night-brand-deep, #083d31) 18%, var(--usk-night-brand-deep, #154d3a) 100%);
+    background:
+        radial-gradient(ellipse at 88% -15%, var(--usk-night-brand, #538963) 0%, transparent 55%),
+        linear-gradient(115deg, var(--usk-night-brand-deep, #083d31) 18%, var(--usk-night-brand-deep, #154d3a) 100%);
 }
 
 .finance-hero-watermark {
@@ -1027,5 +1029,184 @@
     .finance-export-actions > a {
         flex: 1 0 auto;
         justify-content: center;
+    }
+}
+
+.tariff-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    color: inherit;
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.tariff-back:hover {
+    text-decoration: underline;
+}
+
+.finance-workspace .tariff-filters {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.4rem), 1fr));
+}
+
+.tariff-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+    align-items: stretch;
+    gap: clamp(0.75rem, 1.6vw, 1.25rem);
+}
+
+.tariff-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+    padding: clamp(1rem, 2vw, 1.35rem);
+    border: 1px solid var(--finance-line);
+    border-radius: 1rem;
+    background: var(--finance-paper);
+    box-shadow: 0 0.3rem 1rem color-mix(in srgb, var(--finance-ink) 7%, transparent);
+}
+
+.tariff-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.tariff-card-identity {
+    flex: 1 1 13rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.usk-dashboard .tariff-card h2,
+.usk-dashboard .tariff-empty h2 {
+    margin: 0.55rem 0 0.2rem;
+    color: var(--finance-ink);
+    font-size: clamp(1.15rem, 2vw, 1.42rem);
+    font-weight: 750;
+    line-height: 1.25;
+}
+
+.tariff-card p,
+.tariff-empty p {
+    margin: 0;
+    color: var(--finance-muted);
+    font-size: 0.84rem;
+}
+
+.tariff-category,
+.tariff-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: 100%;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    background: var(--usk-night-raised, #e7f0e7);
+    color: var(--finance-ink);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.tariff-category svg {
+    flex: none;
+}
+
+.tariff-category[data-category='foreign'],
+.tariff-status[data-status='draft'] {
+    background: var(--usk-night-warm, #f4ead4);
+}
+
+.tariff-status[data-status='archived'] {
+    border: 1px solid var(--finance-line);
+    color: var(--finance-muted);
+    background: var(--finance-paper);
+}
+
+.tariff-total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 0.8rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0.65rem;
+    background: var(--usk-night-raised, #e7f0e7);
+    font-size: 0.88rem;
+}
+
+.tariff-total strong {
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.finance-tariff-installments {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.finance-tariff-installments li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.15rem 0.55rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--finance-line);
+    font-size: 0.82rem;
+}
+
+.finance-tariff-installments li strong {
+    grid-area: 1 / 3 / span 2 / 4;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.finance-tariff-installments time {
+    grid-column: 2;
+    color: var(--finance-muted);
+}
+
+.tariff-card-footer {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: auto;
+}
+
+.tariff-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.tariff-card-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.6rem;
+    white-space: normal;
+}
+
+.tariff-empty {
+    display: grid;
+    justify-items: center;
+    padding: clamp(1.4rem, 4vw, 3rem) 1rem;
+    border: 1px dashed var(--finance-line);
+    border-radius: 1rem;
+    background: var(--finance-paper);
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .tariff-card-actions button {
+        flex: 1 1 10rem;
     }
 }

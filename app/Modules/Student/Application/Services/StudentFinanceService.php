@@ -2,6 +2,7 @@
 
 namespace App\Modules\Student\Application\Services;
 
+use App\Models\AcademicYear;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\FinancialAdjustment;
 use App\Models\Student\StudentObligation;
@@ -33,7 +34,7 @@ final class StudentFinanceService
         if ($obligations->contains(fn ($o) => $o->currency !== null && $o->currency !== $entry->currency)) {
             throw ValidationException::withMessages(['currency' => 'Des obligations utilisent une devise incompatible. Un contrôle financier est requis.']);
         }
-        $payments = $entry->payments()->with(['allocations.obligation', 'allocations.reversals', 'refunds'])->get();
+        $payments = $entry->payments()->with(['allocations.reversals', 'refunds'])->get();
         $adjustments = $this->activeAdjustments($entry);
         $legacy = [];
         $explicit = [];
@@ -71,40 +72,61 @@ final class StudentFinanceService
         $kinds = $groups->keys()->merge(array_keys($legacy))->merge(array_keys($pending))->reject(fn ($kind) => $kind === 'unallocated')->unique();
         $balances = [];
         $schedules = [];
+        $obligationDetails = [];
+        $kindTitles = ['tuition' => 'Frais académiques', 'unallocated' => 'Versement général'];
         $remainingByObligation = [];
         foreach ($kinds as $kind) {
             $rows = $groups->get($kind, collect());
+            $kindTitles[$kind] ??= $rows->first()?->source_snapshot['title']
+                ?? ($rows->count() === 1 ? $rows->first()->title : Str::ucfirst(str_replace('_', ' ', $kind)));
             $total = (int) $rows->sum('amount_cents');
             $aids = $adjustments->where('fee_kind', $kind)->where('funding_source', '!=', 'third_party');
             $waived = $aids->contains('type', 'exemption') ? $total : min($total, (int) $aids->whereIn('type', ['scholarship', 'reduction'])->sum('amount_cents'));
             $paid = ($legacy[$kind] ?? 0) + (int) $rows->sum(fn ($row) => $explicit[$row->id] ?? 0);
             $due = max(0, $total - $waived);
-            $coverage = $waived + ($legacy[$kind] ?? 0);
-            $schedule = [];
-            foreach ($rows as $row) {
-                $outstanding = max(0, (int) $row->amount_cents - ($explicit[$row->id] ?? 0));
-                $used = min($coverage, $outstanding);
-                $coverage -= $used;
-                $outstanding -= $used;
-                $remainingByObligation[$row->id] = $outstanding;
-                $schedule[] = ['id' => $row->id, 'kind' => $kind, 'title' => $row->title, 'amount_cents' => (int) $row->amount_cents, 'remaining_cents' => $outstanding, 'due_at' => $row->due_at?->toDateString()];
-            }
+            $waiverRemaining = $waived;
+            $legacyRemaining = $legacy[$kind] ?? 0;
             $plan = $adjustments->where('type', 'plan')->where('fee_kind', $kind)->sortByDesc('id')->first();
             $validPlan = $plan && array_sum(array_column($plan->schedule ?? [], 'amount_cents')) === $due;
+            $schedule = [];
+            foreach ($rows as $row) {
+                $amount = (int) $row->amount_cents;
+                $allocated = min($amount, $explicit[$row->id] ?? 0);
+                $waivedForRow = min($waiverRemaining, $amount - $allocated);
+                $waiverRemaining -= $waivedForRow;
+                $legacyForRow = min($legacyRemaining, $amount - $allocated - $waivedForRow);
+                $legacyRemaining -= $legacyForRow;
+                $outstanding = $amount - $allocated - $waivedForRow - $legacyForRow;
+                $remainingByObligation[$row->id] = $outstanding;
+                $line = ['id' => $row->id, 'kind' => $kind, 'kind_title' => $kindTitles[$kind], 'title' => $row->title, 'currency' => $entry->currency,
+                    'amount_cents' => $amount, 'remaining_cents' => $outstanding, 'due_at' => $row->due_at?->toDateString()];
+                $status = $outstanding === 0 && $amount > 0 && $waivedForRow === $amount
+                    ? 'exempted'
+                    : $this->dueStatus($validPlan ? null : $line['due_at'], $outstanding, $amount);
+                $schedule[] = $line + ['status' => $status];
+                $obligationDetails[$row->id] = array_replace($line + ['status' => $status], [
+                    'due_at' => $validPlan ? null : $line['due_at'],
+                    'rescheduled' => $validPlan,
+                    'installment' => (int) $row->installment,
+                    'paid_cents' => $allocated + $legacyForRow,
+                    'waived_cents' => $waivedForRow,
+                ]);
+            }
             if ($validPlan) {
                 $coverage = $paid;
                 $schedule = [];
                 foreach (collect($plan->schedule)->sortBy('due_at') as $index => $row) {
                     $used = min($coverage, (int) $row['amount_cents']);
                     $coverage -= $used;
-                    $schedule[] = ['id' => 'plan-'.$plan->id.'-'.$index, 'kind' => $kind, 'title' => 'Échéance approuvée', 'amount_cents' => (int) $row['amount_cents'], 'remaining_cents' => (int) $row['amount_cents'] - $used, 'due_at' => $row['due_at']];
+                    $schedule[] = ['id' => 'plan-'.$plan->id.'-'.$index, 'kind' => $kind, 'kind_title' => $kindTitles[$kind],
+                        'title' => 'Échéance approuvée', 'currency' => $entry->currency, 'amount_cents' => (int) $row['amount_cents'],
+                        'remaining_cents' => (int) $row['amount_cents'] - $used, 'due_at' => $row['due_at']];
                 }
             }
             $overdue = 0;
             foreach ($schedule as &$row) {
-                $late = $row['due_at'] !== null && $row['due_at'] < today('Africa/Kinshasa')->toDateString();
-                $row['status'] = $row['remaining_cents'] === 0 ? 'paid' : ($late ? 'overdue' : ($row['remaining_cents'] < $row['amount_cents'] ? 'partial' : 'upcoming'));
-                if ($late) {
+                $row['status'] ??= $this->dueStatus($row['due_at'], $row['remaining_cents'], $row['amount_cents']);
+                if ($row['status'] === 'overdue') {
                     $overdue += $row['remaining_cents'];
                 }
             }
@@ -125,7 +147,18 @@ final class StudentFinanceService
         $summary['refunded_cents'] = $refundTotal;
         $summary['financial_clearance_status'] = ! $summary['assessed'] ? 'unassessed' : ($summary['total_cents'] > 0 && $summary['waived_cents'] === $summary['total_cents'] ? 'exempted' : ($summary['balance_cents'] === 0 ? 'cleared' : ($summary['overdue_cents'] > 0 ? 'overdue' : ($summary['paid_cents'] > 0 ? 'partial' : 'unpaid'))));
 
-        return ['balance' => $summary, 'kinds' => $balances, 'schedules' => $schedules, 'obligation_remaining' => $remainingByObligation];
+        return ['balance' => $summary, 'kinds' => $balances, 'schedules' => $schedules, 'obligation_remaining' => $remainingByObligation,
+            'obligations' => $obligations->map(fn ($row) => $obligationDetails[$row->id])->values(), 'kind_titles' => $kindTitles];
+    }
+
+    private function dueStatus(?string $dueAt, int $remaining, int $amount): string
+    {
+        return match (true) {
+            $remaining === 0 => 'paid',
+            $dueAt !== null && $dueAt < today('Africa/Kinshasa')->toDateString() => 'overdue',
+            $remaining < $amount => 'partial',
+            default => 'upcoming',
+        };
     }
 
     public function balance(AcademicEnrollment $entry, ?string $kind = null): array
@@ -153,25 +186,38 @@ final class StudentFinanceService
         app(EnrollmentFinancialConfirmation::class)->apply($entry, $actorId, $this->firstTuitionInstallmentCovered($entry));
     }
 
-    public function assess(AcademicEnrollment $entry, User $actor, string $category, array $dates = [], string $reason = ''): void
+    public function assess(AcademicEnrollment $entry, User $actor, string $category, array $dates = [], string $reason = ''): bool
     {
         $this->authorize($entry, $actor);
-        DB::transaction(function () use ($entry, $actor, $category, $dates, $reason) {
+
+        return DB::transaction(function () use ($entry, $actor, $category, $dates, $reason) {
+            AcademicYear::lockForUpdate()->findOrFail($entry->academic_year_id);
             $entry = AcademicEnrollment::lockForUpdate()->findOrFail($entry->id);
+            $this->authorize($entry, $actor);
             if ($entry->obligations()->where('kind', 'tuition')->exists() && $entry->fee_category === $category) {
-                return;
+                return true;
             }
             if ($entry->payments()->where('kind', 'tuition')->exists() || $entry->adjustments()->where('fee_kind', 'tuition')->exists()) {
                 throw ValidationException::withMessages(['category' => 'Un historique financier existe : une réévaluation doit être traitée par la comptabilité.']);
             }
-            if (! $this->applyTuitionTariff($entry, $actor->id, $category, $dates, $reason)) {
+            if ($this->applyTuitionTariff($entry, $actor->id, $category, $dates, $reason, $actor)) {
+                return true;
+            }
+            if (! app(FeeTariffService::class)->hasPendingTuition($entry, $category)) {
                 throw ValidationException::withMessages(['category' => 'Les deux tranches de ce tarif ne sont pas renseignées pour le niveau.']);
             }
-        });
+            if ($entry->fee_category !== $category) {
+                $previous = $entry->fee_category;
+                $entry->update(['fee_category' => $category]);
+                Audit::record($actor->id, 'fee_category_confirmed', $entry, $reason, ['previous' => $previous, 'category' => $category]);
+            }
+
+            return false;
+        }, 3);
     }
 
     /** Apply the level tariff to a locked enrollment, or to one just created in the same transaction. */
-    public function applyTuitionTariff(AcademicEnrollment $entry, int $actorId, string $category, array $dates, string $reason): bool
+    public function applyTuitionTariff(AcademicEnrollment $entry, int $actorId, string $category, array $dates, string $reason, ?User $staff = null): bool
     {
         if ($entry->obligations()->where('kind', 'tuition')->exists()) {
             if ($entry->fee_category !== $category) {
@@ -180,10 +226,12 @@ final class StudentFinanceService
 
             return true;
         }
-        if ($tariff = app(FeeTariffService::class)->resolve($entry, $category)) {
-            app(FeeTariffService::class)->bill($tariff, $entry, User::findOrFail($actorId), $reason);
-
+        $tariffs = app(FeeTariffService::class);
+        if ($tariffs->billResolvedTuition($entry, $actorId, $category, $reason, $staff)) {
             return true;
+        }
+        if ($tariffs->hasPendingTuition($entry, $category)) {
+            return false;
         }
         if ($entry->currency !== config('student.currency')) {
             throw ValidationException::withMessages(['category' => 'Un barème explicite dans cette devise est requis ; aucune conversion implicite n’est autorisée.']);

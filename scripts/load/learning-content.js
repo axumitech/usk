@@ -47,13 +47,13 @@ export default function () {
     if (!account.cookie) throw new Error('Cookie de session jetable requis.');
     const params = { headers: { Cookie: account.cookie, Accept: 'text/html' }, redirects: 0 };
     const teacher = account.role === 'professor';
-    const library = teacher ? '/dashboard/teacher/resources' : '/dashboard/admin/teaching/resources';
-    const studentResource = `/dashboard/student/resources/${Number(account.resource_id)}`;
+    const library = teacher ? '/app/dashboard/teacher/resources' : '/app/dashboard/admin/teaching/resources';
+    const studentResource = `/app/dashboard/student/resources/${Number(account.resource_id)}`;
     const download = `${base}${studentResource}/download?academic=${Number(account.academic_id)}`;
     if (mode === 'read') {
         const url =
             account.role === 'student'
-                ? `/dashboard/student/courses/${Number(account.course_id)}/files?academic=${Number(account.academic_id)}`
+                ? `/app/dashboard/student/courses/${Number(account.course_id)}/files?academic=${Number(account.academic_id)}`
                 : `${library}?offering=${Number(account.offering_id)}`;
         check(http.get(base + url, params), { 'catalogue autorisé': (r) => r.status === 200 });
     } else if (mode === 'renew') {

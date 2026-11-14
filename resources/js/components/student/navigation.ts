@@ -1,5 +1,7 @@
 import { BookOpen, ClipboardCheck, House, Landmark, Library, MessagesSquare, UserRound, Wallet } from 'lucide-react';
-import type { Permission } from './types';
+import type { Permission, Session } from './types';
+
+export type ScheduleView = 'week' | 'list' | 'exams';
 
 type StudentNavigationItem = { label: string; section: string; hash?: string };
 type StudentModule = {
@@ -28,9 +30,10 @@ export const studentModules: StudentModule[] = [
         title: 'Mes études',
         icon: BookOpen,
         description: 'Votre programme et vos enseignements.',
-        sections: ['academics', 'courses', 'schedule', 'absences', 'assignments', 'evaluations'],
+        sections: ['program', 'academics', 'courses', 'schedule', 'absences', 'assignments', 'evaluations'],
         items: [
-            { label: 'Programme académique', section: 'academics' },
+            { label: 'Programme académique', section: 'program' },
+            { label: 'Programme de formation', section: 'academics' },
             { label: 'Mes cours', section: 'courses' },
             { label: 'Emploi du temps', section: 'schedule' },
             { label: 'Justification des absences', section: 'absences' },
@@ -56,10 +59,10 @@ export const studentModules: StudentModule[] = [
         description: 'Vos inscriptions et démarches.',
         sections: ['services', 'enrollments', 'documents', 'requests'],
         items: [
-            { label: 'Démarches administratives', section: 'services' },
+            { label: 'Scolarité', section: 'services' },
             { label: 'Inscriptions', section: 'enrollments' },
             { label: 'Documents', section: 'documents' },
-            { label: 'Demandes administratives', section: 'requests' },
+            { label: 'Mes demandes', section: 'requests' },
         ],
     },
     {
@@ -93,10 +96,11 @@ export const studentModules: StudentModule[] = [
         id: 'profile',
         title: 'Mon compte',
         icon: UserRound,
-        description: 'Votre profil et votre carte étudiante.',
-        sections: ['profile', 'card'],
+        description: 'Votre profil, votre parcours et votre carte étudiante.',
+        sections: ['profile', 'pathway', 'card'],
         items: [
             { label: 'Profil', section: 'profile' },
+            { label: 'Parcours académique', section: 'pathway' },
             { label: 'Carte étudiante NFC', section: 'card' },
         ],
     },
@@ -105,9 +109,11 @@ export const studentModules: StudentModule[] = [
 export const studentSectionLabels: Record<string, string> = {
     overview: 'Tableau de bord',
     profile: 'Profil',
+    pathway: 'Parcours académique',
     card: 'Carte étudiante NFC',
     documents: 'Documents',
-    academics: 'Programme académique',
+    program: 'Programme académique',
+    academics: 'Programme de formation',
     courses: 'Mes cours',
     schedule: 'Emploi du temps',
     absences: 'Justification des absences',
@@ -118,10 +124,11 @@ export const studentSectionLabels: Record<string, string> = {
     results: 'Notes et bulletins',
     fees: 'Situation financière',
     transactions: 'Historique des paiements et reçus',
-    services: 'Démarches administratives',
+    services: 'Scolarité',
     enrollments: 'Mes inscriptions académiques',
-    requests: 'Demandes administratives',
+    requests: 'Mes demandes',
     announcements: 'Annonces',
+    notifications: 'Notifications',
 };
 
 // Match the page-level decisions in StudentPortalController::show.
@@ -155,5 +162,29 @@ export function studentSectionAccess(section: string, permissions?: Record<strin
 export function studentHref(section: string, academic?: number, hash?: string) {
     const accountWide = section === 'enrollments' || section === 'absences';
     const context = academic !== undefined && !accountWide ? `?academic=${academic}` : '';
-    return `/dashboard/student/${section}${context}${hash ? `#${hash}` : ''}`;
+    return `/app/dashboard/student/${section}${context}${hash ? `#${hash}` : ''}`;
+}
+
+export function studentScheduleHref(academic: number, week?: string, day?: string, view?: ScheduleView) {
+    const query = new URLSearchParams({ academic: String(academic) });
+    if (week) query.set('week', week);
+    if (day) query.set('day', day);
+    if (view && view !== 'week') query.set('view', view);
+    return `${studentHref('schedule')}?${query}`;
+}
+
+export function studentScheduledCourseHref(
+    session: Session,
+    academic: number,
+    from: 'schedule' | 'overview',
+    week?: string,
+    day?: string,
+    view?: ScheduleView,
+) {
+    if (!session.course_id) return null;
+    const query = new URLSearchParams({ academic: String(academic), focus_session: String(session.id), from });
+    if (week) query.set('return_week', week);
+    if (day) query.set('return_day', day);
+    if (view) query.set('return_view', view);
+    return `${studentHref(`courses/${session.course_id}`)}?${query}`;
 }

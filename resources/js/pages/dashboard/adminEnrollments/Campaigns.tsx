@@ -36,7 +36,7 @@ export default function Campaigns({ level, programs, years, campaigns, success }
     const selected = programs.find((program) => String(program.id) === form.data.academic_program_id);
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        form.post('/dashboard/admin/enrollments/campaigns', { preserveScroll: true, onSuccess: () => form.reset('reason') });
+        form.post('/app/dashboard/admin/enrollments/campaigns', { preserveScroll: true, onSuccess: () => form.reset('reason') });
     };
     return (
         <Dashboard>
@@ -56,7 +56,7 @@ export default function Campaigns({ level, programs, years, campaigns, success }
                             Retour aux conditions générales du niveau
                         </Link>
                     ) : (
-                        <Link href="/dashboard/admin/levels">Conditions générales par niveau</Link>
+                        <Link href="/app/dashboard/admin/levels">Conditions générales par niveau</Link>
                     )}
                 </div>
                 {success && (

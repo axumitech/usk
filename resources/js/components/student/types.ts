@@ -37,12 +37,15 @@ export type AssessmentActivity = {
     teacher: string | null;
     objectives: string | null;
     attempt_limit: number;
+    submission_formats?: string[];
+    submission_max_kb?: number;
     late_deadline: string | null;
     maximum_points: number | null;
     status: string;
     can_submit: boolean;
     group: string | null;
     participation: string | null;
+    rubric?: { label: string; maximum: number }[];
     session: { starts_at: string; ends_at: string; room: string; cancelled_at: string | null } | null;
     feedback: {
         points: number | null;
@@ -53,6 +56,18 @@ export type AssessmentActivity = {
         review_url: string | null;
     } | null;
 };
+export type EvaluationView = 'upcoming' | 'past';
+export type EvaluationSummary = {
+    status: 'upcoming' | 'ongoing' | 'past' | 'unscheduled' | 'cancelled';
+    starts_at: string | null;
+    ends_at: string | null;
+    teacher: string | null;
+    room: string | null;
+    filename: string | null;
+    size_bytes: number | null;
+    can_submit: boolean;
+};
+
 export type Resource = {
     id: number;
     kind: string;
@@ -64,7 +79,9 @@ export type Resource = {
     download_url: string | null;
     opens_at: string | null;
     closes_at: string | null;
-    supports?: { id: number; title: string; url: string; download_url: string | null }[];
+    supports?: { id: number; title: string; url: string; download_url: string | null; filename?: string | null; size_bytes?: number | null }[];
+    assignment?: { status: string; can_submit: boolean; teacher: string | null; filename: string | null; size_bytes: number | null };
+    evaluation?: EvaluationSummary | null;
     assessment?: AssessmentActivity | null;
     submission: {
         id?: number;
@@ -84,9 +101,21 @@ export type OverviewResource = {
     opens_at: string | null;
     closes_at: string | null;
 };
+export type AnnouncementKind = 'text' | 'photo' | 'video' | 'document';
+export type OverviewAnnouncement = OverviewResource & {
+    kind?: AnnouncementKind;
+    faculty?: string | null;
+    date?: string | null;
+    recent?: boolean;
+    preview_url?: string | null;
+    detail_url?: string;
+    format?: string | null;
+    source_url?: string | null;
+};
 export type StudentOverviewData = {
     fee_summary: { kind: string; title: string; balance: Balance }[];
     ongoing_evaluations: OverviewResource[];
+    upcoming_events?: import('./programCalendar').ProgramEvent[];
     generated_at: string;
     timezone: string;
     today_count: number;
@@ -97,20 +126,65 @@ export type StudentOverviewData = {
     week_sessions: (PortalProps['sessions'][number] & { course_id: number; semester: string; ongoing: boolean })[];
     alerts: { id: string; tone: string; title: string; message: string; section: string }[];
     latest_results: OverviewResource[];
-    announcements: OverviewResource[];
+    announcements: OverviewAnnouncement[];
     upcoming_evaluations: OverviewResource[];
     missing_documents: string[];
 };
+export type FinanceDueLine = {
+    id: number | string;
+    kind: string;
+    kind_title?: string;
+    title: string;
+    amount_cents: number;
+    remaining_cents: number;
+    currency: string;
+    due_at: string | null;
+    status: 'paid' | 'exempted' | 'overdue' | 'partial' | 'upcoming';
+};
+export type FinanceObligation = FinanceDueLine & { id: number; paid_cents: number; waived_cents: number; installment: number; rescheduled?: boolean };
+export type StudentPayment = {
+    id: number;
+    uuid: string;
+    reference: string;
+    amount_cents: number;
+    status: string;
+    method: string;
+    kind?: string;
+    kind_title?: string;
+    created_at: string;
+    confirmed_at: string | null;
+    currency?: string;
+    refunded_cents?: number;
+    receipt_url: string | null;
+};
+export type Session = {
+    id: number;
+    course: string;
+    course_id?: number;
+    starts_at: string;
+    ends_at: string;
+    room: string | null;
+    location?: string | null;
+    teacher?: string | null;
+    level_id?: number;
+    status?: string;
+    semester?: string | null;
+    activity_type?: string | null;
+    resource_url?: string | null;
+};
+
 export type PortalProps = {
-    finance_schedule?: {
-        id: number | string;
-        kind: string;
-        title: string;
-        amount_cents: number;
-        remaining_cents: number;
-        due_at: string | null;
-        status: string;
-    }[];
+    studentChrome?: import('./StudentChrome').StudentChromeData | null;
+    profile_view?: 'overview' | 'personal' | 'photo' | 'settings' | null;
+    finance_schedule?: FinanceDueLine[];
+    finance_details?: {
+        obligations: FinanceObligation[];
+        recent_payments: StudentPayment[];
+        receipt_payments: StudentPayment[];
+        history_url: string;
+        receipts_url: string;
+    } | null;
+    finance_view?: 'history' | 'receipts' | null;
     payments_pagination?: { links: { url: string | null; label: string; active: boolean }[] };
     card_eligibility?: {
         ready: boolean;
@@ -119,6 +193,7 @@ export type PortalProps = {
         decision_note: string | null;
     } | null;
     lifecycle?: { reference: string; kind: string; status: string; decided_at: string }[];
+    course_credits?: { earned: number | null; remaining: number | null; compensated: number | null; planned: number | null } | null;
     progression_credits?: { earned: number; remaining: number; reference: string } | null;
     progression: {
         id: number;
@@ -148,7 +223,6 @@ export type PortalProps = {
     welcome_pending: boolean;
     section: string;
     academic: Academic;
-    contexts: { id: number; label: string }[];
     permissions: Record<string, Permission>;
     balance: Balance;
     courses: {
@@ -157,7 +231,7 @@ export type PortalProps = {
         detail_url: string;
         title: string;
         code: string | null;
-        credits: number;
+        credits: number | null;
         semester: string | null;
         teacher: string | null;
         catalog_only?: boolean;
@@ -165,40 +239,31 @@ export type PortalProps = {
         is_optional?: boolean;
         archived?: boolean;
         unit?: string | null;
+        unit_id?: number | null;
+        unit_code?: string | null;
+        unit_credits?: number | null;
+        unit_registered_credits?: number | null;
+        unit_is_composite?: boolean;
+        unit_component_count?: number | null;
     }[];
     schedule_week: string;
+    schedule_day?: string | null;
+    schedule_view?: import('./navigation').ScheduleView;
     calendar_events?: { id: number; title: string; category_label: string; start_date: string; end_date: string }[];
-    sessions: {
-        id: number;
-        course: string;
-        starts_at: string;
-        ends_at: string;
-        room: string;
-        teacher?: string | null;
-        level_id?: number;
-        status?: string;
-        resource_url?: string | null;
-    }[];
+    sessions: Session[];
     upcoming_sessions: PortalProps['sessions'];
     resources: Resource[];
     document_center?: import('./OfficialDocumentCenter').DocumentCenter | null;
+    document_library?: import('./StudentDocumentsLibrary').DocumentLibrary | null;
     official_results?: import('./OfficialResults').OfficialResultsProps | null;
     work_pagination?: { links: { url: string | null; label: string; active: boolean }[] } | null;
     activity_filter?: string | null;
+    evaluation_view?: EvaluationView | null;
+    evaluation_counts?: Record<EvaluationView, number> | null;
+    work_id?: number | null;
+    assignment_counts?: Record<string, number> | null;
     obligations: { id: number; title: string; amount_cents: number; due_at: string | null; installment: number }[];
-    payments: {
-        id: number;
-        uuid: string;
-        reference: string;
-        amount_cents: number;
-        status: string;
-        method: string;
-        created_at: string;
-        confirmed_at: string | null;
-        currency?: string;
-        refunded_cents?: number;
-        receipt_url: string | null;
-    }[];
+    payments: StudentPayment[];
     tariffs: { national: (number | null)[]; foreign: (number | null)[] };
     adjustments: {
         id: number;
@@ -210,16 +275,7 @@ export type PortalProps = {
         expires_at: string | null;
         schedule?: { due_at: string; amount_cents: number }[] | null;
     }[];
-    requests: { id: number; category: string; subject: string; body: string; status: string; response: string | null; created_at: string }[];
-    work_archive: {
-        id: number;
-        title: string;
-        body: string | null;
-        version: number;
-        submitted_at: string;
-        filename: string | null;
-        download_url: string | null;
-    }[];
+    scolarite?: import('./StudentSchoolServices').SchoolServices | null;
     success?: string;
 };
 export const money = (cents: number, currency = 'USD') =>

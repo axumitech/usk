@@ -50,7 +50,7 @@ const Sidebar = ({
         auth?: { user?: { permissions?: string[]; hasAcademicFacultyScope?: boolean } | null };
     }>();
     const portalActive = Boolean(page.props.studentPortalActive);
-    const isStudentPortal = portalActive && !isAdministration && !page.url?.startsWith('/dashboard/teacher');
+    const isStudentPortal = portalActive && !isAdministration && !page.url?.startsWith('/app/dashboard/teacher');
     const sidebarRef = useRef<HTMLDivElement>(null);
     const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
     const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -105,7 +105,7 @@ const Sidebar = ({
     const visitMenuPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         const destination = new URL(event.currentTarget.href);
-        if (destination.origin !== window.location.origin || !/^\/dashboard(?:\/|$)/.test(destination.pathname)) return;
+        if (destination.origin !== window.location.origin || !/^\/app\/dashboard(?:\/|$)/.test(destination.pathname)) return;
 
         event.preventDefault();
         onNavigate();
@@ -226,7 +226,7 @@ const Sidebar = ({
           : {
                 dashboard: {
                     title: 'Espace étudiant',
-                    items: [{ id: 'home', label: 'Mon espace', icon: <Home size={18} />, href: '/dashboard' }],
+                    items: [{ id: 'home', label: 'Mon espace', icon: <Home size={18} />, href: '/app/dashboard' }],
                 },
                 teaching: {
                     title: 'Espace enseignant',

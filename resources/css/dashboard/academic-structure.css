@@ -632,3 +632,70 @@
 .as-faculty-levels .as-review-overview .as-badge {
     background: var(--usk-night-raised, #edf2e7);
 }
+
+.as-finance-fields {
+    display: grid;
+    gap: 0.65rem;
+    min-width: 0;
+    padding: 0.72rem;
+    border: 1px solid var(--usk-night-border, #d9e3d9);
+    border-radius: 0.68rem;
+    background: var(--usk-night-raised, #f4f7f1);
+}
+
+.as-finance-fields legend,
+.as-finance-toggle {
+    color: var(--usk-night-text, #283d2f);
+    font-weight: 720;
+}
+
+.as-finance-fields .as-finance-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.42rem;
+}
+
+.as-finance-toggle input {
+    margin-top: 0.2em;
+    accent-color: var(--usk-night-brand, #2a5c43);
+}
+
+.as-finance-fields p,
+.as-finance-report-actions p {
+    margin: 0;
+    color: var(--usk-night-muted, #526459);
+    font-size: 0.85rem;
+}
+
+.as-finance-dates {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: 0.65rem;
+}
+
+.as-finance-dates input {
+    min-width: 0;
+}
+
+.as-finance-report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 0.9rem;
+    margin: 0.75rem 0;
+}
+
+.as-finance-installments {
+    display: grid;
+    gap: 0.22rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.as-finance-installments li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.6rem;
+}

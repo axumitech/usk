@@ -47,32 +47,6 @@ const content: Record<string, { intro: string; items: Item[] }> = {
             { title: 'Réclamation', description: 'Adressez une demande à l’administration et suivez sa réponse.', section: 'requests' },
         ],
     },
-    services: {
-        intro: 'Un point d’entrée pour vos démarches et vos échanges avec l’administration.',
-        items: [
-            {
-                title: 'Mes inscriptions académiques',
-                description: 'Situation annuelle, historique et réinscriptions autorisées.',
-                section: 'enrollments',
-            },
-            {
-                title: 'Déposer une demande',
-                description: 'Assistance, demande financière, recours ou demande de document selon vos droits.',
-                section: 'requests',
-            },
-            {
-                title: 'Mes documents',
-                description: 'Consultez les documents publiés et suivez vos demandes d’attestation ou de diplôme.',
-                section: 'documents',
-            },
-            {
-                title: 'Changement de parcours ou transfert',
-                description: 'Adressez votre demande à la scolarité pour examen et décision.',
-                section: 'requests',
-            },
-            { title: 'Congé académique ou abandon', description: 'Déposez une demande et consultez la réponse administrative.', section: 'requests' },
-        ],
-    },
 };
 const academicIcons = { courses: BookOpen, schedule: CalendarDays, materials: FolderOpen, assignments: ClipboardList };
 

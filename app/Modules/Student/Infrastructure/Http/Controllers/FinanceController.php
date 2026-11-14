@@ -37,7 +37,7 @@ final class FinanceController extends Controller
         return $r->validate(['q' => 'nullable|string|max:150', 'year' => 'nullable|integer|exists:academic_years,id', 'faculty' => 'nullable|integer|exists:faculties,id', 'program' => 'nullable|integer|exists:academic_programs,id', 'level' => 'nullable|integer|exists:levels,id', 'academic' => 'nullable|integer']);
     }
 
-    public function index(Request $r, StudentFinanceService $finance, FinanceReportingService $reports, AcademicEnrollmentReadService $read)
+    public function index(Request $r, StudentFinanceService $finance, FinanceReportingService $reports, AcademicEnrollmentReadService $read, FeeTariffService $tariffService)
     {
         $this->staff($r);
         $actor = $r->user();
@@ -47,10 +47,6 @@ final class FinanceController extends Controller
         $entry = isset($filters['academic']) ? AcademicEnrollment::with(['profile.user', 'level.faculty', 'academicYear', 'curriculumVersion', 'promotion.program', 'admissionCohort.program', 'group.intake', 'group.promotion'])->findOrFail($filters['academic']) : null;
         if ($entry) {
             $finance->authorize($entry, $actor);
-        }
-        $tariffs = FinanceTariff::query();
-        if ($hasFacultyScope) {
-            $tariffs->where(fn ($q) => $q->whereHas('level', fn ($l) => $l->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id')))->orWhereHas('program', fn ($p) => $p->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id'))));
         }
 
         return Inertia::render('dashboard/finance/Index', [
@@ -63,7 +59,7 @@ final class FinanceController extends Controller
             'obligations' => $entry ? $entry->obligations()->orderBy('installment')->get() : [],
             'payments' => $entry ? $entry->payments()->with('allocations')->latest('id')->paginate(20, ['*'], 'payments_page')->withQueryString() : null,
             'refunds' => $entry ? PaymentRefund::whereIn('student_payment_id', $entry->payments()->select('id'))->latest('id')->paginate(15, ['*'], 'refunds_page')->withQueryString() : null,
-            'tariffs' => $tariffs->latest('id')->paginate(15, ['*'], 'tariffs_page')->withQueryString(),
+            'tariffs' => ['data' => $entry ? $tariffService->billableFor($entry, $actor)->orderBy('title')->get(['id', 'title', 'version', 'category', 'currency', 'status']) : []],
             'faculties' => $hasFacultyScope ? (clone $facultyScope)->orderBy('name')->get(['faculties.id', 'faculties.name'])->makeHidden('pivot') : Faculty::orderBy('name')->get(['id', 'name']),
             'programs' => AcademicProgram::when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id')))->orderBy('name')->get(['id', 'name', 'faculty_id']),
             'levels' => Level::with('faculty:id,name')->when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id')))->orderBy('title')->get(['id', 'title', 'faculty_id']),
@@ -71,6 +67,74 @@ final class FinanceController extends Controller
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
             'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => config('finance.dual_control'),
             'preview' => ($r->session()->get('finance.preview.actor_id') === $r->user()->id && $r->session()->get('finance.preview.expires_at', 0) >= now()->timestamp) ? $r->session()->get('finance.preview') : null,
+        ]);
+    }
+
+    public function tariffs(Request $request, FeeTariffService $service)
+    {
+        $this->staff($request);
+        $filters = $request->validate([
+            'year' => 'nullable|integer|exists:academic_years,id',
+            'faculty' => 'nullable|integer|exists:faculties,id',
+            'level' => 'nullable|integer|exists:levels,id',
+            'category' => 'nullable|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
+            'status' => 'nullable|in:draft,active,archived',
+        ]);
+        $faculties = $request->user()->academicFaculties();
+        $facultyIds = $faculties->pluck('faculties.id');
+        if ($facultyIds->isNotEmpty()) {
+            abort_if(isset($filters['faculty']) && ! $facultyIds->contains($filters['faculty']), 403);
+            abort_if(isset($filters['level']) && ! Level::whereKey($filters['level'])->whereIn('faculty_id', $facultyIds)->exists(), 403);
+        }
+        foreach (['year', 'faculty', 'level'] as $id) {
+            if (isset($filters[$id])) {
+                $filters[$id] = (int) $filters[$id];
+            }
+        }
+
+        $years = AcademicYear::orderByDesc('start_date')->orderByDesc('id')->get(['id', 'title', 'status', 'start_date', 'end_date']);
+        $open = $years->where('status', 'open');
+        $today = today('Africa/Kinshasa')->toDateString();
+        $current = $open->first(fn (AcademicYear $year) => $year->start_date <= $today && $year->end_date >= $today) ?? $open->first() ?? $years->first();
+        $filters['year'] ??= $current?->id;
+
+        $query = FinanceTariff::with(['academicYear:id,title,start_date,end_date,status', 'level:id,title,faculty_id', 'level.faculty:id,name', 'program:id,name,faculty_id', 'program.faculty:id,name'])
+            ->where('academic_year_id', $filters['year'])
+            ->when(isset($filters['level']), fn ($query) => $query->where('level_id', $filters['level']))
+            ->when(isset($filters['category']), fn ($query) => $query->where('category', $filters['category']))
+            ->when(isset($filters['status']), fn ($query) => $query->where('status', $filters['status']));
+        $tariffFacultyIds = isset($filters['faculty']) ? [$filters['faculty']] : $facultyIds->all();
+        if ($tariffFacultyIds !== []) {
+            $query->where(function ($query) use ($tariffFacultyIds) {
+                $query->whereHas('program', fn ($program) => $program->whereIn('faculty_id', $tariffFacultyIds))
+                    ->orWhere(fn ($query) => $query->whereNull('academic_program_id')->whereHas('level', fn ($level) => $level->whereIn('faculty_id', $tariffFacultyIds)));
+            });
+        }
+        $tariffs = $query->latest('id')->paginate(15)->withQueryString();
+        $scopes = $tariffs->getCollection()->pluck('scope_key')->unique();
+        $latest = FinanceTariff::whereIn('scope_key', $scopes)->groupBy('scope_key')->selectRaw('scope_key, MAX(version) AS latest_version')->pluck('latest_version', 'scope_key');
+        $active = FinanceTariff::whereIn('scope_key', $scopes)->where('status', 'active')->get()->groupBy('scope_key');
+
+        return Inertia::render('dashboard/finance/Tariffs', [
+            'tariffs' => $tariffs->through(function (FinanceTariff $tariff) use ($service, $latest, $active) {
+                $overlap = $tariff->status === 'draft' ? ($active->get($tariff->scope_key) ?? collect())->filter(fn (FinanceTariff $current) => ($tariff->valid_until === null || $current->valid_from <= $tariff->valid_until)
+                    && ($current->valid_until === null || $current->valid_until >= $tariff->valid_from)) : collect();
+
+                return array_replace($tariff->toArray(), [
+                    'valid_from' => $tariff->valid_from->toDateString(),
+                    'valid_until' => $tariff->valid_until?->toDateString(),
+                    'can_apply' => $service->canApply($tariff),
+                    'replace_id' => $overlap->count() === 1 ? $overlap->first()->id : null,
+                    'revision' => $service->revision($tariff, (int) $latest[$tariff->scope_key]),
+                ]);
+            }),
+            'filters' => $filters,
+            'years' => $years,
+            'faculties' => Faculty::when($facultyIds->isNotEmpty(), fn ($query) => $query->whereKey($facultyIds->all()))->orderBy('name')->get(['id', 'name']),
+            'levels' => Level::with('faculty:id,name')->when($facultyIds->isNotEmpty(), fn ($query) => $query->whereIn('faculty_id', $facultyIds))->orderBy('title')->get(['id', 'title', 'faculty_id']),
+            'programs' => AcademicProgram::when($facultyIds->isNotEmpty(), fn ($query) => $query->whereIn('faculty_id', $facultyIds))->orderBy('name')->get(['id', 'name', 'faculty_id']),
+            'cycles' => AcademicCycle::orderBy('name')->get(['id', 'name']),
+            'currencies' => config('finance.currencies'),
         ]);
     }
 
@@ -128,19 +192,83 @@ final class FinanceController extends Controller
     public function tariff(Request $r, FeeTariffService $service)
     {
         $this->staff($r);
-        $data = $r->validate(['academic_year_id' => 'required|integer|exists:academic_years,id', 'academic_program_id' => 'nullable|integer|exists:academic_programs,id', 'academic_cycle_id' => 'nullable|integer|exists:academic_cycles,id', 'level_id' => 'nullable|integer|exists:levels,id', 'category' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'title' => 'required|string|max:180', 'currency' => 'required|string|size:3', 'valid_from' => 'required|date_format:Y-m-d', 'valid_until' => 'nullable|date_format:Y-m-d|after_or_equal:valid_from', 'schedule' => 'required|array|min:1|max:24', 'schedule.*.amount' => 'required', 'schedule.*.due_at' => 'required|date_format:Y-m-d', 'reason' => 'required|string|min:10|max:2000']);
-        $service->create($r->user(), $data);
+        $data = $r->validate($this->tariffFields() + [
+            'academic_year_id' => 'required|integer|exists:academic_years,id',
+            'academic_program_id' => 'nullable|integer|exists:academic_programs,id',
+            'academic_cycle_id' => 'nullable|integer|exists:academic_cycles,id',
+            'level_id' => 'nullable|integer|exists:levels,id',
+            'category' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
+            'kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
+            'currency' => 'required|string|size:3',
+        ]);
+        $tariff = $service->create($r->user(), $data);
 
-        return back(303)->with('success', 'Version de barème créée en brouillon.');
+        return redirect()->to($this->tariffWorkspaceUrl($r, $tariff), 303)->with('success', 'Version de barème créée en brouillon.');
+    }
+
+    public function updateTariff(Request $request, FinanceTariff $tariff, FeeTariffService $service)
+    {
+        $this->staff($request);
+        $service->authorize($request->user(), $tariff->level_id, $tariff->academic_program_id);
+        $data = $request->validate($this->tariffFields() + ['revision' => 'required|string|size:64']);
+        $saved = $service->revise($tariff, $request->user(), $data);
+        $message = $saved->is($tariff) ? 'Barème modifié.' : 'Nouvelle version créée en brouillon. Activez-la après contrôle.';
+
+        return redirect()->to($this->tariffWorkspaceUrl($request, $saved), 303)->with('success', $message);
+    }
+
+    private function tariffFields(): array
+    {
+        return [
+            'title' => 'required|string|max:180',
+            'valid_from' => 'required|date_format:Y-m-d',
+            'valid_until' => 'nullable|date_format:Y-m-d|after_or_equal:valid_from',
+            'schedule' => 'required|array|min:1|max:24',
+            'schedule.*.amount' => 'required',
+            'schedule.*.due_at' => 'required|date_format:Y-m-d',
+            'reason' => 'required|string|min:10|max:2000',
+        ];
     }
 
     public function activate(Request $r, FinanceTariff $tariff, FeeTariffService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['reason' => 'required|string|min:10|max:2000', 'replace_id' => 'nullable|integer']);
-        $service->activate($tariff, $r->user(), $d['reason'], $d['replace_id'] ?? null);
+        $data = $r->validate(['reason' => 'required|string|min:10|max:2000', 'replace_id' => 'nullable|integer', 'revision' => 'nullable|string|size:64']);
+        $counts = $service->activate($tariff, $r->user(), $data['reason'], $data['replace_id'] ?? null, $data['revision'] ?? null);
+        $today = today('Africa/Kinshasa')->toDateString();
+        $year = $tariff->academicYear;
+        $message = match (true) {
+            $counts !== null => "Barème activé. Échéanciers ajoutés : {$counts['applied']}. Dossiers avec frais ou historique conservés : {$counts['preserved']}.",
+            ! $service->supportsAutomaticTuition($tariff) => 'Barème activé.',
+            $year->end_date < $today || ($tariff->valid_until !== null && $tariff->valid_until->toDateString() < $today) => 'Barème activé. Sa période de validité est terminée.',
+            default => 'Barème activé. L’affectation automatique aura lieu pendant sa période de validité si l’année académique est ouverte.',
+        };
 
-        return back(303);
+        return redirect()->to($this->tariffWorkspaceUrl($r, $tariff), 303)->with('success', $message);
+    }
+
+    public function applyTariff(Request $r, FinanceTariff $tariff, FeeTariffService $service)
+    {
+        $this->staff($r);
+        $data = $r->validate(['reason' => 'required|string|min:10|max:2000']);
+        $counts = $service->applyToEligible($tariff, $r->user(), $data['reason']);
+
+        return redirect()->to($this->tariffWorkspaceUrl($r, $tariff), 303)
+            ->with('success', "Inscriptions facturées : {$counts['applied']}. Dossiers avec obligations ou historique conservés : {$counts['preserved']}.");
+    }
+
+    private function tariffWorkspaceUrl(Request $request, FinanceTariff $tariff): string
+    {
+        $faculty = $tariff->program?->faculty_id ?? $tariff->level?->faculty_id;
+        $params = ['year' => $tariff->academic_year_id];
+        foreach (['faculty' => $faculty, 'level' => $tariff->level_id, 'category' => $tariff->category, 'status' => $tariff->status] as $key => $value) {
+            $query = $request->query($key);
+            if ($value !== null && is_scalar($query) && (string) $query === (string) $value) {
+                $params[$key] = $value;
+            }
+        }
+
+        return route('dashboard.admin.finance.tariffs.index', $params);
     }
 
     public function bill(Request $r, AcademicEnrollment $academic, FeeTariffService $service)

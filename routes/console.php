@@ -1,7 +1,11 @@
 <?php
 
+use App\Models\Enrollment;
 use App\Models\Student\AcademicEnrollment;
+use App\Modules\Student\Application\Services\FeeTariffService;
+use App\Modules\Student\Application\Services\StudentAdmissionService;
 use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentMatriculeMigration;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -11,8 +15,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-\Illuminate\Support\Facades\Artisan::command('student:activate-validated {--dry-run : Afficher uniquement les dossiers à traiter} {--notify : Notifier les nouveaux accès}', function () {
-    $entries = \App\Models\Enrollment::where('status', 'validated')->whereDoesntHave('academicEnrollment')->get();
+Artisan::command('student:activate-validated {--dry-run : Afficher uniquement les dossiers à traiter} {--notify : Notifier les nouveaux accès}', function () {
+    $entries = Enrollment::where('status', 'validated')->whereDoesntHave('academicEnrollment')->get();
     $failures = 0;
     foreach ($entries as $application) {
         if ($this->option('dry-run')) {
@@ -21,9 +25,9 @@ Artisan::command('inspire', function () {
             continue;
         }
         try {
-            app(\App\Modules\Student\Application\Services\StudentAdmissionService::class)->activate($application, null, (bool) $this->option('notify'));
+            app(StudentAdmissionService::class)->activate($application, null, (bool) $this->option('notify'));
             $this->info('Activé : '.$application->reference);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $failures++;
             $this->error($application->reference.' : '.$e->getMessage());
         }
@@ -34,14 +38,14 @@ Artisan::command('inspire', function () {
 
 Artisan::command('student:migrate-matricules {--dry-run : Prévisualiser sans modifier les données}', function () {
     try {
-        $changes = app(\App\Modules\Student\Application\Services\StudentMatriculeMigration::class)->run((bool) $this->option('dry-run'));
+        $changes = app(StudentMatriculeMigration::class)->run((bool) $this->option('dry-run'));
         foreach ($changes as $change) {
             $this->line($change['reference'].' : '.$change['previous'].' → '.$change['matricule']);
         }
         $this->info(count($changes).' dossier(s) '.($this->option('dry-run') ? 'à synchroniser (simulation sans écriture).' : 'synchronisé(s).'));
 
         return 0;
-    } catch (\Throwable $exception) {
+    } catch (Throwable $exception) {
         $this->error('Aucune modification conservée : '.$exception->getMessage());
 
         return 1;
@@ -63,3 +67,11 @@ Artisan::command('student:confirm-covered-enrollments', function () {
 })->purpose('Confirmer les inscriptions en attente couvertes, y compris lors de la prise d’effet d’une aide.');
 
 Schedule::command('student:confirm-covered-enrollments')->daily()->timezone('Africa/Kinshasa');
+
+Artisan::command('student:apply-effective-tuition-tariffs', function () {
+    app(FeeTariffService::class)->applyEffectiveTuition();
+})->purpose('Appliquer les barèmes en vigueur aux inscriptions validées qui attendent leurs échéances.');
+
+Schedule::command('student:apply-effective-tuition-tariffs')->hourly()->withoutOverlapping();
+
+Schedule::command('assessment:publish-scheduled')->everyMinute()->withoutOverlapping(10);

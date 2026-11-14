@@ -27,7 +27,7 @@ function setup(processing = false) {
 test('Le toast de succès attend la confirmation serveur du verdict', () => {
     const { feedback, request } = setup();
     assert.equal(feedback.length, 0);
-    assert.equal(request.url, '/dashboard/admin/enrollments/42/documents/proof-test/review');
+    assert.equal(request.url, '/app/dashboard/admin/enrollments/42/documents/proof-test/review');
     request.options.onSuccess();
     assert.deepEqual(feedback, [{ message: 'Diplôme.pdf : Acceptée.', tone: 'success' }]);
 });

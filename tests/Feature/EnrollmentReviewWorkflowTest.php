@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\EnrollmentDocumentReplaced;
 use App\Mail\EnrollmentReviewUpdated;
 use App\Models\Enrollment;
 use App\Models\EnrollmentDocument;
@@ -41,7 +42,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         Storage::disk('local')->put('proof.pdf', '%PDF-1.4 old evidence');
         $doc = EnrollmentDocument::create(['enrollment_id' => $entry->id, 'type' => 'document', 'key' => 'diploma', 'disk' => 'local', 'path' => 'proof.pdf', 'filename' => 'Diplôme.pdf', 'mime' => 'application/pdf', 'size_bytes' => 21, 'sha256' => hash('sha256', 'proof')]);
 
-        return [$admin, $student, $other, $entry, $doc->fresh(), '/dashboard/admin/enrollments/'.$entry->id];
+        return [$admin, $student, $other, $entry, $doc->fresh(), '/app/dashboard/admin/enrollments/'.$entry->id];
     }
 
     public function test_start_is_idempotent_and_validation_requires_accepted_evidence(): void
@@ -85,17 +86,17 @@ class EnrollmentReviewWorkflowTest extends TestCase
     {
         [$admin, $student, $other, $entry, $doc, $url] = $this->fixture();
         $review = $url.'/documents/'.$doc->uuid.'/review';
-        $replace = '/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
+        $replace = '/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
         $this->actingAs($admin)->post($url.'/start-analysis')->assertSessionHasNoErrors();
         $this->post($review, ['verdict' => 'correction_requested'])->assertSessionHasErrors('review');
         $this->post($review, ['verdict' => 'correction_requested', 'reason' => 'Merci de transmettre une copie lisible.'])->assertSessionHasNoErrors();
-        $this->actingAs($student)->get('/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', true));
+        $this->actingAs($student)->get('/app/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', true));
         $this->actingAs($admin)->post($url.'/request-corrections')->assertSessionHasNoErrors();
         $this->post($url.'/request-corrections')->assertSessionHasNoErrors();
         Mail::assertSentCount(3);
         Mail::assertSent(EnrollmentReviewUpdated::class, fn ($mail) => $mail->kind === 'corrections_requested' && str_contains($mail->render(), 'copie lisible'));
         $this->actingAs($other)->post($replace, ['file' => UploadedFile::fake()->create('nouveau.pdf', 10, 'application/pdf')])->assertForbidden();
-        $this->actingAs($student)->delete('/dashboard/enrollments/documents/'.$doc->uuid)->assertForbidden();
+        $this->actingAs($student)->delete('/app/dashboard/enrollments/documents/'.$doc->uuid)->assertForbidden();
         $this->post($replace, ['file' => UploadedFile::fake()->create('nouveau.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $fresh = $doc->fresh();
         $this->assertSame('pending', $fresh->review_status);
@@ -118,7 +119,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->actingAs($admin)->post($url.'/start-analysis')->assertSessionHasNoErrors();
         $second = $entry->fresh()->replicate(['uuid']);
         $second->save();
-        $this->post('/dashboard/admin/enrollments/'.$second->id.'/documents/'.$doc->uuid.'/review', ['verdict' => 'accepted'])->assertNotFound();
+        $this->post('/app/dashboard/admin/enrollments/'.$second->id.'/documents/'.$doc->uuid.'/review', ['verdict' => 'accepted'])->assertNotFound();
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'invented'])->assertSessionHasErrors('verdict');
         $this->post($url.'/reject', ['reason' => 'Les conditions d’admission ne sont pas remplies.'])->assertSessionHasNoErrors();
         Mail::assertSent(EnrollmentReviewUpdated::class, fn ($mail) => $mail->kind === 'rejected' && str_contains($mail->render(), 'conditions d’admission'));
@@ -164,7 +165,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->post($url.'/documents/'.$second->uuid.'/review', ['verdict' => 'correction_requested', 'reason' => 'Merci de transmettre une copie lisible.'])->assertSessionHasNoErrors();
         Mail::assertSentCount(2);
         $this->assertSame(1, $entry->events()->where('event', 'analysis_completed')->count());
-        $this->actingAs($student)->get('/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.analysis_completed_at', $entry->fresh()->meta['analysis_completed_at']));
+        $this->actingAs($student)->get('/app/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.analysis_completed_at', $entry->fresh()->meta['analysis_completed_at']));
     }
 
     public function test_new_document_version_requires_review_then_generates_an_updated_report(): void
@@ -175,7 +176,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->post($review, ['verdict' => 'rejected', 'reason' => 'Photo illisible.'])->assertSessionHasNoErrors();
         $this->assertNotEmpty($entry->fresh()->meta['analysis_completed_at']);
         $this->post($url.'/request-corrections')->assertSessionHasNoErrors();
-        $this->actingAs($student)->post('/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $this->assertNull($entry->fresh()->meta['analysis_completed_at']);
         $this->actingAs($admin)->post($review, ['verdict' => 'accepted'])->assertSessionHasNoErrors();
         $reports = Mail::sent(EnrollmentReviewUpdated::class, fn ($mail) => $mail->kind === 'analysis_completed');
@@ -203,15 +204,15 @@ class EnrollmentReviewWorkflowTest extends TestCase
     public function test_student_can_replace_a_correctable_piece_immediately_without_notification(): void
     {
         [$admin, $student, , $entry, $doc, $url] = $this->fixture();
-        $replace = '/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
+        $replace = '/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
         $this->actingAs($admin)->post($url.'/start-analysis');
         $this->actingAs($student)->post($replace, ['file' => UploadedFile::fake()->create('preuve.pdf', 10, 'application/pdf')])->assertSessionHasErrors('file');
         foreach (['correction_requested', 'rejected'] as $verdict) {
             $this->actingAs($admin)->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => $verdict, 'reason' => 'Transmettre une copie lisible.'])->assertSessionHasNoErrors();
-            $this->actingAs($student)->get('/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', true));
+            $this->actingAs($student)->get('/app/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', true));
             $this->post($replace, ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
             $this->assertSame('pending', $doc->fresh()->review_status);
-            $this->get('/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', false));
+            $this->get('/app/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.can_replace', false));
         }
         $this->assertSame(0, $entry->events()->where('event', 'corrections_requested')->count());
         $this->actingAs($admin)->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'accepted']);
@@ -227,28 +228,28 @@ class EnrollmentReviewWorkflowTest extends TestCase
         config(['mail.admissions_address' => 'admissions@example.test']);
         $this->actingAs($admin)->post($url.'/start-analysis');
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'correction_requested', 'reason' => 'Copie à remplacer.']);
-        $studentUrl = '/dashboard/enrollments/'.$entry->uuid;
-        $replace = '/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
+        $studentUrl = '/app/dashboard/enrollments/'.$entry->uuid;
+        $replace = '/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
         $this->actingAs($student)->from($studentUrl)->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Error-Bag' => 'replacement-'.$doc->uuid])
             ->post($replace, ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertRedirect($studentUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
         Mail::assertSent(\App\Mail\EnrollmentDocumentReplaced::class, function ($mail) use ($entry, $student) {
             return $mail->hasTo('admissions@example.test') && ! $mail->hasTo($student->email)
                 && $mail->document['version'] === 2 && str_contains($mail->render(), $entry->reference)
-                && str_contains($mail->render(), '/dashboard/admin/enrollments/'.$entry->id)
+                && str_contains($mail->render(), '/app/dashboard/admin/enrollments/'.$entry->id)
                 && str_contains($mail->render(), 'corrige.pdf') && count($mail->attachments) === 0;
         });
         $this->flushHeaders();
-        $this->actingAs($admin)->get('/dashboard/admin/enrollments?reexamination=1')->assertInertia(fn ($page) => $page
+        $this->actingAs($admin)->get('/app/dashboard/admin/enrollments?reexamination=1')->assertInertia(fn ($page) => $page
             ->where('enrollments.total', 1)->where('reexamination_total', 1)->where('enrollments.data.0.reexamination_count', 1));
         $this->get($url)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.needs_reexamination', true)->where('enrollment.documents.0.version', 2));
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'accepted'])->assertSessionHasNoErrors();
-        $this->get('/dashboard/admin/enrollments?reexamination=1')->assertInertia(fn ($page) => $page->where('enrollments.total', 0)->where('reexamination_total', 0));
+        $this->get('/app/dashboard/admin/enrollments?reexamination=1')->assertInertia(fn ($page) => $page->where('enrollments.total', 0)->where('reexamination_total', 0));
         $this->get($url)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.needs_reexamination', false));
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'pending'])->assertSessionHasNoErrors();
         $this->post($url.'/reject', ['reason' => 'Décision définitive.'])->assertSessionHasNoErrors();
         $this->get($url)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.needs_reexamination', false));
-        $this->get('/dashboard/admin/enrollments')->assertInertia(fn ($page) => $page->where('enrollments.data.0.reexamination_count', 0));
-        $this->assertSame(1, Mail::sent(\App\Mail\EnrollmentDocumentReplaced::class)->count());
+        $this->get('/app/dashboard/admin/enrollments')->assertInertia(fn ($page) => $page->where('enrollments.data.0.reexamination_count', 0));
+        $this->assertSame(1, Mail::sent(EnrollmentDocumentReplaced::class)->count());
     }
 
     public function test_notification_failure_keeps_the_replacement_file_and_version(): void
@@ -259,7 +260,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         Mail::swap(\Mockery::mock(\Illuminate\Contracts\Mail\Mailer::class, function ($mock) {
             $mock->shouldReceive('to')->once()->andThrow(new \RuntimeException('SMTP indisponible'));
         }));
-        $this->actingAs($student)->post('/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $this->assertSame(2, $doc->fresh()->version);
         Storage::disk('local')->assertExists($doc->fresh()->path);
         Storage::disk('local')->assertExists('proof.pdf');
@@ -271,7 +272,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         [$admin, $student, , $entry, $doc, $url] = $this->fixture();
         $this->actingAs($admin)->post($url.'/start-analysis');
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'correction_requested', 'reason' => 'Copie à refaire.']);
-        $replace = '/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
+        $replace = '/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
         $this->actingAs($student)->post($replace)->assertSessionHasErrors('file');
         $this->post($replace, ['file' => UploadedFile::fake()->create('bad.txt', 1, 'text/plain')])->assertSessionHasErrors('file');
         Mail::assertNotSent(\App\Mail\EnrollmentDocumentReplaced::class);
@@ -287,7 +288,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $other->assignRole('admin');
         $this->actingAs($admin)->post($url.'/start-analysis');
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'correction_requested', 'reason' => 'Copie à remplacer.']);
-        $this->actingAs($student)->post('/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('nouvelle.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace', ['file' => UploadedFile::fake()->create('nouvelle.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
         $notice = $admin->notifications()->firstOrFail();
         $otherNotice = $other->notifications()->firstOrFail();
         $this->assertNotSame($notice->id, $otherNotice->id);
@@ -296,15 +297,15 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->assertSame(0, $student->notifications()->where('type', \App\Notifications\EnrollmentDocumentReplacement::class)->count());
         $this->actingAs($admin)->get($url)->assertInertia(fn ($page) => $page->where('adminNotifications.unread_count', 1)->where('adminNotifications.items.0.reference', $entry->reference)->where('adminNotifications.items.0.filename', 'nouvelle.pdf'));
         $target = $url.'?'.http_build_query(['document' => $doc->uuid]).'#review-document-'.$doc->uuid;
-        $this->post('/dashboard/admin/notifications/'.$notice->id.'/open')->assertStatus(303)->assertRedirect($target);
+        $this->post('/app/dashboard/admin/notifications/'.$notice->id.'/open')->assertStatus(303)->assertRedirect($target);
         $this->assertNotNull($notice->fresh()->read_at);
         $this->assertNull($otherNotice->fresh()->read_at);
         $this->get($url.'?'.http_build_query(['document' => $doc->uuid]))->assertInertia(fn ($page) => $page->where('enrollment.selected_document_uuid', $doc->uuid)->where('adminNotifications.unread_count', 0));
-        $this->post('/dashboard/admin/notifications/'.$otherNotice->id.'/open')->assertNotFound();
-        $this->actingAs($student)->post('/dashboard/admin/notifications/'.$notice->id.'/open')->assertForbidden();
-        $this->post('/dashboard/admin/notifications/read-all')->assertForbidden();
-        $this->get('/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('adminNotifications', null));
-        $this->actingAs($other)->post('/dashboard/admin/notifications/read-all')->assertRedirect();
+        $this->post('/app/dashboard/admin/notifications/'.$otherNotice->id.'/open')->assertNotFound();
+        $this->actingAs($student)->post('/app/dashboard/admin/notifications/'.$notice->id.'/open')->assertForbidden();
+        $this->post('/app/dashboard/admin/notifications/read-all')->assertForbidden();
+        $this->get('/app/dashboard/enrollments/'.$entry->uuid)->assertInertia(fn ($page) => $page->where('adminNotifications', null));
+        $this->actingAs($other)->post('/app/dashboard/admin/notifications/read-all')->assertRedirect();
         $this->assertNotNull($otherNotice->fresh()->read_at);
         $this->actingAs($admin)->get($url.'?document=not-a-document')->assertNotFound();
     }
@@ -314,7 +315,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
         [$admin, $student, , $entry, $doc, $url] = $this->fixture();
         $this->actingAs($admin)->post($url.'/start-analysis');
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'rejected', 'reason' => 'Copie à refaire.']);
-        $this->actingAs($student)->post('/dashboard/enrollments/documents/'.$doc->uuid.'/replace')->assertSessionHasErrors('file');
+        $this->actingAs($student)->post('/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace')->assertSessionHasErrors('file');
         $this->assertSame(0, $admin->notifications()->count());
         DB::beginTransaction();
         app(\App\Modules\Enrollment\Application\UseCases\ReplaceReviewedDocument::class)->execute($doc->uuid, $student->id, UploadedFile::fake()->create('nouvelle.pdf', 10, 'application/pdf'));
@@ -337,22 +338,22 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->post($review, ['verdict' => 'pending']);
         $this->assertSame(3, $student->notifications()->count());
         $notice = $student->notifications()->get()->first(fn ($notice) => ($notice->data['verdict'] ?? null) === 'correction_requested')
-            ?? throw new \RuntimeException('Notification de correction absente.');;
-        $this->actingAs($student)->get('/dashboard/enrollments')->assertInertia(fn ($page) => $page
+            ?? throw new \RuntimeException('Notification de correction absente.');
+        $this->actingAs($student)->get('/app/dashboard/enrollments')->assertInertia(fn ($page) => $page
             ->where('studentNotifications.unread_count', 3)->has('studentNotifications.items', 3)
             ->where('studentNotifications.items', fn ($items) => collect($items)->contains(fn ($item) => $item['comment'] === 'Remarque pour correction_requested'))
             ->where('adminNotifications', null));
-        $target = '/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $doc->uuid]).'#student-document-'.$doc->uuid;
-        $this->post('/dashboard/notifications/'.$notice->id.'/open')->assertStatus(303)->assertRedirect($target);
+        $target = '/app/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $doc->uuid]).'#student-document-'.$doc->uuid;
+        $this->post('/app/dashboard/notifications/'.$notice->id.'/open')->assertStatus(303)->assertRedirect($target);
         $this->assertNotNull($notice->fresh()->read_at);
-        $this->get('/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $doc->uuid]))->assertInertia(fn ($page) => $page->where('enrollment.selected_document_uuid', $doc->uuid)->where('studentNotifications.unread_count', 2));
-        $this->actingAs($other)->get('/dashboard/enrollments')->assertInertia(fn ($page) => $page->where('studentNotifications.unread_count', 0)->has('studentNotifications.items', 0));
-        $this->post('/dashboard/notifications/'.$notice->id.'/open')->assertNotFound();
-        $this->post('/dashboard/notifications/read-all')->assertRedirect();
+        $this->get('/app/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $doc->uuid]))->assertInertia(fn ($page) => $page->where('enrollment.selected_document_uuid', $doc->uuid)->where('studentNotifications.unread_count', 2));
+        $this->actingAs($other)->get('/app/dashboard/enrollments')->assertInertia(fn ($page) => $page->where('studentNotifications.unread_count', 0)->has('studentNotifications.items', 0));
+        $this->post('/app/dashboard/notifications/'.$notice->id.'/open')->assertNotFound();
+        $this->post('/app/dashboard/notifications/read-all')->assertRedirect();
         $this->assertSame(2, $student->unreadNotifications()->count());
-        $this->actingAs($student)->post('/dashboard/notifications/read-all')->assertRedirect();
+        $this->actingAs($student)->post('/app/dashboard/notifications/read-all')->assertRedirect();
         $this->assertSame(0, $student->unreadNotifications()->count());
-        $this->get('/dashboard/enrollments/'.$entry->uuid.'?document=another-document')->assertNotFound();
+        $this->get('/app/dashboard/enrollments/'.$entry->uuid.'?document=another-document')->assertNotFound();
     }
 
     public function test_student_notification_is_rolled_back_with_the_review(): void

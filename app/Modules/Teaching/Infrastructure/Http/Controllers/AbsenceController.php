@@ -7,6 +7,7 @@ use App\Models\Student\AcademicAttendance;
 use App\Models\Student\AcademicSession;
 use App\Models\User;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Student\Application\Services\StudentPortalContext;
 use App\Modules\Teaching\Application\Services\TeachingScope;
 use App\Notifications\AcademicScheduleNotice;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,14 +19,19 @@ use Inertia\Inertia;
 
 final class AbsenceController
 {
-    public function student(Request $request)
+    public function student(Request $request, StudentPortalContext $context)
     {
         abort_unless($request->user()->hasRole('student'), 403);
         $records = AcademicAttendance::where('status', 'absent')->whereHas('enrollment.profile', fn ($q) => $q->where('user_id', $request->user()->id))
             ->whereHas('session', fn ($q) => $q->where('is_published', true)->whereNull('cancelled_at')->where('ends_at', '<=', now()))
-            ->with(['session.offering.course', 'session.offering.curriculumItem', 'justification'])->latest('id')->paginate(20)->through($this->row(...));
+            ->with(['session.offering.course', 'session.offering.curriculumItem', 'justification'])->latest('id')->paginate(20)->withQueryString()->through($this->row(...));
 
-        return Inertia::render('dashboard/schedule/Absences', ['staff' => false, 'records' => $records, 'status' => null]);
+        return Inertia::render('dashboard/schedule/Absences', [
+            'staff' => false,
+            'records' => $records,
+            'status' => null,
+            'studentChrome' => fn () => $context->forAccount($request->user(), $request->integer('academic') ?: null),
+        ]);
     }
 
     public function index(Request $request)

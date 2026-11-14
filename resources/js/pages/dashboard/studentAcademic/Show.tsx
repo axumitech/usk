@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowUpRight, GraduationCap } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
+import StaffRequestDetails, { type StaffRequest } from './StaffRequestDetails';
 
 type Enrollment = {
     id: number;
@@ -34,18 +35,11 @@ type UnitResult = {
     credits: number | null;
     score: number | null;
     validated: boolean | null;
+    is_composite: boolean;
 };
 type Dossier = {
     requests: {
-        data: {
-            id: number;
-            academic_enrollment_id: number;
-            category: string;
-            subject: string;
-            body: string;
-            status: string;
-            response: string | null;
-        }[];
+        data: StaffRequest[];
         next_page_url: string | null;
     } | null;
     records: { page: number; more: boolean };
@@ -241,16 +235,20 @@ function UnitResults({ results, academicId }: { results: Dossier['unitResults'];
                     <Records
                         columns={['UE', 'Période', 'Note / 20', 'Validation', 'Crédits acquis / requis', ...(results.editable ? ['Action'] : [])]}
                         rows={results.units.map((unit) => [
-                            `${unit.code} · ${unit.name}`,
+                            `${unit.code} · ${unit.name}${unit.is_composite ? ' · UE composée' : ''}`,
                             unit.period,
                             unit.score === null ? 'À saisir' : academicNumber.format(unit.score),
                             unit.validated === null ? 'En attente' : unit.validated ? 'Validée' : 'Non validée',
                             `${unit.validated === null || unit.credits === null ? '—' : academicNumber.format(unit.validated ? unit.credits : 0)} / ${unit.credits === null ? '—' : academicNumber.format(unit.credits)}`,
                             ...(results.editable
                                 ? [
-                                      <button key={unit.id} type="button" className="admin-secondary" onClick={() => setEditing(unit)}>
-                                          {unit.score === null ? 'Saisir' : 'Modifier'}
-                                      </button>,
+                                      unit.is_composite ? (
+                                          'Résultats du jury'
+                                      ) : (
+                                          <button key={unit.id} type="button" className="admin-secondary" onClick={() => setEditing(unit)}>
+                                              {unit.score === null ? 'Saisir' : 'Modifier'}
+                                          </button>
+                                      ),
                                   ]
                                 : []),
                         ])}
@@ -559,20 +557,22 @@ function DossierSection({
                             columns={['Inscription', 'Catégorie', 'Demande', 'Statut', 'Réponse', 'Action']}
                             rows={data.requests.data.map((item) => [
                                 item.academic_enrollment_id,
-                                item.category,
-                                <span key={item.id}>
+                                item.category_label,
+                                <div key={item.id}>
                                     <strong>{item.subject}</strong>
                                     <br />
                                     {item.body}
-                                </span>,
+                                    <StaffRequestDetails ticket={item} />
+                                </div>,
                                 labels[item.status] || item.status,
                                 item.response || 'En attente',
-                                <Link
-                                    key={`action-${item.id}`}
-                                    href={route('dashboard.admin.student-academic.index', { tab: 'requests', academic: item.academic_enrollment_id })}
-                                >
-                                    Traiter
-                                </Link>,
+                                item.detail_url || item.action_url ? (
+                                    <Link key={`action-${item.id}`} href={item.detail_url || item.action_url || ''}>
+                                        Ouvrir la demande
+                                    </Link>
+                                ) : (
+                                    'Suivi spécialisé'
+                                ),
                             ])}
                             empty="Aucune demande enregistrée."
                         />

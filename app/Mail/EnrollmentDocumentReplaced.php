@@ -28,7 +28,7 @@ class EnrollmentDocumentReplaced extends Mailable
             'recipientName' => 'le service des inscriptions',
             'paragraphs' => ['Un candidat a remplacé un justificatif de son dossier. La nouvelle version est disponible dans le dashboard et doit faire l’objet d’un nouvel examen.'],
             'details' => ['Référence du dossier' => $this->enrollment->reference, 'Candidat' => TransactionalEmail::recipientName($this->enrollment->student), 'Formation' => $this->enrollment->level?->title ?? 'À préciser', 'Justificatif' => $this->document['filename'], 'Version' => $this->document['version'], 'État' => 'À réexaminer'],
-            'actionUrl' => url('/dashboard/admin/enrollments/'.$this->enrollment->id.'?'.http_build_query(['document' => $this->document['uuid']])).'#review-document-'.$this->document['uuid'], 'actionLabel' => 'Examiner la nouvelle pièce',
+            'actionUrl' => url('/app/dashboard/admin/enrollments/'.$this->enrollment->id.'?'.http_build_query(['document' => $this->document['uuid']])).'#review-document-'.$this->document['uuid'], 'actionLabel' => 'Examiner la nouvelle pièce',
             'noticeTitle' => 'Les documents restent dans le dashboard', 'notice' => 'Aucune pièce n’est jointe à cet email. Connectez-vous à votre compte administrateur pour consulter le justificatif et enregistrer votre verdict.',
             'signature' => 'La plateforme des inscriptions',
         ]);

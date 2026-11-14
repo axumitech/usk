@@ -71,8 +71,50 @@ export function GenerateSchedule({ version, onClose }: { version: Version; onClo
     );
 }
 
-export function AnnualDrafts({ years, onClose }: { years: Props['years']; onClose: () => void }) {
-    const form = useForm({ academic_year_id: '', rooms: '' });
+function FeeDraftFields({ year, enabled, onToggle }: { year?: Props['years'][number]; enabled: boolean; onToggle: (value: boolean) => void }) {
+    return (
+        <fieldset className="as-finance-fields">
+            <legend>Barèmes de frais par niveau</legend>
+            <label className="as-finance-toggle">
+                <input type="checkbox" checked={enabled} onChange={(event) => onToggle(event.currentTarget.checked)} />
+                Générer les barèmes nationaux et étrangers
+            </label>
+            {enabled && (
+                <>
+                    <p>Les montants proviennent des tarifs du niveau. Les brouillons seront disponibles dans Finances pour contrôle et activation.</p>
+                    <div className="as-finance-dates" key={year?.id}>
+                        <label className="admin-field">
+                            Échéance de la première tranche
+                            <input name="fee_first_due" type="date" required min={year?.start_date} max={year?.end_date} />
+                        </label>
+                        <label className="admin-field">
+                            Échéance de la seconde tranche
+                            <input name="fee_second_due" type="date" required min={year?.start_date} max={year?.end_date} />
+                        </label>
+                    </div>
+                </>
+            )}
+        </fieldset>
+    );
+}
+
+function feeDeadlines(values: FormData) {
+    return [String(values.get('fee_first_due') ?? ''), String(values.get('fee_second_due') ?? '')];
+}
+
+export function AnnualDrafts({
+    years,
+    yearId,
+    canGenerateFees,
+    onClose,
+}: {
+    years: Props['years'];
+    yearId?: number | null;
+    canGenerateFees: boolean;
+    onClose: () => void;
+}) {
+    const form = useForm({ academic_year_id: yearId ? String(yearId) : '', rooms: '', generate_fees: false });
+    const year = years.find(({ id }) => String(id) === form.data.academic_year_id);
 
     return (
         <AdminModal
@@ -89,13 +131,22 @@ export function AnnualDrafts({ years, onClose }: { years: Props['years']; onClos
                 className="admin-modal-form"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.transform(({ rooms, ...data }) => ({ ...data, rooms: parseRooms(rooms) }));
+                    const values = new FormData(event.currentTarget);
+                    form.transform(({ academic_year_id, rooms, generate_fees }) => ({
+                        academic_year_id,
+                        rooms: parseRooms(rooms),
+                        ...(generate_fees ? { fee_due_dates: feeDeadlines(values) } : {}),
+                    }));
                     form.post(route('dashboard.admin.academic-structure.versions.annual-batch'), { onSuccess: onClose });
                 }}
             >
                 <label className="admin-field">
                     Année académique
-                    <select required value={form.data.academic_year_id} onChange={(event) => form.setData('academic_year_id', event.target.value)}>
+                    <select
+                        required
+                        value={form.data.academic_year_id}
+                        onChange={(event) => form.setData('academic_year_id', event.currentTarget.value)}
+                    >
                         <option value="">Choisir une année</option>
                         {years.map((year) => (
                             <option key={year.id} value={year.id}>
@@ -105,6 +156,9 @@ export function AnnualDrafts({ years, onClose }: { years: Props['years']; onClos
                     </select>
                 </label>
                 <ScheduleRooms value={form.data.rooms} onChange={(value) => form.setData('rooms', value)} />
+                {canGenerateFees && (
+                    <FeeDraftFields year={year} enabled={form.data.generate_fees} onToggle={(value) => form.setData('generate_fees', value)} />
+                )}
             </form>
         </AdminModal>
     );
@@ -119,10 +173,18 @@ export function NewVersion({ context, clone, onClose }: { context: Props; clone?
         admission_cohort_id: '',
         clone_id: clone?.id ?? null,
         reason: '',
+        generate_fees: false,
     });
     const [yearScope, cohortScope] = [Boolean(form.data.academic_year_id), Boolean(form.data.admission_cohort_id)];
-    const submit = (event: FormEvent) => {
+    const feeYear = context.years.find(({ id }) => String(id) === form.data.academic_year_id);
+    const canGenerateFees = Boolean(context.abilities.programFinance && feeYear && !clone);
+    const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        const values = new FormData(event.currentTarget);
+        form.transform(({ generate_fees, ...data }) => ({
+            ...data,
+            ...(canGenerateFees && generate_fees ? { fee_due_dates: feeDeadlines(values) } : {}),
+        }));
         form.post(route('dashboard.admin.academic-structure.versions.store'), { preserveScroll: true, onSuccess: onClose });
     };
     return (
@@ -178,6 +240,9 @@ export function NewVersion({ context, clone, onClose }: { context: Props; clone?
                         ))}
                     </select>
                 </label>
+                {canGenerateFees && (
+                    <FeeDraftFields year={feeYear} enabled={form.data.generate_fees} onToggle={(value) => form.setData('generate_fees', value)} />
+                )}
                 <label className="admin-field">
                     Motif
                     <textarea

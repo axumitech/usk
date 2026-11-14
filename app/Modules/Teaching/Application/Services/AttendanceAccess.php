@@ -16,12 +16,26 @@ final class AttendanceAccess
 
             return;
         }
-        abort_unless($actor->hasRole('professor') && $actor->can('manage students'), 403);
         $teacher = Professor::where('user_id', $actor->id)->where('is_active', true)->first();
-        abort_unless($teacher && $session->is_published && $offer->is_published
-            && in_array($teacher->id, TeachingTeam::idsAt($offer, $session->starts_at)), 403);
-        abort_unless((int) $offer->professor_id === $teacher->id
-            || $offer->assignments()->where('professor_id', $teacher->id)->where('role', 'instructor')->whereNull('ends_at')
-                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $session->starts_at))->exists(), 403);
+        abort_unless($teacher && $this->canRead($actor, $teacher, $session), 403);
+    }
+
+    public function canRead(User $actor, Professor $teacher, AcademicSession $session): bool
+    {
+        $offer = $session->offering;
+        if (! $actor->hasRole('professor') || ! $actor->can('manage students') || ! $session->is_published || ! $offer->is_published
+            || ! in_array($teacher->id, TeachingTeam::idsAt($offer, $session->starts_at))) {
+            return false;
+        }
+
+        return (int) $offer->professor_id === $teacher->id
+            || $offer->assignments->contains(fn ($assignment) => (int) $assignment->professor_id === $teacher->id && $assignment->role === 'instructor'
+                && ! $assignment->ends_at && (! $assignment->starts_at || $assignment->starts_at <= $session->starts_at));
+    }
+
+    public function canRecord(User $actor, AcademicSession $session): bool
+    {
+        return $session->is_published && ! $session->cancelled_at && $session->starts_at->lte(now())
+            && ($actor->hasRole('admin') || (! $session->attendance_closed_at && $session->offering->academicYear->status === 'open'));
     }
 }

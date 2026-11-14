@@ -32,7 +32,7 @@ class SeoAudienceTest extends TestCase
     public function test_query_strings_private_paths_and_arbitrary_events_are_rejected(): void
     {
         SeoSetting::create(['values' => ['analytics_enabled' => true]]);
-        foreach (['/dashboard', '/?email=private@example.test', 'https://tracker.example'] as $path) {
+        foreach (['/app/dashboard', '/?email=private@example.test', 'https://tracker.example'] as $path) {
             $this->postJson('/analytics/events', ['event' => 'page_view', 'path' => $path])->assertUnprocessable();
         }
         $this->postJson('/analytics/events', ['event' => 'private@example.test', 'path' => '/'])->assertUnprocessable();

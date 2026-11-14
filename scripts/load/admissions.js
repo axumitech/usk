@@ -34,15 +34,15 @@ export default function () {
 
     const account = accounts[exec.vu.idInTest - 1];
     if (!loggedIn) {
-        http.get(base + '/login', { tags: { name: 'admissions_login_form' } });
-        const response = http.post(base + '/login', { email: account.email, password: account.password }, {
+        http.get(base + '/app/login', { tags: { name: 'admissions_login_form' } });
+        const response = http.post(base + '/app/login', { email: account.email, password: account.password }, {
             redirects: 0, headers: { 'X-XSRF-TOKEN': csrf() }, tags: { name: 'admissions_login' },
         });
-        loggedIn = check(response, { 'candidat connecté': (result) => result.status === 302 && (result.headers.Location || '').includes('/dashboard') });
+        loggedIn = check(response, { 'candidat connecté': (result) => result.status === 302 && (result.headers.Location || '').includes('/app/dashboard') });
         if (!loggedIn) fail('Connexion du compte fictif refusée.');
     }
     if (flow === 'upload') {
-        const response = http.post(base + '/dashboard/enrollments/documents/upload', { key: 'proof', file: http.file(document, 'justificatif-test.pdf', 'application/pdf') }, {
+        const response = http.post(base + '/app/dashboard/enrollments/documents/upload', { key: 'proof', file: http.file(document, 'justificatif-test.pdf', 'application/pdf') }, {
             redirects: 0, headers: { 'X-XSRF-TOKEN': csrf(), Accept: 'application/json' }, tags: { name: 'admissions_upload' },
         });
         check(response, { 'pièce fictive acceptée': (result) => result.status === 200 && result.json('ok') === true });
@@ -50,8 +50,8 @@ export default function () {
     }
 
     if (!/^[0-9a-f-]{36}$/i.test(account.draft_uuid || '')) fail('UUID de brouillon complet requis.');
-    const response = http.post(`${base}/dashboard/enrollments/${account.draft_uuid}/submit`, {}, {
-        redirects: 0, headers: { 'X-XSRF-TOKEN': csrf(), Referer: `${base}/dashboard/enrollments/${account.draft_uuid}/edit` }, tags: { name: 'admissions_submit' },
+    const response = http.post(`${base}/app/dashboard/enrollments/${account.draft_uuid}/submit`, {}, {
+        redirects: 0, headers: { 'X-XSRF-TOKEN': csrf(), Referer: `${base}/app/dashboard/enrollments/${account.draft_uuid}/edit` }, tags: { name: 'admissions_submit' },
     });
-    check(response, { 'dossier soumis': (result) => result.status === 302 && (result.headers.Location || '').endsWith('/dashboard/enrollments') });
+    check(response, { 'dossier soumis': (result) => result.status === 302 && (result.headers.Location || '').endsWith('/app/dashboard/enrollments') });
 }

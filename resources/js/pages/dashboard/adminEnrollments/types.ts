@@ -25,6 +25,8 @@ export type Dossier = {
     analysis_started_at?: string;
     corrections_requested_at?: string;
     payment_status_label?: string;
+    nationality?: string | null;
+    fee_category?: 'national' | 'foreign' | null;
     documents?: {
         uuid: string;
         key: string;

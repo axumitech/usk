@@ -27,7 +27,7 @@ class AcademicYearTransportTest extends TestCase
     public function test_compiled_dashboard_headers_stay_small(): void
     {
         Vite::useHotFile(storage_path('framework/transport-test.hot'));
-        $response = $this->actingAs($this->admin())->get('/dashboard/admin/academic-years')->assertOk();
+        $response = $this->actingAs($this->admin())->get('/app/dashboard/admin/academic-years')->assertOk();
         $bytes = strlen(implode(', ', $response->headers->all('Link')));
         $this->assertLessThan(4096, $bytes, 'Link preload header: '.$bytes.' bytes');
         $response->assertSee('rel="modulepreload"', false);
@@ -45,7 +45,7 @@ class AcademicYearTransportTest extends TestCase
         try {
             $this->app->usePublicPath($fixture);
             Vite::useHotFile($fixture.'/hot');
-            $this->actingAs($this->admin())->get('/dashboard/admin/academic-years')->assertOk()
+            $this->actingAs($this->admin())->get('/app/dashboard/admin/academic-years')->assertOk()
                 ->assertSee('/build/assets/app-fixture.js')
                 ->assertInertia(fn (Assert $page) => $page->component('dashboard/academicYear/Index'));
         } finally {
@@ -59,14 +59,14 @@ class AcademicYearTransportTest extends TestCase
         $this->actingAs($this->admin());
         $year = AcademicYear::create(['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'draft']);
         $other = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft']);
-        $url = '/dashboard/admin/academic-years/'.$year->id;
-        $this->from('/dashboard/admin/academic-years')->withHeader('X-Inertia', 'true')->patch($url.'/open')->assertStatus(303)->assertSessionHasNoErrors();
+        $url = '/app/dashboard/admin/academic-years/'.$year->id;
+        $this->from('/app/dashboard/admin/academic-years')->withHeader('X-Inertia', 'true')->patch($url.'/open')->assertStatus(303)->assertSessionHasNoErrors();
         $this->patch($url.'/open')->assertSessionHasNoErrors();
-        $this->patch('/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasErrors('general');
+        $this->patch('/app/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasErrors('general');
         $this->assertSame(1, AcademicYear::where('status', 'open')->count());
         $this->patch($url.'/close')->assertSessionHasNoErrors();
         $this->patch($url.'/close')->assertSessionHasNoErrors();
-        $this->patch('/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasNoErrors();
+        $this->patch('/app/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasNoErrors();
         $this->assertSame('open', $other->fresh()->status);
     }
 
@@ -74,8 +74,8 @@ class AcademicYearTransportTest extends TestCase
     {
         foreach (['', 'base64:invalid'] as $key) {
             config(['app.key' => $key]);
-            $this->get('/dashboard/admin/academic-years')->assertStatus(503)->assertDontSee('APP_KEY')->assertHeaderMissing('Set-Cookie');
-            $this->patchJson('/dashboard/admin/academic-years/1/open')->assertStatus(503)->assertJsonStructure(['message']);
+            $this->get('/app/dashboard/admin/academic-years')->assertStatus(503)->assertDontSee('APP_KEY')->assertHeaderMissing('Set-Cookie');
+            $this->patchJson('/app/dashboard/admin/academic-years/1/open')->assertStatus(503)->assertJsonStructure(['message']);
         }
     }
 
@@ -94,7 +94,7 @@ class AcademicYearTransportTest extends TestCase
     public function test_missing_or_malformed_year_is_reported_without_server_error(): void
     {
         $this->actingAs($this->admin());
-        $this->get('/dashboard/admin/academic-years/not-a-number')->assertNotFound();
-        $this->put('/dashboard/admin/academic-years/999', ['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30'])->assertRedirect()->assertSessionHasErrors('general');
+        $this->get('/app/dashboard/admin/academic-years/not-a-number')->assertNotFound();
+        $this->put('/app/dashboard/admin/academic-years/999', ['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30'])->assertRedirect()->assertSessionHasErrors('general');
     }
 }

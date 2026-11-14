@@ -50,7 +50,7 @@ class EnrollmentController extends Controller
         $enrollments = $query->latest()->orderByDesc('id')->paginate(9)->withQueryString();
         $enrollments->through(function ($entry) {
             $data = Arr::only($entry->toArray(), ['id', 'uuid', 'reference', 'matricule', 'status', 'payment_status', 'created_at', 'enrolled_at', 'level', 'academic_year', 'documents_count', 'accepted_documents_count', 'correction_documents_count']);
-            $data['academic_portal_url'] = $entry->academicEnrollment ? '/dashboard/student?application='.$entry->uuid : null;
+            $data['academic_portal_url'] = $entry->academicEnrollment ? '/app/dashboard/student?application='.$entry->uuid : null;
             $data['analysis_started_at'] = $entry->meta['analysis_started_at'] ?? null;
             $data['analysis_completed_at'] = $entry->meta['analysis_completed_at'] ?? null;
             $data['corrections_requested_at'] = $entry->meta['corrections_requested_at'] ?? null;
@@ -153,13 +153,13 @@ class EnrollmentController extends Controller
             abort_unless(is_string($selected) && $enrollment->documents->contains('uuid', $selected), 404);
         }
         $data['selected_document_uuid'] = $selected;
-        $data['academic_portal_url'] = $enrollment->academicEnrollment ? '/dashboard/student?application='.$enrollment->uuid : null;
+        $data['academic_portal_url'] = $enrollment->academicEnrollment ? '/app/dashboard/student?application='.$enrollment->uuid : null;
         if ($enrollment->academicEnrollment) {
             $financial = app(StudentFinanceService::class)->balance($enrollment->academicEnrollment);
             $data['payment_status'] = match ($financial['financial_clearance_status']) {
                 'cleared' => 'paid',default => $financial['financial_clearance_status']
             };
-            $data['financial_portal_url'] = '/dashboard/student/fees?application='.$enrollment->uuid;
+            $data['financial_portal_url'] = '/app/dashboard/student/fees?application='.$enrollment->uuid;
         }
         $data['submitted_at'] = $enrollment->meta['submitted_at'] ?? null;
         $data['requested_program'] = AcademicProgram::whereKey($enrollment->form_snapshot['academic_program_id'] ?? null)->value('name') ?? ($enrollment->form_snapshot['program'] ?? null);

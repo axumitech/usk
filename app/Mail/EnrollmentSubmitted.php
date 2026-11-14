@@ -55,7 +55,7 @@ class EnrollmentSubmitted extends Mailable
                     'Matricule' => $this->enrollment->matricule,
                     'Date de réception' => (isset($this->enrollment->meta['submitted_at']) ? Carbon::parse($this->enrollment->meta['submitted_at']) : $this->enrollment->updated_at)?->timezone('Africa/Kinshasa')->format('d/m/Y à H:i').' (Kinshasa)',
                 ], fn ($value) => $value !== null && $value !== ''),
-                'actionUrl' => url('/dashboard/enrollments/'.$this->enrollment->uuid),
+                'actionUrl' => url('/app/dashboard/enrollments/'.$this->enrollment->uuid),
                 'actionLabel' => 'Suivre ma candidature',
                 'noticeTitle' => 'La prochaine étape',
                 'notice' => 'Le service des inscriptions procédera à l’examen de votre dossier. Cet accusé de réception ne vaut pas confirmation d’admission. Consultez votre espace pour connaître l’état de votre demande.',

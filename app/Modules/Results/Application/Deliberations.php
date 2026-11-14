@@ -29,7 +29,21 @@ final class Deliberations
             ResultRules::check($rule->approved_at !== null && $rule->effective_on->toDateString() <= $meeting->toDateString(),
                 'rule', 'Le règlement approuvé doit être applicable à la date du jury.');
             $version = $rule->version;
+            $rulePeriod = $rule->configuration['period_code'] ?? null;
+            $period = $input['period_code'] ?? $rulePeriod;
+            ResultRules::check($rulePeriod === null || $rulePeriod === $period, 'period_code', 'La période doit correspondre au règlement approuvé.');
+            $units = $this->inputs->units($rule, $period);
+            $decisions = $rule->configuration['decisions'];
             $key = implode(':', [$version->id, $rule->level_id, $rule->session_code]);
+            if ($period !== null) {
+                ResultRules::check($units !== [] && $units[0]['period_code'] === $period,
+                    'period_code', 'Sélectionnez une période prévue dans la maquette du niveau.');
+                ResultRules::check(! isset($rule->configuration['base_rule_id']), 'period_code', 'Les règlements de rattrapage annuels couvrent toutes les périodes.');
+                $decisions = array_filter($decisions, fn ($decision) => $decision['progression'] === 'none'
+                    && ! $decision['permits_incomplete'] && empty($decision['completion_credits']));
+                ResultRules::check($decisions !== [], 'period_code', 'Le règlement doit prévoir une décision de période sur dossier complet, sans progression annuelle.');
+                $key .= ':period:'.$period;
+            }
             $runs = AcademicDeliberation::where('scope_key', $key);
             $last = (clone $runs)->latest('edition')->first();
             $previous = (clone $runs)->where('state', 'published')->latest('edition')->first();
@@ -45,7 +59,6 @@ final class Deliberations
             $faculty = $this->access->faculty($version);
             $jury = $this->jury($input, $faculty, (int) $rule->configuration['quorum']);
             $roster = $this->inputs->roster($rule);
-            $units = $this->inputs->units($rule);
             ResultRules::check($roster->exists(), 'rule', 'Aucun dossier éligible pour ce règlement.');
             $equivalences = $this->equivalences($rule, $input['equivalences'] ?? [], $units, $roster);
             $run = AcademicDeliberation::create([
@@ -61,11 +74,11 @@ final class Deliberations
                     'year' => $version->academicYear->title, 'year_id' => $version->academic_year_id,
                     'session' => $rule->session_code, 'regulation' => $rule->reference, 'regulation_version' => $rule->code,
                     'scale' => $rule->configuration['scale'], 'credit_label' => $rule->configuration['credit_label'],
-                    'decisions' => $rule->configuration['decisions'],
-                ],
+                    'decisions' => $decisions,
+                ] + ($period === null ? [] : ['period_code' => $period, 'period_name' => $units[0]['period_name']]),
             ]);
-            $roster->with('profile.user')->chunkById(100, function ($entries) use ($rule, $units, $equivalences, $run) {
-                foreach ($this->inputs->calculate($rule, $units, $entries, $equivalences) as $id => $snapshot) {
+            $roster->with('profile.user')->chunkById(100, function ($entries) use ($rule, $units, $equivalences, $run, $period) {
+                foreach ($this->inputs->calculate($rule, $units, $entries, $equivalences, $period) as $id => $snapshot) {
                     $run->results()->create(['academic_enrollment_id' => $id, 'snapshot' => $snapshot, 'reference' => (string) Str::uuid()]);
                 }
             });
@@ -151,11 +164,14 @@ final class Deliberations
     {
         $rule = $run->rule;
         $roster = $this->inputs->roster($rule);
-        $units = $this->inputs->units($rule);
+        $period = $run->context['period_code'] ?? null;
+        $units = $this->inputs->units($rule, $period);
         ResultRules::check((clone $roster)->count() === $run->results()->count(), 'state', 'Le périmètre a changé. Préparez une nouvelle édition.');
-        $roster->with('profile.user')->chunkById(100, function ($entries) use ($run, $rule, $units) {
+        $roster->with('profile.user')->chunkById(100, function ($entries) use ($run, $rule, $units, $period) {
             $saved = $run->results()->whereIn('academic_enrollment_id', $entries->modelKeys())->get()->keyBy('academic_enrollment_id');
-            $current = $this->inputs->calculate($rule, $units, $entries, $saved->map(fn ($result) => $result->snapshot['equivalences'])->all());
+            ResultRules::check($saved->every(fn ($result) => ($result->snapshot['calculator'] ?? null) === ResultCalculator::VERSION), 'state',
+                'Les règles de calcul ont changé. Abandonnez cette édition et préparez-en une nouvelle.');
+            $current = $this->inputs->calculate($rule, $units, $entries, $saved->map(fn ($result) => $result->snapshot['equivalences'])->all(), $period);
             foreach ($current as $id => $snapshot) {
                 ResultRules::check($saved->has($id) && $saved[$id]->snapshot == $snapshot, 'state',
                     'Des notes ou inscriptions ont changé. Préparez une nouvelle édition.');

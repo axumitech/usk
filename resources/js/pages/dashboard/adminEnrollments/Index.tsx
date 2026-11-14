@@ -8,7 +8,7 @@ import '../../../../css/admin-enrollments.css';
 import QueueList, { type ListProps } from './QueueList';
 import { applicantName, statusLabels, type Dossier } from './types';
 
-const admissions = '/dashboard/admin/enrollments';
+const admissions = '/app/dashboard/admin/enrollments';
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' });
 const dossierStatuses = { ...statusLabels, pending: 'En analyse', validated: 'Admis', rejected: 'Refusé' };
 type FilterKey =

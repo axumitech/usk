@@ -315,7 +315,7 @@ const AboutPageSection = () => {
                                     <p className="text-white/90">Développez votre potentiel et transformez votre avenir avec nous</p>
                                 </div>
                                 <button
-                                    onClick={() => router.visit('/dashboard/enrollments')}
+                                    onClick={() => router.visit('/app/dashboard/enrollments')}
                                     className="flex transform items-center rounded-2xl bg-white px-8 py-3 font-semibold text-amber-600 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
                                 >
                                     Postuler maintenant

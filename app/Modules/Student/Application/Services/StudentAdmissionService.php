@@ -4,6 +4,7 @@ namespace App\Modules\Student\Application\Services;
 
 use App\Models\AcademicStructure\AcademicPromotion;
 use App\Models\AcademicStructure\AdmissionCohort;
+use App\Models\AcademicYear;
 use App\Models\Enrollment;
 use App\Models\Level;
 use App\Models\Student\AcademicEnrollment;
@@ -50,6 +51,10 @@ final class StudentAdmissionService
                 throw new InvalidEnrollmentStateException('Seul un dossier administrativement validé permet l’activation étudiante.');
             }
             $this->ensureComplete($application);
+            if (! $historicalImport && $actorId !== null) {
+                $faculties = $actor->academicFaculties();
+                abort_if($faculties->exists() && ! $faculties->whereKey($application->level?->faculty_id)->exists(), 403);
+            }
             $profile = StudentProfile::firstOrCreate(['user_id' => $user->id], ['matricule' => $application->matricule, 'student_status' => 'active']);
             if (! $profile->matricule && $application->matricule) {
                 $profile->update(['matricule' => $application->matricule]);
@@ -62,8 +67,10 @@ final class StudentAdmissionService
             if ($existing) {
                 return $existing;
             }
-            $year = \App\Models\AcademicYear::lockForUpdate()->findOrFail($application->academic_year_id);
-            if (!$historicalImport && $year->status !== 'open') throw new InvalidEnrollmentStateException('La première inscription nécessite une année ouverte.');
+            $year = AcademicYear::lockForUpdate()->findOrFail($application->academic_year_id);
+            if (! $historicalImport && $year->status !== 'open') {
+                throw new InvalidEnrollmentStateException('La première inscription nécessite une année ouverte.');
+            }
             $level = Level::lockForUpdate()->findOrFail($application->level_id);
             if (!$historicalImport && !$level->is_active) throw new InvalidEnrollmentStateException('Le niveau doit être actif.');
             $choice = $application->form_snapshot['academic_program_id'] ?? null;
@@ -94,13 +101,36 @@ final class StudentAdmissionService
             $departmentId = $previousDepartment && $level->departmentOptions()->where('is_active', true)->whereKey($previousDepartment)->exists()
                 ? $previousDepartment
                 : null;
-            $entry = AcademicEnrollment::create(['student_profile_id' => $profile->id, 'application_id' => $application->id, 'matricule' => $profile->matricule ?? $application->matricule, 'level_id' => $application->level_id, 'academic_department_id' => $departmentId, 'admission_cohort_id' => $cohortId, 'academic_promotion_id' => $promotionId, 'academic_year_id' => $application->academic_year_id, 'enrollment_status' => 'pending_confirmation', 'currency' => config('student.currency')]);
+            $category = $historicalImport ? null : $user->feeCategoryFromNationality();
+            $entry = AcademicEnrollment::create([
+                'student_profile_id' => $profile->id,
+                'application_id' => $application->id,
+                'matricule' => $profile->matricule ?? $application->matricule,
+                'level_id' => $application->level_id,
+                'academic_department_id' => $departmentId,
+                'admission_cohort_id' => $cohortId,
+                'academic_promotion_id' => $promotionId,
+                'academic_year_id' => $application->academic_year_id,
+                'enrollment_status' => 'pending_confirmation',
+                'fee_category' => $category,
+                'currency' => config('student.currency'),
+            ]);
             if ($actorId !== null) {
                 app(CurriculumService::class)->resolveNew($entry, $actor, $programId);
                 $entry->refresh();
             }
-            Audit::record($actorId, 'student_admission_activated', $entry, null, ['application_id' => $application->id, 'user_id' => $user->id, 'matricule' => $application->matricule]);
-            // Keep financial category unassigned until confirmed by authorized staff.
+            Audit::record($actorId, 'student_admission_activated', $entry, null, [
+                'application_id' => $application->id, 'user_id' => $user->id, 'matricule' => $application->matricule,
+                'fee_category' => $category,
+            ]);
+            if ($actorId !== null && $category !== null) {
+                app(FeeTariffService::class)->billResolvedTuition(
+                    $entry,
+                    $actorId,
+                    $category,
+                    'Barème annuel appliqué automatiquement à la validation de l’inscription.',
+                );
+            }
             if ($notify) {
                 DB::afterCommit(function () use ($entry, $user, $application) {
                     try {

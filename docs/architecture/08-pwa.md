@@ -1,0 +1,27 @@
+# Espace universitaire installable
+
+Le site public conserve la racine `/` et son rendu SEO (Inertia SSR ou HTML de secours). La PWA occupe `/app/` sur le même domaine. Laravel 12, Inertia 2, React 19 et Vite 6 gardent leur point d’entrée et leurs composants. Ziggy conserve les noms de routes, ce qui permet de régénérer les URLs sans changer les contrôleurs, les policies, les permissions Spatie ni les layouts. Aucune dépendance ou migration de base n’est nécessaire.
+
+## Routage et sessions
+
+- Le lien « Espace étudiant » ouvre `/app/` par navigation de document. Laravel dirige le visiteur vers `/app/login` ou le tableau de bord. Celui-ci conserve la répartition existante : administration, étudiant avec profil, professeur, ou suivi des candidatures. Les écrans de création de compte, de récupération du mot de passe, de vérification de l’adresse et d’activation enseignant appartiennent au même périmètre. Aucun parcours 2FA actif n’a été identifié.
+- 305 routes nommées sont déplacées sous le préfixe `app`, à méthodes, actions et middlewares identiques. Les deux anciens écrans d’authentification sous `/dashboard/auth/` redirigent vers les écrans actifs. `routes/pwa-legacy.php` recense les anciennes familles d’URLs. Les redirections 307 gardent la méthode, le corps et la chaîne de requête. Un lien protégé ouvert sans session est repris après connexion et repasse par les autorisations habituelles.
+- Les callbacks OAuth conservent leur URL configurée. Les anciens liens de vérification d’adresse restent validés par leur signature d’origine. La vérification publique des documents et reçus reste hors PWA.
+- Le cookie garde le périmètre existant pour les parcours OAuth et les anciens liens. Conserver `HttpOnly`, `SameSite=Lax` et activer `SESSION_SECURE_COOKIE=true` sous HTTPS. Le logout invalide la session, régénère le jeton CSRF et efface l’historique Inertia chiffré des pages applicatives. Lorsqu’un navigateur restaure un document depuis son cache de navigation, le document est rechargé pour revérifier la session.
+
+## Installation, splash et cache
+
+- Le manifeste fixe l’identité, le lancement et la portée à `/app/`. Le navigateur décide du splash natif et du mode standalone. Le splash applicatif, dans le HTML initial, reprend le blason, la préférence de thème et la réduction des animations. Il se retire au montage de React sans délai imposé. Sur iPhone et iPad, Safari propose « Sur l’écran d’accueil ». Les images de démarrage spécifiques aux résolutions Apple sont reportées jusqu’à validation sur appareils réels.
+- Le worker `/app/sw.js` n’intercepte que les navigations de document GET de son périmètre. Il tente le réseau et sert une page statique si le réseau échoue. Le seul fichier enregistré dans Cache Storage est `/pwa/offline.html`, chargé sans cookies. Les réponses privées, requêtes Inertia, mutations et documents ne sont jamais enregistrés par le worker. Laravel émet `private, no-store` pour les pages privées et les erreurs applicatives. Les ressources Vite gardent leur cache HTTP ordinaire.
+- La version du worker dépend du manifeste Vite, du code du worker et de la page hors ligne. La nouvelle version est préparée en arrière-plan. Le bouton de mise à jour demande confirmation avant de recharger l’onglet ; les autres onglets ne sont pas rechargés par le worker. Le worker efface uniquement ses anciens caches. Les notifications internes sont conservées ; aucun Web Push ni aucune file d’attente de mutations hors ligne n’a été ajouté.
+
+## Déploiement et recette
+
+1. Déployer le code Laravel, `public/pwa/`, `resources/pwa/` et le build Vite de la même release via le workflow existant. Exclure `public/hot`. Utiliser HTTPS et conserver la barre oblique de `/app/` : Apache est configuré dans `public/.htaccess` ; vérifier l’équivalent sur un proxy éventuel.
+2. Vérifier `/app/sw.js` (JavaScript, revalidation HTTP, sans cookie) et `/pwa/manifest.webmanifest` (JSON, icônes accessibles). Exclure `/app/` du cache CDN pour les réponses dynamiques.
+3. Tester sur Chromium ordinateur, Chrome Android et Safari iPhone/iPad : installation, ouverture depuis l’icône, splash natif, thème, rotation, clavier, zones sûres et bouton retour. Parcourir les écrans d’administration, étudiant, professeur et candidat, y compris les téléchargements, un lien profond partagé, la session expirée, la réinitialisation, l’expiration CSRF et la déconnexion.
+4. Couper puis rétablir le réseau. Vérifier le secours sur un lien profond, le retour en ligne et l’absence de données privées dans Cache Storage. Déployer deux builds successifs et vérifier le bouton de mise à jour avec un formulaire modifié. Sur un retour à une release antérieure sans PWA, maintenir temporairement des redirections GET depuis `/app/` vers les anciennes adresses pour les installations existantes.
+
+Tests locaux : suite front, TypeScript, build Vite, tests Laravel et Chromium via DevTools Protocol. L’installation effective sur appareils physiques, le splash natif Apple et le comportement du proxy/CDN restent à valider en préproduction.
+
+Le test Chromium automatisé a confirmé les critères d’installation, l’absence de contrôle sur la racine, le secours hors ligne et le retour réseau, ainsi que la mise à jour explicite, la conservation d’un champ modifié avant confirmation et la purge de l’ancien cache. Lighthouse 13.6, exécuté localement sur le login, a mesuré 73/100 en performance, 100/100 en accessibilité et 100/100 en bonnes pratiques. Les critères PWA ont été vérifiés séparément via DevTools Protocol.

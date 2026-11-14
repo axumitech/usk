@@ -29,7 +29,7 @@ export default function () {
     if (writes) {
         if (__ITER > 0) return sleep(1);
         if (!account.csrf || !account.ticket_id || !account.revision) throw new Error('Demande approuvée et jeton requis.');
-        const path = `/dashboard/admin/official-documents/requests/${Number(account.ticket_id)}/issue`;
+        const path = `/app/dashboard/admin/official-documents/requests/${Number(account.ticket_id)}/issue`;
         const headers = { ...params.headers, 'X-CSRF-TOKEN': account.csrf, 'Content-Type': 'application/json', Accept: 'application/json' };
         check(http.post(origin + path, JSON.stringify({ revision: Number(account.revision) }), { ...params, headers }), {
             'émission acceptée': (response) => response.status === 303,
@@ -38,9 +38,9 @@ export default function () {
         const academic = Number(account.academic_id);
         const reference = encodeURIComponent(account.reference || '');
         const paths = {
-            portal: `/dashboard/student/${__ITER % 5 === 0 ? 'card' : 'documents'}?academic=${academic}`,
-            report: `/dashboard/student/results/official/${reference}/report?academic=${academic}`,
-            download: `/dashboard/student/official-documents/${reference}?academic=${academic}`,
+            portal: `/app/dashboard/student/${__ITER % 5 === 0 ? 'card' : 'documents'}?academic=${academic}`,
+            report: `/app/dashboard/student/results/official/${reference}/report?academic=${academic}`,
+            download: `/app/dashboard/student/official-documents/${reference}?academic=${academic}`,
             verify: `/verifier/document/${reference}`,
         };
         check(http.get(origin + paths[mode], params), {

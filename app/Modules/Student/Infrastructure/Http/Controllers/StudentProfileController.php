@@ -24,6 +24,7 @@ class StudentProfileController extends Controller
     {
         $entry = $this->portal->context($request);
         $data = $request->validated();
+        $editingUrl = $request->editingUrl($entry->id);
         $newPhoto = null;
         try {
             if ($request->hasFile('photo')) {
@@ -70,10 +71,17 @@ class StudentProfileController extends Controller
             if ($newPhoto && $entry->profile->fresh()->photo_path !== $newPhoto) {
                 Storage::disk('local')->delete($newPhoto);
             }
+            if ($editingUrl && $exception instanceof ValidationException) {
+                $exception->redirectTo($editingUrl);
+            }
             throw $exception;
         }
 
-        return $emailChanged ? redirect()->route('verification.notice')->with('success', 'Profil enregistré. Vérifiez votre nouvelle adresse email pour continuer.') : back(303)->with('success', 'Votre profil a été enregistré avec succès.');
+        if ($emailChanged) {
+            return redirect()->route('verification.notice')->with('success', 'Profil enregistré. Vérifiez votre nouvelle adresse email pour continuer.');
+        }
+
+        return ($editingUrl ? redirect()->to($editingUrl, 303) : back(303))->with('success', 'Votre profil a été enregistré avec succès.');
     }
 
     public function photo(Request $request)
@@ -97,20 +105,30 @@ class StudentProfileController extends Controller
 
     public function password(Request $request)
     {
-        $this->portal->context($request);
-        $data = $request->validateWithBag('studentPassword', ['current_password' => ['required', 'current_password'], 'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()]]);
-        DB::transaction(function () use ($request, $data) {
-            $user = $request->user()->newQuery()->lockForUpdate()->findOrFail($request->user()->id);
-            if (! Hash::check($data['current_password'], $user->password)) {
-                throw ValidationException::withMessages(['current_password' => 'Le mot de passe actuel est incorrect.'])->errorBag('studentPassword');
+        $entry = $this->portal->context($request);
+        $settingsUrl = $request->query('view') === 'settings'
+            ? route('dashboard.student.index', ['section' => 'profile', 'academic' => $entry->id, 'view' => 'settings'])
+            : null;
+        try {
+            $data = $request->validateWithBag('studentPassword', ['current_password' => ['required', 'current_password'], 'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()]]);
+            DB::transaction(function () use ($request, $data) {
+                $user = $request->user()->newQuery()->lockForUpdate()->findOrFail($request->user()->id);
+                if (! Hash::check($data['current_password'], $user->password)) {
+                    throw ValidationException::withMessages(['current_password' => 'Le mot de passe actuel est incorrect.'])->errorBag('studentPassword');
+                }
+                $user->forceFill(['password' => Hash::make($data['password'])]);
+                app(RevokeCredentials::class)->execute($user, $request->session()->getId());
+                Audit::record($user->id, 'student_password_updated', $user, 'Changement depuis le profil étudiant.');
+            });
+        } catch (ValidationException $exception) {
+            if ($settingsUrl) {
+                $exception->redirectTo($settingsUrl);
             }
-            $user->forceFill(['password' => Hash::make($data['password'])]);
-            app(RevokeCredentials::class)->execute($user, $request->session()->getId());
-            Audit::record($user->id, 'student_password_updated', $user, 'Changement depuis le profil étudiant.');
-        });
+            throw $exception;
+        }
         $request->user()->refresh();
         $request->session()->regenerate();
 
-        return back(303)->with('success', 'Votre mot de passe a été modifié.');
+        return ($settingsUrl ? redirect()->to($settingsUrl, 303) : back(303))->with('success', 'Votre mot de passe a été modifié.');
     }
 }

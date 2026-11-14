@@ -15,10 +15,10 @@ export default function () {
     const account = accounts[(__VU - 1) % accounts.length];
     const base = __ENV.BASE_URL.replace(/\/$/, '');
     const paths = account.role === 'admin'
-        ? ['/dashboard/admin/teaching', `/dashboard/admin/teaching?offering=${account.offering_id}`]
+        ? ['/app/dashboard/admin/teaching', `/app/dashboard/admin/teaching?offering=${account.offering_id}`]
         : account.role === 'professor'
-          ? ['/dashboard/teacher', `/dashboard/teacher?offering=${account.offering_id}`]
-          : [`/dashboard/student/courses?academic=${account.academic_id}`, `/dashboard/student/courses/${account.course_id}?academic=${account.academic_id}`];
+          ? ['/app/dashboard/teacher', `/app/dashboard/teacher?offering=${account.offering_id}`]
+          : [`/app/dashboard/student/courses?academic=${account.academic_id}`, `/app/dashboard/student/courses/${account.course_id}?academic=${account.academic_id}`];
     for (const path of paths) {
         const response = http.get(base + path, { headers: { Cookie: account.cookie, Accept: 'text/html' }, redirects: 0 });
         check(response, { 'authorized response': result => result.status === 200 });

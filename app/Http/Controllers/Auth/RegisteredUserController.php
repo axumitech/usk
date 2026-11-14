@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Modules\Identity\Domain\Nationality;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('dashboard/auth/Signup');
+        return Inertia::render('dashboard/auth/Signup', ['nationalities' => Nationality::choices()]);
     }
 
     /**
@@ -43,14 +44,16 @@ class RegisteredUserController extends Controller
             'last_name' => 'required|string|max:255',
             'first_name' => 'required|string|max:255',
             'gender' => 'required|string|max:255',
+            'nationality_code' => Nationality::rules(),
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+        ], Nationality::messages());
 
         $user = User::create([
             'last_name' => $request->last_name,
             'first_name' => $request->first_name,
             'gender' => $request->gender,
+            'nationality_code' => $request->nationality_code,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'last_login_at' => now(),

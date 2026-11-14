@@ -12,6 +12,7 @@ export type Offering = {
     unit: string | null;
     item_id: number | null;
     semester: string | null;
+    semester_number?: number | null;
     starts_on: string | null;
     ends_on: string | null;
     group: string | null;
@@ -21,13 +22,14 @@ export type Offering = {
     teacher_id: number | null;
     assistant: string | null;
     assistant_id: number | null;
-    credits: string | null;
+    credits: string | number | null;
     coefficient: string | null;
     optional: boolean;
     prerequisite: string | null;
     status: 'draft' | 'published' | 'archived';
     sessions_count: number | null;
     resources_count: number | null;
+    assessments_count?: number | null;
     active_students_count: number | null;
 };
 export type Student = { id: number; name: string; matricule: string | null };

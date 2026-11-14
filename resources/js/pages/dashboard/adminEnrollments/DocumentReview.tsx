@@ -37,7 +37,7 @@ export default function DocumentReview({
                     onSubmit={(event) => {
                         event.preventDefault();
                         if (!form.processing)
-                            form.post(`/dashboard/admin/enrollments/${enrollmentId}/documents/${document.uuid}/review`, {
+                            form.post(`/app/dashboard/admin/enrollments/${enrollmentId}/documents/${document.uuid}/review`, {
                                 preserveScroll: true,
                                 onSuccess: () =>
                                     onFeedback(

@@ -48,6 +48,7 @@ final class ResultRules
     private function configuration(CurriculumVersion $version, int $level, string $session, array $input): array
     {
         $data = Validator::make($input, [
+            'period_code' => 'nullable|string|max:60',
             'scale' => 'required|integer|between:1,1000000', 'precision' => 'required|integer|between:0,2',
             'rounding' => 'required|in:half_up,half_even,down', 'weighting' => 'required|in:uniform,credits,coefficients',
             'ec_pass' => 'required|integer|min:0|lte:scale', 'ue_pass' => 'required|integer|min:0|lte:scale',
@@ -74,7 +75,15 @@ final class ResultRules
                 $data[$key] = (int) $data[$key];
             }
         }
+        $period = $data['period_code'] ?? null;
+        if ($period !== null) {
+            self::check(empty($data['base_rule_id']), 'configuration', 'Un règlement semestriel ne peut pas servir au rattrapage annuel.');
+        }
         foreach ($data['decisions'] as $key => $decision) {
+            if ($period !== null) {
+                self::check($decision['progression'] === 'none' && ! $decision['permits_incomplete'] && empty($decision['completion_credits']),
+                    'configuration', 'Une décision semestrielle exige un dossier complet et ne décide pas de la progression annuelle.');
+            }
             self::check(preg_match('/^[a-z][a-z0-9_-]{0,58}$/D', (string) $key) === 1, 'configuration', 'Utilisez des codes de décision stables.');
             self::check($decision['progression'] === 'none' || (! $decision['permits_incomplete'] && ! $decision['permits_eliminatory']),
                 'configuration', 'Une décision de progression exige un dossier complet sans élimination.');
@@ -91,13 +100,15 @@ final class ResultRules
         $base = isset($data['base_rule_id']) ? AcademicResultRule::find($data['base_rule_id']) : null;
         if (isset($data['base_rule_id'])) {
             self::check($base && $base->approved_at && $base->curriculum_version_id === $version->id && $base->level_id === $level
-                && $base->session_code !== $session && ! isset($base->configuration['base_rule_id'])
+                && $base->session_code !== $session && ! isset($base->configuration['base_rule_id']) && ! isset($base->configuration['period_code'])
                 && $base->configuration['scale'] === $data['scale'], 'configuration', 'Le rattrapage exige un règlement ordinaire approuvé de même contexte et échelle.');
         } else {
             self::check(empty($data['resit_policy']) && empty($data['missing_resit']) && empty($data['resit_eligibility']), 'configuration', 'Associez une session ordinaire pour appliquer une règle de rattrapage.');
         }
-        $items = $version->units()->where('level_id', $level)->with('items')->get()->flatMap->items->keyBy('id');
-        self::check($items->isNotEmpty() && count($data['items']) === $items->count(), 'configuration', 'Déclarez les sources de chaque EC du niveau.');
+        $items = $version->units()->where('level_id', $level)
+            ->when($period !== null, fn ($units) => $units->where('period_code', $period))
+            ->with('items')->get()->flatMap->items->keyBy('id');
+        self::check($items->isNotEmpty() && count($data['items']) === $items->count(), 'configuration', 'Déclarez les sources de chaque EC du périmètre choisi.');
         self::check($data['weighting'] === 'uniform' || in_array($version->weighting_mode, [$data['weighting'], 'both'], true),
             'configuration', 'La pondération doit être compatible avec la maquette.');
         $seen = [];

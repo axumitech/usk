@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#073e32">
+  <title>Hors connexion — USK</title>
+  <style>
+    :root{color-scheme:light dark;font:1rem/1.5 system-ui;--bg:#edf5f1;--card:#fff;--ink:#17342a;--button:#073e32}
+    @media(prefers-color-scheme:dark){:root{--bg:#101c19;--card:#172923;--ink:#e9f6ef;--button:#24694e}}
+    body{margin:0;min-height:100dvh;display:grid;place-items:center;background:var(--bg);color:var(--ink)}
+    main{margin:1rem;padding:clamp(1.5rem,7vw,3rem);max-width:25rem;border-radius:1.5rem;background:var(--card);box-shadow:0 12px 50px #073e3220}
+    small{font-weight:750;letter-spacing:.18em}h1{margin:.55rem 0;line-height:1.15}
+    button{font:inherit;font-weight:650;cursor:pointer;border:0;border-radius:.65rem;background:var(--button);color:white;min-height:44px;padding:.55rem 1rem}
+  </style>
+</head>
+<body>
+  <main>
+    <small>USK · ESPACE UNIVERSITAIRE</small>
+    <h1>Connexion indisponible</h1>
+    <p>Vérifiez votre réseau et réessayez.</p>
+    <button type="button" onclick="location.reload()">Réessayer</button>
+  </main>
+</body>
+</html>

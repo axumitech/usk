@@ -60,6 +60,15 @@ export default function NavigationFeedback({ children }: { children: ReactNode }
             stopLoading();
         };
         const stopBefore = router.on('before', ({ detail: { visit } }) => {
+            if (
+                visit.method === 'get' &&
+                !visit.prefetch &&
+                visit.url.origin === window.location.origin &&
+                document.body.hasAttribute('data-usk-pwa') !== /^\/app(?:\/|$)/.test(visit.url.pathname)
+            ) {
+                window.location.assign(visit.url);
+                return false;
+            }
             if (visit.async || visit.prefetch) return;
             cancelPageTransition();
 
@@ -70,8 +79,8 @@ export default function NavigationFeedback({ children }: { children: ReactNode }
                 visit.reset.length ||
                 visit.preserveUrl ||
                 visit.url.origin !== window.location.origin ||
-                !/^\/dashboard(?:\/|$)/.test(visit.url.pathname) ||
-                visit.url.pathname.startsWith('/dashboard/auth/') ||
+                !/^\/app\/dashboard(?:\/|$)/.test(visit.url.pathname) ||
+                visit.url.pathname.startsWith('/app/dashboard/auth/') ||
                 visit.url.pathname === window.location.pathname ||
                 visit.url.hash ||
                 window.scrollY > 80 ||

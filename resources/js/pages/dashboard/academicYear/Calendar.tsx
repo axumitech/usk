@@ -8,7 +8,16 @@ import { useState } from 'react';
 import '../../../../css/dashboard/academic-calendar.css';
 
 type Year = { id: number; title: string; start_date: string; end_date: string };
-type CalendarEvent = { id: number; title: string; category: string; start_date: string; end_date: string };
+type CalendarEvent = {
+    id: number;
+    title: string;
+    category: string;
+    start_date: string;
+    end_date: string;
+    location: string | null;
+    description: string | null;
+    instructions: string | null;
+};
 type Semester = { id: number; number: number; start_date: string; end_date: string };
 type Props = { years: Year[]; year: Year | null; events: CalendarEvent[]; semesters: Semester[]; categories: Record<string, string> };
 
@@ -40,6 +49,9 @@ function EventForm({
         category: event?.category ?? 'exam',
         start_date: event?.start_date ?? day,
         end_date: event?.end_date ?? day,
+        location: event?.location ?? '',
+        description: event?.description ?? '',
+        instructions: event?.instructions ?? '',
     });
     return (
         <AdminModal
@@ -102,6 +114,23 @@ function EventForm({
                         max={year.end_date}
                         value={form.data.end_date}
                         onChange={(e) => form.setData('end_date', e.target.value)}
+                    />
+                </label>
+                <label className="admin-field">
+                    Lieu
+                    <input maxLength={160} value={form.data.location} onChange={(e) => form.setData('location', e.target.value)} />
+                </label>
+                <label className="admin-field">
+                    Description
+                    <textarea rows={3} maxLength={3000} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                </label>
+                <label className="admin-field">
+                    Informations importantes
+                    <textarea
+                        rows={3}
+                        maxLength={2000}
+                        value={form.data.instructions}
+                        onChange={(e) => form.setData('instructions', e.target.value)}
                     />
                 </label>
             </form>

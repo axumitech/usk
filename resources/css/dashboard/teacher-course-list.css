@@ -1,0 +1,157 @@
+.teacher-course-count {
+    color: var(--teacher-muted);
+    font-size: 0.8rem;
+    font-weight: 650;
+}
+
+.teacher-list.teacher-course-cards {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+    gap: clamp(0.65rem, 1.5vw, 1rem);
+}
+
+.teacher-course-card {
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 0.62rem;
+    min-width: 0;
+    height: 100%;
+    padding: clamp(0.75rem, 1.8vw, 1rem);
+    border: 1px solid var(--teacher-line);
+    border-radius: 0.85rem;
+    background: linear-gradient(145deg, var(--teacher-raised), var(--teacher-paper) 85%);
+    color: var(--teacher-ink);
+    text-decoration: none;
+    transition:
+        border-color 150ms ease,
+        box-shadow 150ms ease;
+}
+
+.teacher-course-card:is(:hover, :focus-visible) {
+    border-color: color-mix(in srgb, var(--teacher-green) 45%, var(--teacher-line));
+    box-shadow: 0 0.25rem 0.85rem #143a2715;
+}
+
+.teacher-course-card-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.teacher-course-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.teacher-course-card-tags > span {
+    padding: 0.18rem 0.48rem;
+    border-radius: 0.5rem;
+    background: var(--tile-soft, var(--teacher-soft));
+    color: var(--tile-ink, var(--teacher-green));
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.teacher-course-card-arrow,
+.teacher-course-card-meta svg {
+    flex: none;
+    color: var(--teacher-green);
+}
+
+.teacher-course-card-copy {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.usk-dashboard .teacher-workspace .teacher-course-card h3 {
+    margin: 0;
+    color: var(--teacher-ink);
+    font-size: clamp(0.98rem, 1.55vw, 1.18rem);
+    font-weight: 760;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+}
+
+.teacher-course-card-copy p {
+    margin: 0.16rem 0 0;
+    color: var(--teacher-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.teacher-course-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem 0.65rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--teacher-line);
+    color: var(--teacher-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.teacher-course-card-meta > span {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.3rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.teacher-course-card-meta svg {
+    margin-top: 0.03rem;
+}
+
+.teacher-course-card-counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.4rem), 1fr));
+    gap: 0.3rem;
+    margin: 0;
+}
+
+.teacher-course-card-counts > div {
+    display: grid;
+    min-width: 0;
+    padding: 0.44rem 0.3rem;
+    border-radius: 0.5rem;
+    background: var(--teacher-raised);
+    text-align: center;
+}
+
+.teacher-course-card-counts dt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.14rem;
+    color: var(--teacher-muted);
+    font-size: 0.69rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.teacher-course-card-counts dt svg {
+    color: var(--teacher-green);
+}
+
+.teacher-course-card-counts dd {
+    grid-row: 1;
+    margin: 0 0 0.17rem;
+    color: var(--teacher-ink);
+    font-size: 1.03rem;
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.12;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .teacher-course-card {
+        transition: none;
+    }
+}

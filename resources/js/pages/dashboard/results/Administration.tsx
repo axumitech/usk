@@ -8,6 +8,7 @@ import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
 
 type Page<T> = { data: T[]; total: number };
+type Period = { code: string; name: string };
 type Rule = {
     id: number;
     code: string;
@@ -15,7 +16,8 @@ type Rule = {
     reference: string;
     session_code: string;
     approved_at: string | null;
-    configuration?: object;
+    configuration?: { period_code?: string | null; base_rule_id?: number | null };
+    periods?: Period[];
 };
 type Run = {
     id: number;
@@ -25,7 +27,15 @@ type Run = {
     revision: number;
     meeting_at: string;
     minutes_volumes: number;
-    context: { year: string; program: string; level: string; session: string; decisions: Record<string, { label: string }> };
+    context: {
+        year: string;
+        program: string;
+        level: string;
+        session: string;
+        period_code?: string | null;
+        period_name?: string | null;
+        decisions: Record<string, { label: string }>;
+    };
     jury: { chair: number; secretary: number; members: Record<string, string> };
     attendance: number[] | null;
 };
@@ -36,6 +46,7 @@ type Dossier = {
     student: string;
     matricule: string | null;
     annual: string | null;
+    period_grade?: string | null;
     credits: { earned: number; planned: number };
     decision: string | null;
     anomalies: string[];
@@ -70,7 +81,7 @@ type Props = {
     permissions: { manage: boolean; publish: boolean; jury: boolean };
     members: { id: number; name: string }[];
     versions: Page<{ id: number; title: string }>;
-    version: { id: number; code: string } | null;
+    version: { id: number; code: string; periods?: Period[] } | null;
     levels: { level_id: number; level_title: string }[];
     items: { id: number; title: string; level_id: number }[];
     assessments: Page<{ id: number; title: string; ec: number; session: string; state: string }> | null;
@@ -106,8 +117,8 @@ const appealStates: Record<string, string> = {
 const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true };
 const credits = (value: number) => new Intl.NumberFormat('fr', { maximumFractionDigits: 2 }).format(value / 100);
 
-function RuleForm({ version, levels }: { version: number; levels: Props['levels'] }) {
-    const form = useForm({ level_id: '', code: '', session_code: '', effective_on: '', reference: '', configuration: '' });
+function RuleForm({ version, levels, periods }: { version: number; levels: Props['levels']; periods: Period[] }) {
+    const form = useForm({ level_id: '', period_code: '', code: '', session_code: '', effective_on: '', reference: '', configuration: '' });
     const [error, setError] = useState('');
     return (
         <details>
@@ -124,7 +135,10 @@ function RuleForm({ version, levels }: { version: number; levels: Props['levels'
                         const configuration: unknown = JSON.parse(form.data.configuration);
                         if (!configuration || typeof configuration !== 'object' || Array.isArray(configuration)) throw new Error();
                         setError('');
-                        form.transform((data) => ({ ...data, configuration }));
+                        form.transform(({ period_code, ...data }) => ({
+                            ...data,
+                            configuration: { ...configuration, period_code: period_code || null },
+                        }));
                         form.post(route(prefix + 'store-rule', version), { preserveScroll: true });
                     } catch {
                         setError('Saisissez un objet JSON valide.');
@@ -142,6 +156,19 @@ function RuleForm({ version, levels }: { version: number; levels: Props['levels'
                         ))}
                     </select>
                 </label>
+                {periods.length > 0 && (
+                    <label>
+                        Périmètre du règlement
+                        <select value={form.data.period_code} onChange={(event) => form.setData('period_code', event.target.value)}>
+                            <option value="">Année complète</option>
+                            {periods.map((period) => (
+                                <option key={period.code} value={period.code}>
+                                    {period.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
                 <label>
                     Code de version <input required value={form.data.code} onChange={(e) => form.setData('code', e.target.value)} />
                 </label>
@@ -184,11 +211,12 @@ function RuleForm({ version, levels }: { version: number; levels: Props['levels'
                     </li>
                     <li>
                         Crédits et compensation. credit_label, allow_equivalence, compensation (none, unit, period), compensation_floor et period_pass
-                        si applicables, eliminatory_below si prévu.
+                        si applicables, eliminatory_below si prévu. Une UE composée exige la validation de chaque EC attendu et ne peut pas être
+                        compensée.
                     </li>
                     <li>
-                        Sources. items associe chaque identifiant d’EC à des identifiants d’évaluation pondérés. La somme des poids doit être 10 000
-                        pour chaque EC calculé.
+                        Sources. items associe les EC de la période choisie à leurs évaluations pondérées. La somme des poids doit être 10 000 pour
+                        chaque EC calculé.
                     </li>
                     <li>
                         Rattrapage. base_rule_id, resit_policy (replace, best, keep), resit_eligibility (failed_ec, failed_unit, all_registered),
@@ -209,6 +237,7 @@ function RuleForm({ version, levels }: { version: number; levels: Props['levels'
 
 function PrepareForm({ rule, members }: { rule: Rule; members: Props['members'] }) {
     const form = useForm({
+        period_code: rule.configuration?.period_code ?? '',
         meeting_at: '',
         chair: '',
         secretary: '',
@@ -237,6 +266,25 @@ function PrepareForm({ rule, members }: { rule: Rule; members: Props['members'] 
                     }
                 }}
             >
+                {Boolean(rule.periods?.length) && !rule.configuration?.base_rule_id && (
+                    <label>
+                        Périmètre de la délibération
+                        <select
+                            value={form.data.period_code}
+                            disabled={Boolean(rule.configuration?.period_code)}
+                            onChange={(event) => form.setData('period_code', event.target.value)}
+                        >
+                            {!rule.configuration?.period_code && <option value="">Année complète</option>}
+                            {rule.periods
+                                ?.filter((period) => !rule.configuration?.period_code || period.code === rule.configuration.period_code)
+                                .map((period) => (
+                                    <option key={period.code} value={period.code}>
+                                        {period.name}
+                                    </option>
+                                ))}
+                        </select>
+                    </label>
+                )}
                 <label>
                     Date du jury (Kinshasa){' '}
                     <input type="datetime-local" required value={form.data.meeting_at} onChange={(e) => form.setData('meeting_at', e.target.value)} />
@@ -426,7 +474,9 @@ export default function Administration(props: Props) {
                         <p data-dashboard-panel="year versions_page">Aucune maquette publiée dans ce périmètre.</p>
                     )}
                     <Pagination value={props.versions} />
-                    {version && permissions.manage && <RuleForm key={version.id} version={version.id} levels={props.levels} />}
+                    {version && permissions.manage && (
+                        <RuleForm key={version.id} version={version.id} levels={props.levels} periods={version.periods ?? []} />
+                    )}
                     {version && (
                         <details>
                             <summary>Identifiants des EC et des évaluations</summary>
@@ -496,7 +546,8 @@ export default function Administration(props: Props) {
                             {props.runs.data.map((row) => (
                                 <li key={row.id}>
                                     <Link href={route(prefix + 'index', { run: row.id })}>
-                                        {row.context.program} · {row.context.level} · {row.context.year} · {row.context.session}
+                                        {row.context.program} · {row.context.level} · {row.context.year} ·{' '}
+                                        {row.context.period_name || row.context.session}
                                     </Link>{' '}
                                     · {states[row.state]} · Édition {row.edition} · n°{row.id}
                                 </li>
@@ -513,7 +564,8 @@ export default function Administration(props: Props) {
                             {run.context.program} · {run.context.level}
                         </h2>
                         <p>
-                            {states[run.state]} · Session {run.context.session} · Édition {run.edition} · Jury prévu le {dateTime(run.meeting_at)}
+                            {states[run.state]} · {run.context.period_name || `Session ${run.context.session}`} · Édition {run.edition} · Jury prévu
+                            le {dateTime(run.meeting_at)}
                         </p>
                         <p>{props.undecided ?? 0} dossier(s) sans décision.</p>
                         <div className="student-dossier-links">
@@ -575,7 +627,7 @@ export default function Administration(props: Props) {
                                                     {row.student} · {row.matricule ?? row.academic_enrollment_id}
                                                 </Link>
                                             </td>
-                                            <td>{row.annual ?? '—'}</td>
+                                            <td>{row.period_grade ?? row.annual ?? '—'}</td>
                                             <td>
                                                 {credits(row.credits.earned)} / {credits(row.credits.planned)}
                                             </td>
@@ -595,7 +647,7 @@ export default function Administration(props: Props) {
                     <section className="portal-panel">
                         <h2>{result.student}</h2>
                         <p>
-                            Moyenne {result.annual ?? 'indisponible'} · {credits(result.credits.earned)} crédits acquis.
+                            Moyenne {result.period_grade ?? result.annual ?? 'indisponible'} · {credits(result.credits.earned)} crédits acquis.
                         </p>
                         {result.anomalies.length > 0 && (
                             <ul>

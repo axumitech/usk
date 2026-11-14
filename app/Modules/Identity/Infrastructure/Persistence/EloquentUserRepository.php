@@ -22,6 +22,7 @@ final class EloquentUserRepository implements UserRepository
             'first_name' => $user->firstName(),
             'post_name' => $user->postName(),
             'gender' => $user->gender(),
+            'nationality_code' => $user->nationalityCode(),
             'email' => $user->email(),
             'password' => $user->passwordHash() ?: Hash::make(Str::random(64)),
 
@@ -61,7 +62,8 @@ final class EloquentUserRepository implements UserRepository
             $model->email,
             $model->password,
             $model->email_verified_at ? new \DateTimeImmutable($model->email_verified_at) : null,
-            $model->role ?? 'user'
+            $model->role ?? 'user',
+            $model->nationality_code,
         );
     }
 }

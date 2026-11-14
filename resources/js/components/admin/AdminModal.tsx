@@ -13,6 +13,7 @@ type Props = {
     wide?: boolean;
     className?: string;
     errors?: Record<string, string | undefined>;
+    eyebrow?: string;
     children: ReactNode;
 };
 export default function AdminModal({
@@ -26,6 +27,7 @@ export default function AdminModal({
     wide = false,
     className = '',
     errors = {},
+    eyebrow = 'ADMINISTRATION USK',
     children,
 }: Props) {
     const content = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ export default function AdminModal({
                     >
                         <header className="admin-modal-header">
                             <div>
-                                <span>ADMINISTRATION USK</span>
+                                <span>{eyebrow}</span>
                                 <Dialog.Title>{title}</Dialog.Title>
                                 <Dialog.Description>{description}</Dialog.Description>
                             </div>

@@ -1,5 +1,6 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import type { StudentChromeData } from '@/components/student/StudentChrome';
 import { dateLabel, localDate } from '@/lib/scheduleDates';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
@@ -20,7 +21,7 @@ type Record = { id: number; course: string; date: string; student: string | null
 
 export default function Absences({ staff, records, status }: { staff: boolean; records: { data: Record[] }; status: string | null }) {
     const [modal, setModal] = useState<FormSpec | null>(null);
-    const { flash } = usePage<{ flash?: { success?: string } }>().props;
+    const { flash, studentChrome } = usePage<{ flash?: { success?: string }; studentChrome?: StudentChromeData | null }>().props;
     const submit = (record: Record) =>
         setModal({
             title: record.case ? 'Compléter le justificatif' : 'Justifier cette absence',
@@ -61,7 +62,13 @@ export default function Absences({ staff, records, status }: { staff: boolean; r
                         <h1>Justifications d’absence</h1>
                         <p>{staff ? 'Examiner les demandes de votre périmètre.' : 'Consultez vos absences constatées et les décisions reçues.'}</p>
                     </div>
-                    <Link href={staff ? route('dashboard.admin.schedule.index') : route('dashboard.student.index', { section: 'schedule' })}>
+                    <Link
+                        href={
+                            staff
+                                ? route('dashboard.admin.schedule.index')
+                                : route('dashboard.student.index', { section: 'schedule', academic: studentChrome?.academic_id ?? undefined })
+                        }
+                    >
                         Emploi du temps
                     </Link>
                 </header>

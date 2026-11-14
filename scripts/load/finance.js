@@ -18,14 +18,14 @@ export default function () {
     const base = __ENV.BASE_URL.replace(/\/$/, '');
     const params = { headers: { Cookie: account.cookie, Accept: 'text/html' }, redirects: 0 };
     if (mode === 'read') {
-        for (const path of ['/dashboard/admin/finance', `/dashboard/admin/finance?academic=${account.academic_id}`, '/dashboard/admin/finance/export']) {
+        for (const path of ['/app/dashboard/admin/finance', `/app/dashboard/admin/finance?academic=${account.academic_id}`, '/app/dashboard/admin/finance/export']) {
             check(http.get(base + path, params), { 'financial scope available': response => response.status === 200 });
         }
     } else {
         if (!account.csrf || !account.payment_id) throw new Error('Dossier jetable, paiement et jeton CSRF requis.');
         const refund = mode === 'double-refund';
         if (refund && (!account.operation_key || !account.refund_amount)) throw new Error('Clé de demande stable et montant exact requis.');
-        const path = refund ? `/dashboard/admin/finance/payments/${account.payment_id}/refunds` : `/dashboard/admin/student-academic/payments/${account.payment_id}/status`;
+        const path = refund ? `/app/dashboard/admin/finance/payments/${account.payment_id}/refunds` : `/app/dashboard/admin/student-academic/payments/${account.payment_id}/status`;
         const body = JSON.stringify(refund ? { amount: account.refund_amount, operation_key: account.operation_key, reason: 'Demande répétée sur une opération jetable de recette autorisée.' } : { status: 'confirmed', reason: 'Double confirmation contrôlée sur une opération jetable de recette.' });
         const write = { ...params, headers: { ...params.headers, 'Content-Type': 'application/json', 'X-CSRF-TOKEN': account.csrf } };
         const responses = http.batch([['POST', base + path, body, write], ['POST', base + path, body, write]]);

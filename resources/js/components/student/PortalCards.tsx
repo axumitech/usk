@@ -4,7 +4,6 @@ import {
     ArrowUpRight,
     CalendarDays,
     FileText,
-    GraduationCap,
     Info,
     KeyRound,
     LockKeyhole,
@@ -72,8 +71,8 @@ export function StudentIdentityCard({
                         className="portal-profile-course-total"
                         href={
                             courseCount === null
-                                ? `/dashboard/student/requests?academic=${academic.id}`
-                                : `/dashboard/student/courses?academic=${academic.id}`
+                                ? `/app/dashboard/student/requests?academic=${academic.id}`
+                                : `/app/dashboard/student/courses?academic=${academic.id}`
                         }
                     >
                         <strong>{courseCount === null ? 'Accès limité' : courseCount}</strong>
@@ -198,43 +197,6 @@ export function LockedFeatureCard({
         <Link href={href} className="portal-feature-card">
             {content}
         </Link>
-    );
-}
-export function CourseCard({
-    course,
-}: {
-    course: {
-        detail_url?: string;
-        title: string;
-        code: string | null;
-        teacher: string | null;
-        credits: number;
-        semester: string | null;
-        catalog_only?: boolean;
-        registered?: boolean;
-        is_optional?: boolean;
-        archived?: boolean;
-        unit?: string | null;
-    };
-}) {
-    return (
-        <article className="portal-course">
-            <GraduationCap size={25} strokeWidth={1.4} />
-            <span>{course.code || (course.catalog_only ? 'PROGRAMME DU NIVEAU' : 'ENSEIGNEMENT PUBLIÉ')}</span>
-            <h3>{course.detail_url ? <Link href={course.detail_url}>{course.title}</Link> : course.title}</h3>
-            <p>{course.catalog_only ? 'Au programme · enseignant à confirmer' : course.teacher || 'Enseignant non renseigné'}</p>
-            <p>
-                {[course.unit ? `UE ${course.unit}` : '', course.is_optional ? 'Optionnel' : '', course.archived ? 'Offre archivée' : '']
-                    .filter(Boolean)
-                    .join(' · ')}
-            </p>
-            <footer>
-                <span>
-                    {course.credits ?? '—'} crédits {course.registered ? 'inscrits' : 'prévus'}
-                </span>
-                <span>{course.semester || 'Période non précisée'}</span>
-            </footer>
-        </article>
     );
 }
 export function SchedulePreview({ sessions }: { sessions: { id: number; course: string; starts_at: string; ends_at: string; room: string }[] }) {

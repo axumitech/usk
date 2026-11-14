@@ -9,13 +9,16 @@ use App\Models\AcademicYear;
 use App\Models\Classes;
 use App\Models\Courses;
 use App\Models\Enrollment;
-use App\Models\Professor;
+use App\Models\Faculty;
 use App\Models\Intake;
+use App\Models\Level;
+use App\Models\Professor;
 use App\Models\Student\AcademicOffering;
-use App\Models\Student\AcademicSemester;
 use App\Models\Student\AcademicResource;
+use App\Models\Student\AcademicSemester;
 use App\Models\Student\AcademicSession;
 use App\Models\Student\AccessRule;
+use App\Models\Student\FinanceTariff;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
@@ -110,7 +113,7 @@ class AcademicStructureTest extends TestCase
         $version = $service->transition($version->id, 'publish', $version->revision, 'Publication des unités.', $admin);
         $service->bind($version->id, $entry->id, $admin, 'Rattachement de cette inscription.');
         [$first, $second] = $version->units()->pluck('id')->all();
-        $url = '/dashboard/admin/student-academic/'.$entry->id;
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id;
         $firstUrl = $url.'/unit-results/'.$first;
         $secondUrl = $url.'/unit-results/'.$second;
 
@@ -137,13 +140,13 @@ class AcademicStructureTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         foreach (['schedule', 'overview'] as $section) {
-            $this->actingAs($student)->get("/dashboard/student/{$section}?academic={$entry->id}")
+            $this->actingAs($student)->get("/app/dashboard/student/{$section}?academic={$entry->id}")
                 ->assertInertia(fn (Assert $page) => $page->where('schedule_week', '2026-11-09')
                     ->has('sessions', 0)->has('calendar_events', 1)
                     ->where('calendar_events.0.title', 'Examens communs')
                     ->where('calendar_events.0.start_date', '2026-11-09'));
         }
-        $this->get('/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-16')
+        $this->get('/app/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-16')
             ->assertInertia(fn (Assert $page) => $page->has('calendar_events', 0));
     }
 
@@ -161,7 +164,7 @@ class AcademicStructureTest extends TestCase
             'course_id' => $course->id, 'level_id' => $entry->level_id,
             'academic_year_id' => $entry->academic_year_id, 'professor_id' => $teacher->id,
         ]);
-        $studentUrl = '/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-09';
+        $studentUrl = '/app/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-09';
 
         $this->actingAs($admin)->post(route('dashboard.admin.academic-structure.versions.annual-batch'), [
             'academic_year_id' => $entry->academic_year_id, 'rooms' => ['Salle initiale'],
@@ -234,7 +237,7 @@ class AcademicStructureTest extends TestCase
         $version = $service->transition($version->id, 'publish', $version->revision, 'Publication de la maquette.', $admin);
         $this->assertTrue($session->fresh()->is_published);
         $this->assertTrue($offering->fresh()->is_published);
-        $this->actingAs($student)->get('/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-09')
+        $this->actingAs($student)->get('/app/dashboard/student/schedule?academic='.$entry->id.'&week=2026-11-09')
             ->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('sessions.0.room', 'Salle B'));
         $session->update(['room' => 'Salle C']);
         $this->assertSame('Salle B', $service->levelWorkspace($version, $program)[0]['schedule'][0]['sessions'][0]['room']);
@@ -270,7 +273,7 @@ class AcademicStructureTest extends TestCase
         ]);
         Courses::forceCreate(['level_id' => $entry->level_id, 'title' => 'Cours sans affectation', 'credits' => 3, 'semester' => 1, 'cmi_hours' => 2]);
 
-        $url = '/dashboard/admin/academic-structure/versions/annual-batch';
+        $url = '/app/dashboard/admin/academic-structure/versions/annual-batch';
         $payload = ['academic_year_id' => $entry->academic_year_id, 'rooms' => ['Salle A', 'Salle B']];
         $this->actingAs($admin)->post($url, $payload)
             ->assertSessionHas('annualBatch.rows.0.schedule.sessions', 1)
@@ -290,7 +293,7 @@ class AcademicStructureTest extends TestCase
     public function test_annual_batch_generates_each_configured_faculty_once_and_reports_missing_programs(): void
     {
         [$admin, $student, $entry, $first] = $this->context();
-        $faculty = \App\Models\Faculty::create(['name' => 'Autre faculté', 'code' => 'AUTRE']);
+        $faculty = Faculty::create(['name' => 'Autre faculté', 'code' => 'AUTRE']);
         $faculty->forceFill(['university_id' => $entry->level->faculty->university_id])->save();
         $level = \App\Models\Level::create(['faculty_id' => $faculty->id, 'title' => 'Licence 1', 'code' => 'L1']);
         $second = app(StructureService::class)->save('program', [
@@ -298,17 +301,17 @@ class AcademicStructureTest extends TestCase
             'code' => 'AUTRE', 'name' => 'Autre programme', 'revision' => 0, 'is_active' => true, 'reason' => 'Configuration du programme.',
         ], $admin);
         Courses::forceCreate(['level_id' => $level->id, 'title' => 'Matière de la seconde faculté', 'credits' => 7, 'semester' => 1]);
-        \App\Models\Faculty::create(['name' => 'Faculté à rattacher', 'code' => 'LIBRE']);
+        Faculty::create(['name' => 'Faculté à rattacher', 'code' => 'LIBRE']);
 
-        $url = '/dashboard/admin/academic-structure/versions/annual-batch';
+        $url = '/app/dashboard/admin/academic-structure/versions/annual-batch';
         $payload = ['academic_year_id' => $entry->academic_year_id];
         $this->actingAs($student)->post($url, $payload)->assertForbidden();
         $this->actingAs($admin)->post($url, $payload)
-            ->assertRedirect('/dashboard/admin/academic-structure?tab=curriculum&year='.$entry->academic_year_id)
+            ->assertRedirect('/app/dashboard/admin/academic-structure?tab=curriculum&year='.$entry->academic_year_id)
             ->assertSessionHas('annualBatch.rows.0.status', 'created')
             ->assertSessionHas('annualBatch.rows.1.status', 'created')
             ->assertSessionHas('annualBatch.rows.2.status', 'skipped');
-        $this->get('/dashboard/admin/academic-structure?tab=curriculum')->assertInertia(
+        $this->get('/app/dashboard/admin/academic-structure?tab=curriculum')->assertInertia(
             fn (Assert $page) => $page->has('annualBatch.rows', 3)->where('annualBatch.rows.1.program_id', $second->id)
         );
 
@@ -354,6 +357,98 @@ class AcademicStructureTest extends TestCase
         $this->assertSame(1, \App\Models\AcademicStructure\AcademicProgram::where('faculty_id', $faculty->id)->count());
     }
 
+    public function test_annual_batch_adds_financial_drafts_for_both_categories_to_an_existing_maquette(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
+        $context = $this->context();
+        [$admin, $student, $entry, $program] = $context;
+        $version = $this->draft($context);
+        $entry->level->detail()->create([
+            'price_national_first' => '125.50', 'price_national_second' => '75.00',
+            'price_foreign_first' => '300.00', 'price_foreign_second' => '0.00',
+        ]);
+        $batch = route('dashboard.admin.academic-structure.versions.annual-batch');
+        $payload = ['academic_year_id' => $entry->academic_year_id, 'fee_due_dates' => ['2026-12-01', '2027-03-01']];
+        $this->actingAs($admin)->post($batch, $payload)
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('annualBatch.rows.0.version_id', $version->id)
+            ->assertSessionHas('annualBatch.finance.rows.0.status', 'created')
+            ->assertSessionHas('annualBatch.finance.rows.1.status', 'created');
+
+        $national = FinanceTariff::where('category', 'national')->sole();
+        $foreign = FinanceTariff::where('category', 'foreign')->sole();
+        $this->assertEquals($entry->level_id, $national->level_id);
+        $this->assertEquals($entry->academic_year_id, $foreign->academic_year_id);
+        $this->assertSame('draft', $national->status);
+        $this->assertSame('draft', $foreign->status);
+        $this->assertSame('USD', $national->currency);
+        $this->assertSame(['amount_cents' => 12550, 'due_at' => '2026-12-01'], $national->schedule[0]);
+        $this->assertSame(['amount_cents' => 0, 'due_at' => '2027-03-01'], $foreign->schedule[1]);
+        $this->assertSame(0, $entry->obligations()->count());
+
+        $entry->level->detail->update(['price_national_first' => '155.00']);
+        $this->post($batch, array_replace($payload, ['fee_due_dates' => ['2027-01-01', '2027-05-01']]))
+            ->assertSessionHas('annualBatch.finance.rows.0.tariff_id', $national->id)
+            ->assertSessionHas('annualBatch.finance.rows.1.status', 'existing');
+        $this->assertDatabaseCount('finance_tariffs', 2);
+        $this->assertSame($national->schedule, $national->fresh()->schedule);
+
+        $index = route('dashboard.admin.academic-structure.index', ['tab' => 'curriculum', 'year' => $entry->academic_year_id, 'program' => $program->id]);
+        $this->get($index)->assertInertia(fn (Assert $page) => $page
+            ->where('annualFinance.year_id', $entry->academic_year_id)
+            ->where('annualFinance.url', route('dashboard.admin.finance.tariffs.index', ['year' => $entry->academic_year_id], false))
+            ->where('annualFinance.rows.0.status', 'existing')
+            ->where('annualFinance.rows.1.tariff_id', $foreign->id));
+
+        $nextYear = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'open']);
+        $this->post($batch, ['academic_year_id' => $nextYear->id, 'fee_due_dates' => ['2027-12-01', '2028-03-01']])
+            ->assertSessionHasNoErrors()->assertSessionHas('annualBatch.finance.rows.0.schedule.0.amount_cents', 15500);
+        $this->assertSame(2, FinanceTariff::where('academic_year_id', $nextYear->id)->count());
+
+        $entry->update(['fee_category' => 'national']);
+        $this->post(route('dashboard.admin.finance.tariffs.activate', $national), ['reason' => 'Vérification du barème de la maquette.'])->assertSessionHasNoErrors();
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('balance.total_cents', 20050)
+                ->where('finance_schedule.0.due_at', '2026-12-01')->where('finance_schedule.1.due_at', '2027-03-01'));
+    }
+
+    public function test_fee_drafts_require_valid_deadlines_and_finance_permission_before_generation(): void
+    {
+        [$admin, , $entry, $program] = $this->context();
+        $batch = route('dashboard.admin.academic-structure.versions.annual-batch');
+        $payload = ['academic_year_id' => $entry->academic_year_id, 'fee_due_dates' => ['2026-12-01', '2027-03-01']];
+        $this->actingAs($admin)->post($batch, array_replace($payload, ['fee_due_dates' => ['2026-09-30', '2027-03-01']]))
+            ->assertSessionHasErrors('fee_due_dates');
+        $this->assertSame(0, $program->versions()->count());
+
+        $role = Role::findByName('admin', 'web');
+        $role->revokePermissionTo('manage academic finance');
+        $this->actingAs($admin->fresh())->post($batch, $payload)->assertForbidden();
+        $this->assertSame(0, $program->versions()->count());
+        $this->assertDatabaseCount('finance_tariffs', 0);
+
+        $this->get(route('dashboard.admin.academic-structure.index', ['tab' => 'curriculum']))->assertInertia(fn (Assert $page) => $page
+            ->where('abilities.finance', false)->where('annualFinance', null));
+    }
+
+    public function test_single_annual_maquette_reports_categories_without_configured_amounts(): void
+    {
+        [$admin, , $entry, $program] = $this->context();
+        $admin->academicFaculties()->attach($program->faculty_id);
+        $entry->level->detail()->create(['price_national_first' => '125.50', 'price_national_second' => '75.00', 'price_foreign_first' => '300.00']);
+        $this->actingAs($admin)->get(route('dashboard.admin.academic-structure.index', ['tab' => 'curriculum', 'program' => $program->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('abilities.finance', false)->where('abilities.programFinance', true));
+        $this->post(route('dashboard.admin.academic-structure.versions.store'), [
+            'academic_program_id' => $program->id, 'academic_year_id' => $entry->academic_year_id,
+            'code' => 'MAQUETTE-FRAIS', 'name' => 'Maquette avec frais', 'reason' => 'Préparation annuelle du programme.',
+            'fee_due_dates' => ['2026-12-01', '2027-03-01'],
+        ])->assertSessionHasNoErrors()
+            ->assertSessionHas('feeGeneration.rows.0.status', 'created')
+            ->assertSessionHas('feeGeneration.rows.1.status', 'missing_amounts');
+        $this->assertSame('national', FinanceTariff::sole()->category);
+        $this->assertSame('draft', $program->versions()->sole()->status);
+    }
+
     public function test_new_annual_draft_copies_catalog_courses_for_its_levels_and_periods(): void
     {
         $context = $this->context();
@@ -380,7 +475,7 @@ class AcademicStructureTest extends TestCase
         $secondCourse->forceFill(['credits' => 6])->save();
         $this->assertSame('4.00', $items[$secondCourse->id]->fresh()->credits);
 
-        $this->actingAs($admin)->get('/dashboard/admin/academic-structure?tab=curriculum&version='.$version->id)
+        $this->actingAs($admin)->get('/app/dashboard/admin/academic-structure?tab=curriculum&version='.$version->id)
             ->assertInertia(fn (Assert $page) => $page->has('selectedVersion.units', 3));
     }
 
@@ -392,19 +487,19 @@ class AcademicStructureTest extends TestCase
         $this->assertDatabaseCount('levels', 1);
         $this->assertSame('custom', $program->cycle->progression_mode);
         $payload = ['faculty_id' => $program->faculty_id, 'code' => 'SCI', 'name' => 'Département de test', 'is_active' => true, 'revision' => 0, 'reason' => 'Configuration du département.'];
-        $directory = '/dashboard/admin/faculties';
+        $directory = '/app/dashboard/admin/faculties';
         $facultySelection = $directory.'?faculty='.$program->faculty_id;
-        $this->actingAs($admin)->post('/dashboard/admin/academic-structure/references/department', $payload)
+        $this->actingAs($admin)->post('/app/dashboard/admin/academic-structure/references/department', $payload)
             ->assertRedirect($facultySelection)->assertSessionHasNoErrors();
-        $this->get('/dashboard/admin/academic-structure?tab=faculties')->assertRedirect($directory);
+        $this->get('/app/dashboard/admin/academic-structure?tab=faculties')->assertRedirect($directory);
         $this->get($facultySelection)->assertInertia(fn (Assert $page) => $page
             ->component('dashboard/faculties/Index')
             ->where('selectedFacultyId', $program->faculty_id)
             ->where('manageStructure', true)
             ->where('faculties.0.departments.0.code', 'SCI'));
         $this->assertDatabaseHas('academic_departments', ['faculty_id' => $program->faculty_id, 'code' => 'SCI']);
-        $this->post('/dashboard/admin/academic-structure/references/department', $payload)->assertSessionHasErrors('code');
-        $this->actingAs($admin)->get('/dashboard/admin/academic-structure?program='.$program->id)->assertOk()->assertInertia(fn (Assert $page) => $page->component('dashboard/academicStructure/Index')->where('selectedProgram.id', $program->id)->where('unmapped.total', 1));
+        $this->post('/app/dashboard/admin/academic-structure/references/department', $payload)->assertSessionHasErrors('code');
+        $this->actingAs($admin)->get('/app/dashboard/admin/academic-structure?program='.$program->id)->assertOk()->assertInertia(fn (Assert $page) => $page->component('dashboard/academicStructure/Index')->where('selectedProgram.id', $program->id)->where('unmapped.total', 1));
         $this->assertNull($entry->fresh()->curriculum_version_id);
     }
 
@@ -417,7 +512,7 @@ class AcademicStructureTest extends TestCase
             'reason' => 'Mise à jour des coordonnées.', 'is_active' => true,
             'address' => '12 avenue du Campus', 'contact_email' => 'contact@example.test', 'contact_phone' => '+243 900 000 000',
         ];
-        $url = '/dashboard/admin/academic-structure/references/university/'.$university->id;
+        $url = '/app/dashboard/admin/academic-structure/references/university/'.$university->id;
         $this->actingAs($admin)->post($url, $payload)->assertSessionHasNoErrors();
         $university->refresh();
         $this->assertSame('Université révisée', $university->name);
@@ -435,8 +530,8 @@ class AcademicStructureTest extends TestCase
         [$admin,,,$program] = $this->context();
         $cycle = $program->cycle;
         $payload = $cycle->only(['code', 'name', 'normal_duration', 'progression_mode', 'weighting_mode', 'periods', 'is_active']) + ['revision' => 0, 'reason' => 'Édition concurrente périmée.'];
-        $this->actingAs($admin)->post('/dashboard/admin/academic-structure/references/cycle/'.$cycle->id, $payload)->assertSessionHasErrors('revision');
-        $this->post('/dashboard/admin/academic-structure/references/cycle', $payload)->assertSessionHasErrors('code');
+        $this->actingAs($admin)->post('/app/dashboard/admin/academic-structure/references/cycle/'.$cycle->id, $payload)->assertSessionHasErrors('revision');
+        $this->post('/app/dashboard/admin/academic-structure/references/cycle', $payload)->assertSessionHasErrors('code');
         $this->assertSame(1, AcademicCycle::count());
     }
 
@@ -449,8 +544,8 @@ class AcademicStructureTest extends TestCase
         $course->forceFill(['title' => 'Nouveau titre', 'credits' => 9, 'cmi_hours' => 90])->save();
         $added = (new Courses)->forceFill(['level_id' => $entry->level_id, 'code' => 'NEW', 'title' => 'Nouveau cours', 'credits' => 2]);
         $added->save();
-        $this->actingAs($student)->get('/dashboard/student/courses')->assertOk()->assertInertia(fn (Assert $page) => $page->has('courses', 1)->where('courses.0.title', 'Titre initial')->where('courses.0.credits', 3)->where('curriculum.id', $version->id));
-        $this->get('/dashboard/student/courses/'.$course->id)->assertOk()->assertInertia(fn (Assert $page) => $page->where('course.title', 'Titre initial')->where('course.cmi_hours', 20));
+        $this->actingAs($student)->get('/app/dashboard/student/courses')->assertOk()->assertInertia(fn (Assert $page) => $page->has('courses', 1)->where('courses.0.title', 'Titre initial')->where('courses.0.credits', 3)->where('curriculum.id', $version->id));
+        $this->get('/app/dashboard/student/courses/'.$course->id)->assertOk()->assertInertia(fn (Assert $page) => $page->where('course.title', 'Titre initial')->where('course.cmi_hours', 20));
         $this->assertDatabaseCount('academic_enrollments', 1);
         $this->assertSame($entry->application_id, $entry->fresh()->application_id);
     }
@@ -521,7 +616,7 @@ class AcademicStructureTest extends TestCase
     {
         $context = $this->context();
         [, $student,,$program] = $context;
-        $url = '/dashboard/admin/academic-structure';
+        $url = '/app/dashboard/admin/academic-structure';
         $this->actingAs($student)->get($url)->assertForbidden();
         $this->post($url.'/versions', ['academic_program_id' => $program->id])->assertForbidden();
         $professor = User::factory()->create();
@@ -540,7 +635,7 @@ class AcademicStructureTest extends TestCase
         [$admin] = $context;
         $foreign = University::create(['code' => 'OTHER', 'name' => 'Autre institution', 'is_active' => true]);
         $cycle = AcademicCycle::create(['university_id' => $foreign->id, 'code' => 'OTHER', 'name' => 'Autre cycle', 'normal_duration' => 2, 'progression_mode' => 'annual', 'weighting_mode' => 'credits', 'periods' => [['code' => 'A', 'name' => 'Année']]]);
-        $this->actingAs($admin)->post('/dashboard/admin/academic-structure/references/cycle/'.$cycle->id, ['code' => 'EDIT', 'name' => 'Mutation', 'normal_duration' => 2, 'progression_mode' => 'annual', 'weighting_mode' => 'credits', 'periods' => [['code' => 'A', 'name' => 'Année']], 'is_active' => true, 'revision' => 0, 'reason' => 'Tentative hors périmètre.'])->assertNotFound();
+        $this->actingAs($admin)->post('/app/dashboard/admin/academic-structure/references/cycle/'.$cycle->id, ['code' => 'EDIT', 'name' => 'Mutation', 'normal_duration' => 2, 'progression_mode' => 'annual', 'weighting_mode' => 'credits', 'periods' => [['code' => 'A', 'name' => 'Année']], 'is_active' => true, 'revision' => 0, 'reason' => 'Tentative hors périmètre.'])->assertNotFound();
         $this->assertSame('OTHER', $cycle->fresh()->code);
     }
 
@@ -554,7 +649,7 @@ class AcademicStructureTest extends TestCase
         $entry->update(['enrollment_status' => 'completed']);
         $before = $entry->fresh()->getAttributes();
         $year = AcademicYear::create(['title' => '2028-2029', 'start_date' => '2028-10-01', 'end_date' => '2029-09-30', 'status' => 'draft']);
-        $secondLevel = \App\Models\Level::create(['faculty_id' => $program->faculty_id, 'code' => 'T2', 'title' => 'Deuxième niveau']);
+        $secondLevel = Level::create(['faculty_id' => $program->faculty_id, 'code' => 'T2', 'title' => 'Deuxième niveau']);
         $program->levels()->attach($secondLevel->id, ['position' => 2]);
         $promotion = \App\Models\AcademicStructure\AcademicPromotion::create([
             'academic_program_id' => $program->id, 'academic_year_id' => $year->id, 'level_id' => $secondLevel->id,
@@ -594,10 +689,10 @@ class AcademicStructureTest extends TestCase
         }
         $entry->application->update(['form_snapshot' => $snapshot + ['academic_program_id' => $program->id]]);
         app(EnrollmentValidator::class)->canSubmit($entry->application->fresh());
-        $this->actingAs($student)->get('/dashboard/enrollments/create')->assertOk()->assertInertia(fn (Assert $page) => $page->has('levelsByFaculty.'.$program->faculty_id.'.0.programs', 2));
+        $this->actingAs($student)->get('/app/dashboard/enrollments/create')->assertOk()->assertInertia(fn (Assert $page) => $page->has('levelsByFaculty.'.$program->faculty_id.'.0.programs', 2));
         $program->update(['is_active' => false]);
         $second->update(['is_active' => false]);
-        $this->get('/dashboard/enrollments/create')->assertOk()->assertInertia(fn (Assert $page) => $page->where('levelsByFaculty', []));
+        $this->get('/app/dashboard/enrollments/create')->assertOk()->assertInertia(fn (Assert $page) => $page->where('levelsByFaculty', []));
         try {
             app(EnrollmentValidator::class)->canSubmit($entry->application->fresh());
             $this->fail('Closed program should be refused');
@@ -700,8 +795,8 @@ class AcademicStructureTest extends TestCase
         $version = $this->published($context);
         app(CurriculumService::class)->bind($version->id, $entry->id, $admin, 'Rattachement de référence.');
         $course->forceFill(['title' => 'Catalogue révisé', 'credits' => 7])->save();
-        $this->actingAs($student)->get('/dashboard/student/resources/'.$resource->id.'/download')->assertOk();
-        $this->get('/dashboard/student/courses/'.$course->id.'/sessions')->assertOk()->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('course.title', 'Titre initial')->where('course.credits', 3));
+        $this->actingAs($student)->get('/app/dashboard/student/resources/'.$resource->id.'/download')->assertOk();
+        $this->get('/app/dashboard/student/courses/'.$course->id.'/sessions')->assertOk()->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('course.title', 'Titre initial')->where('course.credits', 3));
         $this->assertSame($beforeSession, $session->fresh()->getAttributes());
         $this->assertDatabaseHas('academic_resources', ['id' => $resource->id, 'academic_offering_id' => $offering->id, 'path' => 'academic-resources/historical.pdf']);
         $this->assertDatabaseHas('student_obligations', ['academic_enrollment_id' => $entry->id, 'amount_cents' => 5000]);

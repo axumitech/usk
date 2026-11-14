@@ -1,10 +1,10 @@
 import { router } from '@inertiajs/react';
 
 const routes = {
-    enrollments: /^\/dashboard\/admin\/enrollments\/\d+$/,
-    students: /^\/dashboard\/admin\/student-academic\/\d+$/,
-    faculties: /^\/dashboard\/admin\/faculties\/\d+$/,
-    levels: /^\/dashboard\/admin\/levels\/details\/\d+$/,
+    enrollments: /^\/app\/dashboard\/admin\/enrollments\/\d+$/,
+    students: /^\/app\/dashboard\/admin\/student-academic\/\d+$/,
+    faculties: /^\/app\/dashboard\/admin\/faculties\/\d+$/,
+    levels: /^\/app\/dashboard\/admin\/levels\/details\/\d+$/,
 };
 
 type ListPosition = { href: string; left: number; top: number; catalogView?: unknown };
@@ -13,7 +13,7 @@ const pathOf = (url: string) =>
     url
         .split(/[?#]/, 1)[0]
         .replace(/\/$/, '')
-        .replace(/^(\/dashboard\/admin\/levels)\/(\d+)$/, '$1/details/$2');
+        .replace(/^(\/app\/dashboard\/admin\/levels)\/(\d+)$/, '$1/details/$2');
 
 function detailModule(path: string) {
     return (Object.keys(routes) as (keyof typeof routes)[]).find((key) => routes[key].test(path));
@@ -27,17 +27,17 @@ export function isDossierOpening(source: string, target: string) {
     const path = pathOf(source);
     switch (detailModule(pathOf(target))) {
         case 'enrollments':
-            return path === '/dashboard/admin/enrollments';
+            return path === '/app/dashboard/admin/enrollments';
         case 'students':
             return [
-                '/dashboard/admin/student-academic',
-                '/dashboard/admin/student-academic/administration',
-                '/dashboard/admin/student-academic/renewals',
+                '/app/dashboard/admin/student-academic',
+                '/app/dashboard/admin/student-academic/administration',
+                '/app/dashboard/admin/student-academic/renewals',
             ].includes(path);
         case 'faculties':
-            return path === '/dashboard/admin/faculties';
+            return path === '/app/dashboard/admin/faculties';
         case 'levels':
-            return path === '/dashboard/admin/levels' || routes.faculties.test(path);
+            return path === '/app/dashboard/admin/levels' || routes.faculties.test(path);
         default:
             return false;
     }

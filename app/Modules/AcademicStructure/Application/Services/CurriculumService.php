@@ -28,7 +28,7 @@ use Illuminate\Validation\ValidationException;
 
 class CurriculumService
 {
-    public function __construct(private StructureService $structure) {}
+    public function __construct(private StructureService $structure, private AnnualCurriculumFees $fees) {}
 
     public function owned(int $id): CurriculumVersion
     {
@@ -105,10 +105,10 @@ class CurriculumService
     /** The caller must hold a lock on the program within a transaction. */
     public function ensureAnnualDraft(AcademicProgram $program, AcademicYear $year, ?int $actorId): array
     {
-        $versions = $program->versions()->orderByDesc('id')->lockForUpdate()->get(['id', 'code', 'academic_year_id', 'status']);
+        $versions = $program->versions()->orderByDesc('id')->lockForUpdate()->get(['id', 'code', 'academic_year_id', 'status', 'program_snapshot']);
         $existing = $versions->whereNotIn('status', ['archived', 'replaced'])->firstWhere('academic_year_id', $year->id);
         if ($existing) {
-            return ['status' => 'existing', 'version_id' => $existing->id];
+            return ['status' => 'existing', 'version_id' => $existing->id, 'level_ids' => $existing->program_snapshot['level_order'] ?? $program->levels->modelKeys()];
         }
         if ($program->levels->isEmpty()) {
             return ['status' => 'skipped', 'message' => 'Aucun niveau rattaché au programme.'];
@@ -128,20 +128,25 @@ class CurriculumService
             'reason' => 'Génération annuelle à partir du catalogue des matières.',
         ], $actorId);
 
-        return ['status' => 'created', 'version_id' => $draft->id];
+        return ['status' => 'created', 'version_id' => $draft->id, 'level_ids' => $draft->program_snapshot['level_order']];
     }
 
-    public function draftAnnualBatch(int $yearId, User $actor, array $rooms = []): array
+    public function draftAnnualBatch(int $yearId, User $actor, array $rooms = [], ?array $feeDueDates = null): array
     {
         Gate::forUser($actor)->authorize('curriculum', AcademicProgram::class);
         abort_if($actor->academicFaculties()->exists(), 403, 'La préparation institutionnelle requiert un périmètre global.');
         $institution = $this->structure->current();
         $year = $this->structure->year($yearId);
+        if ($feeDueDates !== null) {
+            abort_unless($actor->can('manage academic finance'), 403);
+            $this->fees->validateDueDates($year, $feeDueDates);
+        }
         $this->prepareFacultyPrograms($institution, $actor);
         $programs = AcademicProgram::openForAdmission()->with('faculty:id,name')
             ->whereHas('faculty', fn ($query) => $query->where('university_id', $institution->id))
             ->orderBy('id')->get();
         $rows = [];
+        $levelIds = [];
 
         foreach ($programs as $program) {
             $row = ['faculty' => $program->faculty->name, 'program' => $program->name, 'program_id' => $program->id];
@@ -153,6 +158,10 @@ class CurriculumService
                     return $this->ensureAnnualDraft($locked, $year, $actor->id);
                 }, 3);
                 if (isset($result['version_id'])) {
+                    if ($feeDueDates !== null) {
+                        array_push($levelIds, ...$result['level_ids']);
+                    }
+                    unset($result['level_ids']);
                     $result['schedule'] = $this->scheduleDraft($result['version_id'], $actor, $rooms);
                 }
                 $rows[] = $row + $result;
@@ -171,7 +180,12 @@ class CurriculumService
             ];
         }
 
-        return ['year' => $year->title, 'rows' => $rows];
+        $result = ['year' => $year->title, 'rows' => $rows];
+        if ($feeDueDates !== null) {
+            $result['finance'] = $this->fees->generate($year, array_values(array_unique($levelIds)), $feeDueDates, $actor);
+        }
+
+        return $result;
     }
 
     private function prepareFacultyPrograms(University $institution, User $actor): void

@@ -1,0 +1,231 @@
+.teacher-module-page {
+    --teacher-module-ink: var(--usk-night-text, #17382b);
+    --teacher-module-surface: var(--usk-night-surface, #fffef9);
+    --teacher-module-line: var(--usk-night-border, #dce8de);
+    --teacher-module-soft: var(--usk-night-raised, #eaf3ec);
+    --teacher-module-green: var(--usk-night-mint, #28654e);
+    --teacher-module-gold: var(--usk-night-gold, #805b23);
+    min-width: 0;
+}
+
+.teacher-module-heading {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.25rem;
+    min-height: 11.5rem;
+    overflow: hidden;
+    padding: clamp(1rem, 3.2vw, 2rem);
+    border: 1px solid #ffffff24;
+    border-radius: clamp(1.05rem, 2.5vw, 1.5rem);
+    background:
+        linear-gradient(97deg, #103d2f 6%, #10543eea 48%, #124b3a8c 100%),
+        url('/assets/usk/campus-720.webp') center 46% / cover;
+    color: #fffdf4;
+    box-shadow: 0 12px 24px #143b2b1a;
+}
+
+.teacher-module-heading::after {
+    position: absolute;
+    z-index: -1;
+    right: -3.5rem;
+    bottom: -9rem;
+    width: clamp(15rem, 31vw, 24rem);
+    aspect-ratio: 1;
+    border: 1px solid #e8c98948;
+    border-radius: 50%;
+    box-shadow:
+        0 0 0 1.1rem #e8c98912,
+        0 0 0 2.2rem #e8c9890a;
+    content: '';
+    pointer-events: none;
+}
+
+.teacher-module-heading-main {
+    display: grid;
+    flex: 1 1 22rem;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.teacher-module-home {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.45rem;
+    color: #fffdf4;
+    font-size: 0.84rem;
+    font-weight: 650;
+}
+
+.teacher-module-home:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.teacher-module-title {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.65rem, 2vw, 0.95rem);
+    min-width: 0;
+}
+
+.teacher-module-title > div {
+    min-width: 0;
+}
+
+.teacher-module-symbol {
+    display: grid;
+    flex: none;
+    width: clamp(2.6rem, 5.8vw, 3.5rem);
+    aspect-ratio: 1;
+    place-items: center;
+    border: 1px solid #e8c9896b;
+    border-radius: 0.85rem;
+    background: #ffffff12;
+    color: #f2d694;
+}
+
+.usk-dashboard main[data-dashboard-navigation-surface][data-page-tone] .usk-page-current .teacher-module-heading h1,
+.usk-dashboard .teacher-module-page .teacher-module-heading h1 {
+    margin: 0;
+    color: #fffdf4;
+    font-family: inherit;
+    font-size: clamp(1.68rem, 4.2vw, 2.75rem);
+    font-weight: 770;
+    letter-spacing: -0.045em;
+    line-height: 1.11;
+    overflow-wrap: anywhere;
+}
+
+.usk-dashboard main[data-dashboard-navigation-surface][data-page-tone] .usk-page-current .teacher-module-title h1 + p,
+.teacher-module-title p {
+    margin: 0.42rem 0 0;
+    color: #edf5ef;
+    font-size: clamp(0.83rem, 2.5vw, 0.94rem);
+    line-height: 1.45;
+}
+
+.teacher-module-heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.teacher-module-heading .teacher-module-action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #fffdf4;
+    border-radius: 0.72rem;
+    background: #fffdf4;
+    color: #184c38;
+    font-size: 0.88rem;
+    font-weight: 740;
+    text-align: center;
+    cursor: pointer;
+}
+
+.teacher-module-heading .teacher-module-action:hover {
+    border-color: #f4e5c1;
+    background: #f4e5c1;
+}
+
+.teacher-module-heading :is(a, button):focus-visible {
+    outline: 2px solid #f2d694;
+    outline-offset: 3px;
+}
+
+.teacher-module-page :is(.learning-panel, .assessments-panel, .learning-metrics > div, .assessments-metrics > div) {
+    border-color: var(--teacher-module-line);
+    border-radius: 1rem;
+    background: var(--teacher-module-surface);
+    box-shadow: 0 6px 18px #17382b0c;
+}
+
+.teacher-module-page :is(.learning-metric-icon, .assessments-metrics .assessments-icon) {
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 0.75rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-green);
+}
+
+.teacher-module-page :is(.learning-metrics, .assessments-metrics) > div:nth-child(2) :is(.learning-metric-icon, .assessments-icon) {
+    background: var(--usk-night-warm, #f5e9ce);
+    color: var(--teacher-module-gold);
+}
+
+.teacher-module-page :is(.learning-metrics, .assessments-metrics) strong {
+    color: var(--teacher-module-ink);
+}
+
+.teacher-module-page
+    :is(#learning-create, #learning-offers, #assessment-create, #assessment-courses, #assessment-participants, #assessment-correction) {
+    scroll-margin-top: 5.8rem;
+}
+
+.teacher-profile-workspace {
+    display: grid;
+    gap: clamp(0.85rem, 2.8vw, 1.5rem);
+}
+
+.teacher-profile-workspace .teacher-profile-photo {
+    width: min(100%, 42rem);
+    max-width: none;
+    margin-inline: 0;
+    border-color: var(--teacher-module-line);
+    background: var(--teacher-module-surface);
+    box-shadow: 0 6px 18px #17382b0c;
+}
+
+.teacher-profile-photo .professor-photo-heading {
+    padding: 0 0 0.95rem;
+    border-bottom: 1px solid var(--teacher-module-line);
+}
+
+.teacher-profile-photo .professor-portrait {
+    border-radius: 50%;
+}
+
+.teacher-profile-photo h2 {
+    margin: 0 0 0.15rem;
+    font-size: clamp(1.16rem, 3vw, 1.55rem);
+    font-weight: 720;
+    line-height: 1.2;
+}
+
+.teacher-profile-photo p {
+    margin: 0;
+    line-height: 1.48;
+}
+
+@media (max-width: 560px) {
+    .teacher-module-heading {
+        min-height: 0;
+        align-items: stretch;
+        gap: 0.9rem;
+    }
+
+    .teacher-module-heading-main {
+        flex-basis: 100%;
+        gap: 0.55rem;
+    }
+
+    .teacher-module-heading .teacher-module-action {
+        min-height: 2.75rem;
+    }
+
+    .teacher-profile-photo .admin-primary {
+        width: 100%;
+        justify-content: center;
+    }
+}

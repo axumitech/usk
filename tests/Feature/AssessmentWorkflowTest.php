@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Classes;
 use App\Models\Courses;
 use App\Models\Enrollment;
+use App\Models\Intake;
 use App\Models\Professor;
 use App\Models\Student\AcademicAttendance;
 use App\Models\Student\AcademicEnrollment;
@@ -35,11 +37,11 @@ final class AssessmentWorkflowTest extends TestCase
 {
     use CreatesStudentContext, RefreshDatabase;
 
-    private const TEACHER = '/dashboard/teacher/assessments';
+    private const TEACHER = '/app/dashboard/teacher/assessments';
 
-    private const ADMIN = '/dashboard/admin/assessments';
+    private const ADMIN = '/app/dashboard/admin/assessments';
 
-    private const STUDENT = '/dashboard/student/resources';
+    private const STUDENT = '/app/dashboard/student/resources';
 
     private const REASON = 'Décision pédagogique documentée.';
 
@@ -150,16 +152,16 @@ final class AssessmentWorkflowTest extends TestCase
         $work = $this->draft($offer);
         $this->get(self::TEACHER.'?resource='.$work->id)->assertInertia(fn (Assert $page) => $page
             ->component('dashboard/teaching/Assessments')->where('selected.state', 'draft')->where('selected.maximum_points', 2000));
-        $this->actingAs($student)->get('/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
+        $this->actingAs($student)->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
         $this->submit($work, 0)->assertNotFound();
-        $this->actingAs($admin)->post('/dashboard/admin/student-academic/publication/resources/'.$work->id,
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/publication/resources/'.$work->id,
             ['is_published' => true, 'reason' => self::REASON])->assertSessionHasErrors('resource');
         $this->actingAs($teacher);
         $this->life($work, 'publish', true)->assertStatus(303)->assertSessionHasNoErrors();
         $this->post(self::TEACHER.'/'.$work->id.'/edition', $this->details(['revision' => 2, 'reason' => self::REASON]))->assertSessionHasErrors('state');
         $notice = $student->notifications()->where('type', AcademicAssessmentNotice::class)->sole();
         $this->actingAs($student)->post(route('dashboard.notifications.open', $notice))->assertRedirectContains('work='.$work->id);
-        $this->get('/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
             ->where('resources.0.assessment.can_submit', true)->where('resources.0.assessment.maximum_points', 2000));
     }
 
@@ -184,9 +186,9 @@ final class AssessmentWorkflowTest extends TestCase
         $this->assertSame(2, $copy->version);
         $this->assertTrue($copy->versions()->where('number', 2)->sole()->late);
         $this->assertCount(1, Storage::disk('local')->allFiles('student-work'));
-        $history = '/dashboard/student/submissions/'.$copy->id.'/versions/1';
+        $history = '/app/dashboard/student/submissions/'.$copy->id.'/versions/1';
         $this->get($history)->assertInertia(fn (Assert $page) => $page->where('number', 1)->where('body', 'Texte de remise.')->where('late', false)->missing('path'));
-        $this->get('/dashboard/student/submissions/'.$copy->id.'/download?version=1')->assertDownload('copie.pdf');
+        $this->get('/app/dashboard/student/submissions/'.$copy->id.'/download?version=1')->assertDownload('copie.pdf');
         $this->actingAs($peer)->get($history)->assertNotFound();
         $student->studentProfile->update(['student_status' => 'suspended']);
         $this->actingAs($student);
@@ -229,6 +231,67 @@ final class AssessmentWorkflowTest extends TestCase
         $this->get(route($adminRoute.'submissions.version', ['submission' => $copy->id + 1, 'version' => 1]))->assertNotFound();
     }
 
+    public function test_assignment_detail_preserves_filter_and_real_submission_status(): void
+    {
+        [$student, $entry, $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $work = $this->draft($offer, ['rubric' => [['label' => 'Analyse', 'maximum' => '20']]]);
+        $this->life($work, 'publish')->assertStatus(303);
+        $draft = $this->draft($offer, ['title' => 'Devoir non publié']);
+
+        $base = ['section' => 'assignments', 'academic' => $entry->id, 'activity' => 'available'];
+        $detail = route('dashboard.student.index', $base + ['work' => $work->id]);
+        $post = self::STUDENT.'/'.$work->id.'/submit?academic='.$entry->id.'&assignment_detail=1&activity=available';
+        $this->actingAs($student)->get(route('dashboard.student.index', $base))->assertInertia(fn (Assert $page) => $page
+            ->where('assignment_counts.all', 1)->where('assignment_counts.available', 1)->has('resources', 1));
+        $this->get($detail)->assertInertia(fn (Assert $page) => $page->where('work_id', $work->id)
+            ->where('resources.0.assignment.teacher', 'Odile Kasa')->where('resources.0.assignment.can_submit', true)
+            ->where('resources.0.assessment.rubric.0.maximum', 2000));
+        $this->get(route('dashboard.student.index', $base + ['work' => $draft->id]))->assertNotFound();
+        $this->post($post)->assertRedirect($detail)->assertSessionHasErrors('body');
+        $this->post($post, ['body' => 'Travail rendu.', 'operation_key' => (string) Str::uuid(), 'expected_version' => 0])
+            ->assertStatus(303)->assertRedirect($detail);
+        $this->get($detail)->assertInertia(fn (Assert $page) => $page
+            ->where('resources.0.assignment.status', 'submitted')->where('resources.0.submission.version', 1));
+        $this->get(route('dashboard.student.index', $base))->assertInertia(fn (Assert $page) => $page
+            ->where('assignment_counts.available', 0)->where('assignment_counts.submitted', 1)->has('resources', 0));
+    }
+
+    public function test_evaluation_timeline_separates_past_and_future_and_preserves_the_detail_on_submission(): void
+    {
+        [$student, $entry, $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $submission = $this->draft($offer, ['title' => 'Épreuve écrite', 'category' => 'exam']);
+        $this->life($submission, 'publish')->assertStatus(303);
+        $draft = $this->draft($offer, ['title' => 'Épreuve non publiée', 'category' => 'exam']);
+        $session = $offer->sessions()->create(['starts_at' => now()->addHour()->utc(), 'ends_at' => now()->addHours(2)->utc(),
+            'room' => 'A-02', 'is_published' => true]);
+        $scheduled = $this->draft($offer, ['category' => 'exam', 'modality' => 'in_person', 'academic_session_id' => $session->id]);
+        $this->life($scheduled, 'publish')->assertStatus(303);
+        $past = $offer->resources()->create(['kind' => 'evaluation', 'title' => 'Épreuve passée', 'is_published' => true,
+            'opens_at' => now()->subDay()->utc(), 'closes_at' => now()->subHour()->utc()]);
+        $undated = $offer->resources()->create(['kind' => 'evaluation', 'title' => 'Date à confirmer', 'is_published' => true]);
+
+        $base = ['section' => 'evaluations', 'academic' => $entry->id];
+        $this->actingAs($student)->get(route('dashboard.student.index', $base))->assertInertia(fn (Assert $page) => $page
+            ->where('evaluation_view', 'upcoming')->where('evaluation_counts', ['upcoming' => 3, 'past' => 1])->has('resources', 3)
+            ->where('resources.0.id', $submission->id)->where('resources.0.evaluation.status', 'ongoing')->where('resources.0.evaluation.can_submit', true)
+            ->where('resources.1.id', $scheduled->id)->where('resources.1.evaluation.room', 'A-02')->where('resources.1.evaluation.can_submit', false)
+            ->where('resources.2.id', $undated->id)->where('resources.2.evaluation.status', 'unscheduled'));
+        $this->get(route('dashboard.student.index', $base + ['view' => 'past']))->assertInertia(fn (Assert $page) => $page
+            ->has('resources', 1)->where('resources.0.id', $past->id));
+        $this->get(route('dashboard.student.index', $base + ['work' => $past->id]))->assertInertia(fn (Assert $page) => $page
+            ->where('evaluation_view', 'past')->where('work_id', $past->id)->where('resources.0.evaluation.status', 'past'));
+        $this->get(route('dashboard.student.index', $base + ['work' => $draft->id]))->assertNotFound();
+
+        $detail = route('dashboard.student.index', $base + ['view' => 'upcoming', 'work' => $submission->id, 'work_page' => 2]);
+        $post = self::STUDENT.'/'.$submission->id.'/submit?academic='.$entry->id.'&evaluation_detail=1&view=upcoming&work_page=2';
+        $this->post($post)->assertRedirect($detail)->assertSessionHasErrors('body');
+        $this->post($post, ['body' => 'Épreuve rendue.', 'operation_key' => (string) Str::uuid(), 'expected_version' => 0])
+            ->assertStatus(303)->assertRedirect($detail);
+        $this->get($detail)->assertInertia(fn (Assert $page) => $page->where('resources.0.submission.version', 1));
+    }
+
     public function test_pedagogical_validation_releases_a_private_revision_and_reopening_appends_a_handoff(): void
     {
         [$student, $entry, $teacher, $admin, $offer] = $this->context();
@@ -249,7 +312,7 @@ final class AssessmentWorkflowTest extends TestCase
         $this->correctionState($work, $record, 'finalize')->assertStatus(303);
         $this->batch($work, 'validate', self::TEACHER)->assertForbidden();
         $this->batch($work, 'release', self::TEACHER)->assertStatus(303);
-        $this->actingAs($student)->get('/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->where('resources.0.assessment.feedback', null));
+        $this->actingAs($student)->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->where('resources.0.assessment.feedback', null));
         $this->get(self::STUDENT.'/'.$work->id.'/feedback')->assertNotFound();
         $this->actingAs($admin);
         $this->batch($work, 'validate')->assertStatus(303);
@@ -262,7 +325,7 @@ final class AssessmentWorkflowTest extends TestCase
         $this->get(self::ADMIN.'/handoff?after='.$handoff->id)->assertJsonCount(0);
         $this->batch($work, 'release', self::ADMIN, true)->assertStatus(303);
         $this->actingAs($student)->get(self::STUDENT.'/'.$work->id.'/feedback')->assertDownload('correction.pdf');
-        $this->get('/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
             ->where('resources.0.assessment.feedback.points', 1550)->where('resources.0.assessment.feedback.criteria.0.label', 'Analyse')->missing('resources.0.assessment.feedback.path'));
         $this->post(self::STUDENT.'/'.$work->id.'/review', ['body' => 'Veuillez revoir le premier critère.'])->assertStatus(303);
         $this->post(self::STUDENT.'/'.$work->id.'/review', ['body' => 'Veuillez revoir le premier critère.'])->assertStatus(303);
@@ -283,12 +346,12 @@ final class AssessmentWorkflowTest extends TestCase
         $this->assertSame(1700, AssessmentHandoff::latest('id')->firstOrFail()->payload['points_hundredths']);
         $this->batch($work, 'release')->assertStatus(303);
         $entry->academicYear->update(['status' => 'closed']);
-        $this->actingAs($student)->get('/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
             ->where('resources.0.assessment.feedback.points', 1700)->where('resources.0.assessment.can_submit', false));
         $this->get(self::STUDENT.'/'.$work->id.'/feedback')->assertDownload('correction.pdf');
         AccessRule::create(['feature' => 'results_view', 'level_id' => $entry->level_id, 'mode' => 'hidden', 'is_active' => true]);
         $this->get(self::STUDENT.'/'.$work->id.'/feedback')->assertNotFound();
-        $this->get('/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
+        $this->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
 
     }
 
@@ -309,8 +372,8 @@ final class AssessmentWorkflowTest extends TestCase
         $this->actingAs($student);
         $this->submit($work, 0, ['file' => UploadedFile::fake()->createWithContent('groupe.pdf', '%PDF-1.4 groupe')])->assertSessionHasNoErrors();
         $copy = AcademicSubmission::sole();
-        $this->actingAs($peer)->get('/dashboard/student/submissions/'.$copy->id.'/download')->assertDownload('groupe.pdf');
-        $this->actingAs($outsider)->get('/dashboard/student/submissions/'.$copy->id.'/download')->assertNotFound();
+        $this->actingAs($peer)->get('/app/dashboard/student/submissions/'.$copy->id.'/download')->assertDownload('groupe.pdf');
+        $this->actingAs($outsider)->get('/app/dashboard/student/submissions/'.$copy->id.'/download')->assertNotFound();
         $this->travel(91)->minutes();
         $this->actingAs($teacher);
         $this->life($work, 'close')->assertStatus(303);
@@ -321,6 +384,184 @@ final class AssessmentWorkflowTest extends TestCase
         $this->assertSame(1475, $row->fresh()->points);
         $this->assertSame(2, $group->records()->count());
         $this->post(self::TEACHER.'/'.$work->id.'/groups/'.$group->id.'/score', ['points' => '16', 'revision' => 2, 'reason' => self::REASON])->assertSessionHasErrors('group');
+    }
+
+    public function test_copy_filters_combine_student_search_with_work_and_academic_groups(): void
+    {
+        [$student, $entry, $teacher, , $offer] = $this->context();
+        $peer = $this->peer($entry);
+        $withoutClass = $this->peer($entry);
+        $peerEntry = $peer->studentProfile->enrollments()->sole();
+        $ungroupedEntry = $withoutClass->studentProfile->enrollments()->sole();
+        $student->update(['first_name' => 'Marina', 'last_name' => 'Kabeya']);
+        $peer->update(['first_name' => 'Marc', 'last_name' => 'Kabeya']);
+        $withoutClass->update(['first_name' => 'Amina', 'last_name' => 'Luzolo']);
+        $peer->studentProfile->update(['matricule' => 'USK-MARC-02']);
+        $academicGroup = Classes::create(['faculty_id' => $entry->level->faculty_id, 'level_id' => $entry->level_id,
+            'intake_id' => Intake::create(['name' => 'Promotion A'])->id]);
+        $entry->update(['class_id' => $academicGroup->id]);
+        $this->actingAs($teacher);
+        $work = $this->draft($offer, ['group_work' => true]);
+        $otherWork = $this->draft($offer, ['group_work' => true, 'title' => 'Autre travail']);
+        $assessment = $work->assessment()->sole();
+        $foreignAssessment = $otherWork->assessment()->sole();
+        $team = $assessment->groups()->create(['label' => 'Équipe de terrain', 'leader_enrollment_id' => $entry->id]);
+        $foreignTeam = $foreignAssessment->groups()->create(['label' => 'Équipe étrangère', 'leader_enrollment_id' => $entry->id]);
+        $femaleRecord = $assessment->records()->create(['academic_enrollment_id' => $entry->id, 'academic_assessment_group_id' => $team->id, 'participation' => 'submitted']);
+        $maleRecord = $assessment->records()->create(['academic_enrollment_id' => $peerEntry->id, 'academic_assessment_group_id' => $team->id, 'participation' => 'submitted']);
+        $assessment->records()->create(['academic_enrollment_id' => $ungroupedEntry->id, 'participation' => 'not_submitted']);
+        $foreignAssessment->records()->create(['academic_enrollment_id' => $entry->id, 'academic_assessment_group_id' => $foreignTeam->id]);
+        $view = fn (array $filters = []) => $this->get(self::TEACHER.'?'.http_build_query(['resource' => $work->id] + $filters));
+
+        $view(['participant_q' => 'kabeya Marina', 'participant_group' => 'work:'.$team->id, 'participation' => 'submitted'])
+            ->assertInertia(fn (Assert $page) => $page->has('records.data', 1)->where('records.data.0.id', $femaleRecord->id)
+                ->where('participant_groups', [
+                    ['value' => 'work:'.$team->id, 'label' => 'Équipe de terrain', 'kind' => 'work'],
+                    ['value' => 'class:'.$academicGroup->id, 'label' => 'Promotion A', 'kind' => 'class'],
+                    ['value' => 'unassigned', 'label' => 'Sans groupe pédagogique', 'kind' => 'unassigned'],
+                ]));
+        $view(['participant_q' => 'marc-02', 'participant_group' => 'unassigned'])->assertInertia(fn (Assert $page) => $page
+            ->has('records.data', 1)->where('records.data.0.id', $maleRecord->id)->where('records.data.0.matricule', 'USK-MARC-02'));
+        $view(['participant_group' => 'class:'.$academicGroup->id])->assertInertia(fn (Assert $page) => $page
+            ->has('records.data', 1)->where('records.data.0.academic_group', 'Promotion A'));
+        $view(['participant_group' => 'work:'.$foreignTeam->id])->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
+        $view(['participant_q' => '%'])->assertInertia(fn (Assert $page) => $page->has('records.data', 0));
+        $view(['participant_group' => 'invalid:'.$team->id])->assertSessionHasErrors('participant_group');
+        $this->actingAs($this->teacher());
+        $view(['participant_group' => 'work:'.$team->id])->assertForbidden();
+    }
+
+    public function test_teacher_subject_is_private_in_draft_and_submission_formats_and_size_are_enforced(): void
+    {
+        [$student, , $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $url = self::TEACHER.'/offerings/'.$offer->id;
+        $this->post($url, $this->details(['subject' => UploadedFile::fake()->createWithContent('document.pdf', 'ce fichier est du texte')]))->assertSessionHasErrors('subject');
+        $this->post($url, $this->details(['submission_formats' => ['exe']]))->assertSessionHasErrors('submission_formats.0');
+        $this->assertDatabaseCount('academic_assessments', 0);
+        $this->assertSame([], Storage::disk('local')->allFiles('learning-content/assessment-subjects'));
+
+        $work = $this->draft($offer, [
+            'subject' => UploadedFile::fake()->createWithContent('sujet.pdf', "%PDF-1.4\nSujet du premier cours"),
+            'submission_formats' => ['txt'], 'submission_max_kb' => 1,
+        ]);
+        Storage::disk('local')->assertExists($work->path);
+        $this->get(self::TEACHER.'?resource='.$work->id)->assertInertia(fn (Assert $page) => $page
+            ->where('selected.subject.filename', 'sujet.pdf')->missing('selected.subject.path')
+            ->where('selected.submission_formats', ['txt'])->where('selected.submission_max_kb', 1));
+        $teacherDownload = route('dashboard.teaching.assessments.subject', $work);
+        $this->get($teacherDownload)->assertDownload('sujet.pdf');
+        $this->actingAs($this->teacher())->get($teacherDownload)->assertForbidden();
+        $this->actingAs($student)->get(self::STUDENT.'/'.$work->id.'/download')->assertNotFound();
+        $this->actingAs($teacher);
+        $this->life($work, 'publish')->assertStatus(303)->assertSessionHasNoErrors();
+        $this->actingAs($student)->get(self::STUDENT.'/'.$work->id.'/download')->assertDownload('sujet.pdf');
+        $this->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
+            ->where('resources.0.assessment.submission_formats', ['txt'])->where('resources.0.assessment.submission_max_kb', 1));
+        $this->submit($work, 0, ['file' => UploadedFile::fake()->createWithContent('copie.pdf', "%PDF-1.4\nVraie copie PDF")])->assertSessionHasErrors('file');
+        $this->submit($work, 0, ['file' => UploadedFile::fake()->createWithContent('copie.txt', str_repeat('contenu ', 220))])->assertSessionHasErrors('file');
+        $this->assertDatabaseCount('academic_submissions', 0);
+        $this->submit($work, 0, ['file' => UploadedFile::fake()->createWithContent('copie.txt', 'Mon travail.')])->assertSessionHasNoErrors();
+        $this->assertSame('copie.txt', AcademicSubmission::sole()->filename);
+    }
+
+    public function test_teacher_can_replace_and_remove_a_subject_while_the_evaluation_is_a_draft(): void
+    {
+        [, , $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $work = $this->draft($offer, ['subject' => UploadedFile::fake()->createWithContent('sujet-a.pdf', "%PDF-1.4\nVersion A")]);
+        $first = $work->path;
+        $edition = self::TEACHER.'/'.$work->id.'/edition';
+        $replace = fn (int $revision) => $this->details(['revision' => $revision, 'reason' => self::REASON,
+            'subject' => UploadedFile::fake()->createWithContent('sujet-b.pdf', "%PDF-1.4\nVersion B")]);
+        $this->actingAs($this->teacher())->post($edition, $replace(1))->assertForbidden();
+        $this->actingAs($teacher)->post($edition, $this->details(['revision' => 1, 'reason' => self::REASON]))->assertStatus(303)->assertSessionHasNoErrors();
+        $this->post($edition, $replace(1))->assertSessionHasErrors('revision');
+        $this->assertSame($first, $work->fresh()->path);
+        $this->assertCount(1, Storage::disk('local')->allFiles('learning-content/assessment-subjects'));
+        $this->post($edition, $replace(2))->assertStatus(303)->assertSessionHasNoErrors();
+        $second = $work->fresh()->path;
+        $this->assertNotSame($first, $second);
+        Storage::disk('local')->assertExists($second);
+        Storage::disk('local')->assertMissing($first);
+        $this->post($edition, $this->details(['revision' => 3, 'reason' => self::REASON, 'remove_subject' => true]))->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertNull($work->fresh()->path);
+        Storage::disk('local')->assertMissing($second);
+    }
+
+    public function test_publication_schedule_uses_kinshasa_time_and_publishes_only_once_when_due(): void
+    {
+        [$student, , $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $draftOptions = ['opens_at' => '2026-11-10T11:00', 'closes_at' => '2026-11-10T14:00'];
+        $url = self::TEACHER.'/offerings/'.$offer->id;
+        $this->post($url, $this->details($draftOptions + ['scheduled_publish_at' => '2026-11-10T09:00']))->assertSessionHasErrors('scheduled_publish_at');
+        $this->post($url, $this->details($draftOptions + ['scheduled_publish_at' => '2026-11-10T12:00']))->assertSessionHasErrors('scheduled_publish_at');
+        $work = $this->draft($offer, $draftOptions + ['scheduled_publish_at' => '2026-11-10T10:30', 'scheduled_publish_notify' => true]);
+        $assessment = $work->assessment()->sole();
+        $this->assertSame('2026-11-10 09:30:00', CarbonImmutable::parse($assessment->scheduled_publish_at)->utc()->toDateTimeString());
+        $this->get(self::TEACHER.'?resource='.$work->id)->assertInertia(fn (Assert $page) => $page
+            ->where('selected.state', 'draft')->where('selected.scheduled_publish_at', fn (string $value) => CarbonImmutable::parse($value)->eq('2026-11-10T09:30:00Z')));
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->assertFalse($work->fresh()->is_published);
+        $this->actingAs($student)->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
+
+        $this->travel(30)->minutes();
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->assertTrue($work->fresh()->is_published);
+        $this->assertSame('published', $assessment->fresh()->state);
+        $this->assertNull($assessment->fresh()->scheduled_publish_at);
+        $this->assertSame(1, $student->notifications()->where('type', AcademicAssessmentNotice::class)->count());
+        $this->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
+            ->has('resources', 1)->where('resources.0.assessment.can_submit', false));
+    }
+
+    public function test_publication_schedule_can_be_cleared_and_does_not_publish_after_access_is_lost(): void
+    {
+        [, , $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $options = ['opens_at' => '2026-11-10T11:00', 'closes_at' => '2026-11-10T14:00', 'scheduled_publish_at' => '2026-11-10T10:30'];
+        $cancelled = $this->draft($offer, $options);
+        $revoked = $this->draft($offer, $options);
+        $this->post(self::TEACHER.'/'.$cancelled->id.'/edition', $this->details(
+            ['scheduled_publish_at' => null, 'revision' => 1, 'reason' => self::REASON] + $options,
+        ))->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertNull($cancelled->assessment()->sole()->scheduled_publish_at);
+        $teacher->revokePermissionTo('manage courses');
+
+        $this->travel(30)->minutes();
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->assertFalse($cancelled->fresh()->is_published);
+        $this->assertFalse($revoked->fresh()->is_published);
+        $assessment = $revoked->assessment()->sole();
+        $this->assertSame('draft', $assessment->state);
+        $this->assertTrue($assessment->scheduled_publish_at->eq('2026-11-10T09:30:00Z'));
+        $this->assertNotEmpty($assessment->scheduled_publish_error);
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->assertSame($assessment->revision, $assessment->fresh()->revision);
+    }
+
+    public function test_grouped_drafts_keep_a_separate_revision_checked_publication_schedule(): void
+    {
+        [$student, $entry, $teacher, , $offer] = $this->context();
+        $peer = $this->peer($entry);
+        $peerEntry = $peer->studentProfile->enrollments()->sole();
+        $this->actingAs($teacher);
+        $work = $this->draft($offer, ['group_work' => true, 'opens_at' => '2026-11-10T11:00', 'closes_at' => '2026-11-10T14:00']);
+        $this->post(self::TEACHER.'/'.$work->id.'/groups', ['label' => 'Groupe A', 'leader' => $entry->id,
+            'members' => [$entry->id, $peerEntry->id], 'revision' => 1, 'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
+        $path = self::TEACHER.'/'.$work->id.'/lifecycle';
+        $program = ['action' => 'schedule', 'scheduled_publish_at' => '2026-11-10T10:30', 'reason' => self::REASON];
+        $this->post($path, $program + ['revision' => 1])->assertSessionHasErrors('revision');
+        $this->post($path, $program + ['revision' => 2])->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertTrue($work->assessment()->sole()->scheduled_publish_at->eq('2026-11-10T09:30:00Z'));
+        $this->assertSame(2, $work->assessment()->sole()->records()->count());
+        $this->post($path, ['scheduled_publish_at' => null, 'revision' => 3] + $program)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->travel(30)->minutes();
+        $this->artisan('assessment:publish-scheduled')->assertSuccessful();
+        $this->assertFalse($work->fresh()->is_published);
+        $this->assertSame(0, $student->notifications()->where('type', AcademicAssessmentNotice::class)->count());
     }
 
     public function test_in_person_exam_uses_the_scheduled_session_and_hands_off_absence_without_zero(): void
@@ -337,7 +578,7 @@ final class AssessmentWorkflowTest extends TestCase
         $this->life($work, 'publish')->assertStatus(303);
         $this->actingAs($student);
         $this->submit($work, 0)->assertForbidden();
-        $this->get('/dashboard/student/evaluations')->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/student/evaluations')->assertInertia(fn (Assert $page) => $page
             ->where('resources.0.assessment.session.room', 'A-01')->where('resources.0.assessment.can_submit', false));
         $this->travel(3)->hours();
         AcademicAttendance::create(['academic_enrollment_id' => $entry->id, 'academic_session_id' => $session->id,
@@ -368,10 +609,10 @@ final class AssessmentWorkflowTest extends TestCase
         ]);
         $this->artisan('academic:assessment-audit', ['--details' => true])
             ->expectsOutputToContain("Ressource {$work->id} · Offre {$offer->id}")->assertSuccessful();
-        $this->actingAs($student)->get('/dashboard/student/submissions/'.$copy->id.'/download?version=1')->assertDownload('archive.pdf');
+        $this->actingAs($student)->get('/app/dashboard/student/submissions/'.$copy->id.'/download?version=1')->assertDownload('archive.pdf');
         $this->submit($work, 2)->assertSessionHasNoErrors();
         $this->assertSame(3, $copy->fresh()->version);
-        $this->get('/dashboard/student/submissions/'.$copy->id.'/versions/2')->assertInertia(fn (Assert $page) => $page->where('body', 'Version deux'));
+        $this->get('/app/dashboard/student/submissions/'.$copy->id.'/versions/2')->assertInertia(fn (Assert $page) => $page->where('body', 'Version deux'));
         $this->assertNull($work->assessment()->first());
 
         $this->actingAs($admin)->get(route('dashboard.admin.student-academic.submissions.version', ['submission' => $copy->id, 'version' => 2]))
@@ -405,7 +646,7 @@ final class AssessmentWorkflowTest extends TestCase
         $this->actingAs($student);
         $this->submit($work, 0)->assertNotFound();
         $this->assertSame('cancelled', $student->notifications()->sole()->data['status']);
-        $this->get('/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
+        $this->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
     }
 
     public function test_faculty_scope_protects_the_legacy_download_and_assistants_cannot_read_copies(): void

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\EnrollmentSubmitted;
+use App\Models\AcademicStructure\AcademicPromotion;
 use App\Models\AcademicStructure\AdmissionCampaign;
 use App\Models\AcademicYear;
 use App\Models\AdmissionCondition;
@@ -53,7 +54,7 @@ class AdmissionConsolidationTest extends TestCase
         $faculty->forceFill(['university_id' => $university->id])->save();
         $cycle = $structure->save('cycle', $common + ['code' => 'C', 'name' => 'Cycle de test', 'normal_duration' => 1, 'progression_mode' => 'annual', 'weighting_mode' => 'credits', 'periods' => [['code' => 'A', 'name' => 'Année']]], $admin);
         $program = $structure->save('program', $common + ['code' => 'P', 'name' => 'Parcours Sciences', 'faculty_id' => $faculty->id, 'academic_cycle_id' => $cycle->id, 'level_ids' => [$level->id]], $admin);
-        $campaigns = '/dashboard/admin/enrollments/campaigns';
+        $campaigns = '/app/dashboard/admin/enrollments/campaigns';
         $campaign = ['academic_program_id' => $program->id, 'academic_year_id' => $year->id, 'level_id' => $level->id, 'additional_documents' => 'Attestation spécifique', 'reason' => 'Exigence de la campagne'];
         $this->actingAs($admin)->post($campaigns, $campaign + ['is_open' => false])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('admission_cohorts', 0);
@@ -64,11 +65,11 @@ class AdmissionConsolidationTest extends TestCase
         $this->get($campaigns.'?level_id='.$otherLevel->id)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('level.id', $otherLevel->id)->has('campaigns.data', 0)->has('programs', 0));
 
-        $requirements = '/dashboard/enrollment/requirements?'.http_build_query(['level_id' => $level->id, 'faculty_id' => $faculty->id, 'year_id' => $year->id, 'academic_program_id' => $program->id]);
+        $requirements = '/app/dashboard/enrollment/requirements?'.http_build_query(['level_id' => $level->id, 'faculty_id' => $faculty->id, 'year_id' => $year->id, 'academic_program_id' => $program->id]);
         $snapshot = $this->snapshot($candidate, $faculty, $level, $year) + ['academic_program_id' => $program->id];
         $this->actingAs($candidate)->getJson($requirements)->assertUnprocessable();
-        $draft = $this->postJson('/dashboard/enrollments/save-progress', ['last_step' => 4, 'form_snapshot' => $snapshot])->assertOk()->json('draft.uuid');
-        $submit = '/dashboard/enrollments/'.$draft.'/submit';
+        $draft = $this->postJson('/app/dashboard/enrollments/save-progress', ['last_step' => 4, 'form_snapshot' => $snapshot])->assertOk()->json('draft.uuid');
+        $submit = '/app/dashboard/enrollments/'.$draft.'/submit';
         $this->post($submit)->assertSessionHasErrors('submit');
 
         $this->actingAs($admin)->post($campaigns, $campaign + ['is_open' => true])->assertSessionHasNoErrors();
@@ -89,22 +90,22 @@ class AdmissionConsolidationTest extends TestCase
 
         $key = $this->actingAs($candidate)->getJson($requirements)->assertOk()->assertJsonPath('payload.academic_info.0.label', 'Attestation spécifique')->json('payload.academic_info.0.key');
         $this->post($submit)->assertSessionHasErrors('submit');
-        $temp = $this->postJson('/dashboard/enrollments/documents/upload', ['key' => $key, 'file' => UploadedFile::fake()->create('preuve.pdf', 10, 'application/pdf')])->assertOk()->json('temp');
+        $temp = $this->postJson('/app/dashboard/enrollments/documents/upload', ['key' => $key, 'file' => UploadedFile::fake()->create('preuve.pdf', 10, 'application/pdf')])->assertOk()->json('temp');
         $snapshot['documents'][$key] = ['filename' => $temp['filename'], 'mime' => $temp['mime'], 'temp' => $temp];
-        $this->postJson('/dashboard/enrollments/save-progress', ['uuid' => $draft, 'last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
-        $this->postJson($submit)->assertOk()->assertJsonPath('redirect', '/dashboard/enrollments');
-        $this->get('/dashboard/enrollments')->assertOk();
-        $this->post($submit)->assertSessionHasNoErrors()->assertRedirect('/dashboard/enrollments');
+        $this->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $draft, 'last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
+        $this->postJson($submit)->assertOk()->assertJsonPath('redirect', '/app/dashboard/enrollments');
+        $this->get('/app/dashboard/enrollments')->assertOk();
+        $this->post($submit)->assertSessionHasNoErrors()->assertRedirect('/app/dashboard/enrollments');
         $entry = Enrollment::where('uuid', $draft)->firstOrFail();
         $this->assertNotEmpty($entry->meta['submitted_at']);
         $this->assertSame($program->id, $entry->form_snapshot['academic_program_id']);
         $this->assertSame(1, $entry->events()->where('event', 'submitted')->count());
         Mail::assertSent(EnrollmentSubmitted::class, 1);
-        $this->get('/dashboard/enrollments/'.$draft)->assertInertia(fn (Assert $page) => $page->where('enrollment.requested_program', $program->name)->where('enrollment.submitted_at', $entry->meta['submitted_at']));
+        $this->get('/app/dashboard/enrollments/'.$draft)->assertInertia(fn (Assert $page) => $page->where('enrollment.requested_program', $program->name)->where('enrollment.submitted_at', $entry->meta['submitted_at']));
 
-        $adminUrl = '/dashboard/admin/enrollments/'.$entry->id;
+        $adminUrl = '/app/dashboard/admin/enrollments/'.$entry->id;
         $document = $entry->documents()->firstOrFail();
-        $this->actingAs($admin)->get('/dashboard/admin/enrollments?'.http_build_query(['queue' => 'new', 'program_id' => $program->id, 'q' => $draft, 'submitted_from' => now()->toDateString()]))->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1));
+        $this->actingAs($admin)->get('/app/dashboard/admin/enrollments?'.http_build_query(['queue' => 'new', 'program_id' => $program->id, 'q' => $draft, 'submitted_from' => now()->toDateString()]))->assertInertia(fn (Assert $page) => $page->where('enrollments.total', 1));
         $this->post($adminUrl.'/start-analysis')->assertSessionHasNoErrors();
         $this->post($adminUrl.'/documents/'.$document->uuid.'/review', ['verdict' => 'accepted'])->assertSessionHasNoErrors();
         $this->post($adminUrl.'/validate')->assertSessionHasNoErrors();
@@ -128,7 +129,7 @@ class AdmissionConsolidationTest extends TestCase
         Mail::fake();
         [, $candidate, $faculty, $level, $year] = $this->context();
         $payload = ['last_step' => 4, 'form_snapshot' => $this->snapshot($candidate, $faculty, $level, $year)];
-        $url = '/dashboard/enrollments';
+        $url = '/app/dashboard/enrollments';
         $uuid = $this->actingAs($candidate)->postJson($url.'/save-progress', $payload)->assertOk()->json('draft.uuid');
         $this->postJson($url.'/save-progress', $payload)->assertOk()->assertJsonPath('draft.uuid', $uuid);
         $entry = Enrollment::where('uuid', $uuid)->firstOrFail();
@@ -156,11 +157,11 @@ class AdmissionConsolidationTest extends TestCase
         $other = Faculty::create(['name' => 'Droit', 'code' => 'DR']);
         $differentLevel = Level::create(['faculty_id' => $other->id, 'code' => 'T1', 'title' => 'Autre']);
         AdmissionCondition::create(['faculty_id' => $other->id, 'level_id' => $differentLevel->id, 'title' => 'Diplôme', 'section' => 'academic_info', 'is_required' => true]);
-        $url = '/dashboard/enrollment/requirements?level_id='.$differentLevel->id;
+        $url = '/app/dashboard/enrollment/requirements?level_id='.$differentLevel->id;
         $this->actingAs($candidate)->getJson($url)->assertOk()->assertJsonPath('payload.academic_info.0.key', 'diplome');
         $this->getJson($url.'&faculty_id='.$faculty->id)->assertUnprocessable();
         $admin->roles()->firstOrFail()->revokePermissionTo('manage academic access');
-        $this->actingAs($admin->fresh())->get('/dashboard/admin/enrollments')->assertForbidden();
-        $this->post('/dashboard/admin/notifications/read-all')->assertForbidden();
+        $this->actingAs($admin->fresh())->get('/app/dashboard/admin/enrollments')->assertForbidden();
+        $this->post('/app/dashboard/admin/notifications/read-all')->assertForbidden();
     }
 }

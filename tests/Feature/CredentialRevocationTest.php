@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as ProviderUser;
 use Tests\TestCase;
 
 class CredentialRevocationTest extends TestCase
@@ -42,7 +44,7 @@ class CredentialRevocationTest extends TestCase
         $this->actingAs($user);
         $before = $user->password;
         $user->forceFill(['password' => 'New-password-123'])->save();
-        $this->withSession(['password_hash_web' => $before])->get('/dashboard')->assertRedirect('/login');
+        $this->withSession(['password_hash_web' => $before])->get('/app/dashboard')->assertRedirect('/app/login');
         $this->assertGuest();
     }
 
@@ -77,11 +79,41 @@ class CredentialRevocationTest extends TestCase
 
     public function test_verified_social_registration_persists_verification_and_no_extra_privileges(): void
     {
-        $entity = app(SocialLogin::class)->execute('google', ['id' => 'provider-id', 'email' => 'verified@example.test', 'email_verified' => true, 'first_name' => 'Test', 'last_name' => 'Verified']);
-        $user = User::findOrFail($entity->id());
+        $providerUser = (new ProviderUser)->setRaw(['email_verified' => true])->map([
+            'id' => 'provider-id',
+            'email' => 'verified@example.test',
+            'name' => 'Test Verified',
+        ]);
+        Socialite::shouldReceive('driver->user')->once()->andReturn($providerUser);
+        $this->post(route('social-registration.complete'), ['nationality_code' => 'CG'])->assertRedirect(route('login.show'));
+        $this->get('/auth/google/callback')->assertRedirect(route('social-registration.show'));
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'verified@example.test']);
+        $this->get(route('social-registration.show'))->assertOk();
+        $this->post(route('social-registration.complete'), ['nationality_code' => 'CG'])->assertRedirect(route('dashboard.index'));
+
+        $user = User::where('email', 'verified@example.test')->firstOrFail();
+        $this->assertAuthenticatedAs($user);
         $this->assertTrue($user->hasVerifiedEmail());
         $this->assertTrue($user->hasRole('user'));
         $this->assertFalse($user->hasRole('admin'));
         $this->assertFalse($user->hasRole('student'));
+        $this->assertSame('CG', $user->nationality_code);
+        $this->assertSame('foreign', $user->feeCategoryFromNationality());
+    }
+
+    public function test_verified_social_sign_in_for_an_existing_account_does_not_change_nationality(): void
+    {
+        $existing = User::factory()->create();
+        $providerUser = (new ProviderUser)->setRaw(['email_verified' => true])->map([
+            'id' => 'provider-id',
+            'email' => $existing->email,
+            'name' => 'Test Verified',
+        ]);
+        Socialite::shouldReceive('driver->user')->once()->andReturn($providerUser);
+
+        $this->get('/auth/google/callback')->assertRedirect(route('dashboard.index'));
+        $this->assertAuthenticatedAs($existing);
+        $this->assertNull($existing->fresh()->feeCategoryFromNationality());
     }
 }

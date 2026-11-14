@@ -7,22 +7,33 @@ import { labels, money, type Balance } from '@/components/student/types';
 import { formatDate } from '@/lib/studentEnrollment';
 import { Head, Link, router } from '@inertiajs/react';
 import {
+    ArrowRight,
     BookOpen,
+    CalendarCheck,
+    CalendarDays,
     ClipboardCheck,
+    ClipboardList,
+    Clock3,
     CreditCard,
+    FileText,
     GraduationCap,
+    IdCard,
+    Inbox,
     LayoutGrid,
     List,
     MessageSquare,
+    Paperclip,
     Plus,
     Search,
     Settings2,
     ShieldCheck,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import '../../../../css/dashboard/school-request-queue.css';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
 import AcademicForm, { type Field, type FormSpec } from './AcademicForm';
+import type { StaffRequest } from './StaffRequestDetails';
 type StudentRow = {
     program: string | null;
     account_status: string;
@@ -36,6 +47,11 @@ type StudentRow = {
     status: string;
     student_status: string;
     photo_url: string | null;
+};
+type QueueRequest = StaffRequest & {
+    student_name: string;
+    detail_url: string;
+    appointment: { date: string; time: string; location: string; confirmed_at: string } | null;
 };
 type Props = {
     students: { data: StudentRow[]; total: number; current_page: number; links: { url: string | null; label: string; active: boolean }[] };
@@ -52,6 +68,9 @@ type Props = {
         view?: 'table' | 'grid';
         history?: '1';
         year?: number;
+        request_category?: string;
+        request_status?: string;
+        ticket?: number;
         enrollment_status?: 'pending_confirmation' | 'confirmed' | 'completed' | 'suspended' | 'cancelled';
     };
     selected: {
@@ -65,6 +84,8 @@ type Props = {
         status: string;
         student_status: string;
         category: string | null;
+        nationality?: string | null;
+        declared_category?: 'national' | 'foreign' | null;
     } | null;
     balance: Balance | null;
     obligations: { id: number; title: string; amount_cents: number; due_at: string | null }[];
@@ -136,16 +157,11 @@ type Props = {
         download_url: string | null;
     }[];
     requests: {
-        id: number;
-        academic_enrollment_id: number;
-        student_name: string;
-        category: string;
-        subject: string;
-        body: string;
-        status: string;
-        response: string | null;
-        created_at: string;
-    }[];
+        data: QueueRequest[];
+        total: number;
+        links: { url: string | null; label: string; active: boolean }[];
+    } | null;
+    request_categories: Record<string, string>;
     audit: {
         id: number;
         actor_id: number | null;
@@ -169,6 +185,8 @@ const features = [
 const auditLabels: Record<string, string> = {
     student_admission_activated: 'Espace étudiant activé',
     fees_assessed: 'Barème affecté',
+    fee_category_confirmed: 'Catégorie tarifaire confirmée',
+    finance_tariff_billed: 'Barème annuel affecté',
     additional_fee_created: 'Frais complémentaire établi',
     payment_recorded: 'Versement saisi',
     payment_confirmed: 'Versement confirmé',
@@ -189,11 +207,15 @@ const auditLabels: Record<string, string> = {
     academic_work_submitted: 'Travail transmis',
     student_request_created: 'Demande reçue',
     student_request_answered: 'Réponse publiée',
+    student_appointment_confirmed: 'Rendez-vous confirmé',
+    student_appointment_rescheduled: 'Rendez-vous déplacé',
+    student_appointment_cancelled: 'Rendez-vous annulé',
 };
 const modes = [
     { value: 'hidden', label: 'Masqué : service non proposé pour ce périmètre' },
     { value: 'open', label: 'Accessible sans condition financière' },
     { value: 'first_installment', label: 'Première tranche réglée' },
+    { value: 'due_installments', label: 'Échéances exigibles réglées' },
     { value: 'minimum', label: 'Acompte minimum confirmé' },
     { value: 'full', label: 'Frais nets intégralement réglés' },
     { value: 'exemption', label: 'Exonération autorisée' },
@@ -206,6 +228,188 @@ const reason: Field = {
     help: 'Cette justification est conservée dans le journal d’audit.',
 };
 const directoryPanelKeys = 'tab q faculty department program level view year enrollment_status history page';
+
+const requestIcons: Record<string, typeof ClipboardList> = {
+    academic: GraduationCap,
+    appeal: GraduationCap,
+    appointment: CalendarDays,
+    document: FileText,
+    finance: CreditCard,
+    identity: IdCard,
+    support: MessageSquare,
+};
+
+const requestPeriods: Record<string, string> = { morning: 'Matin', afternoon: 'Après-midi' };
+
+function RequestCard({ ticket }: { ticket: QueueRequest }) {
+    const Icon = requestIcons[ticket.category] ?? ClipboardList;
+    const appointment = ticket.appointment;
+    const slot = appointment ?? ticket.appointment_reservation;
+    const cancelled = ticket.status === 'cancelled' && ticket.category === 'appointment';
+    const status = cancelled
+        ? 'Rendez-vous annulé'
+        : appointment
+          ? 'Rendez-vous confirmé'
+          : ticket.appointment_reservation
+            ? 'Créneau réservé'
+            : (labels[ticket.status] ?? ticket.status);
+    const message = (ticket.body ?? '').replace(/\s+/g, ' ').trim();
+    const preview = message.length > 220 ? `${message.slice(0, 219).trimEnd()}…` : message;
+    const headingId = `academic-request-subject-${ticket.id}`;
+    const studentId = `academic-request-student-${ticket.id}`;
+    const statusId = `academic-request-status-${ticket.id}`;
+    const actionId = `academic-request-action-${ticket.id}`;
+
+    return (
+        <li id={`academic-request-${ticket.id}`}>
+            <Link
+                className="school-request-card"
+                href={ticket.detail_url}
+                aria-labelledby={`${actionId} ${headingId} ${studentId}`}
+                aria-describedby={statusId}
+            >
+                <span className="school-request-card-icon" data-category={ticket.category}>
+                    <Icon size={22} aria-hidden="true" />
+                </span>
+                <div className="school-request-card-copy">
+                    <span className="school-request-card-category">{ticket.category_label}</span>
+                    <h3 id={headingId}>{ticket.subject}</h3>
+                    <div className="school-request-card-meta">
+                        <strong id={studentId}>{ticket.student_name}</strong>
+                        <time dateTime={ticket.created_at}>{formatDate(ticket.created_at)}</time>
+                        {ticket.service && <span>{ticket.service}</span>}
+                    </div>
+                    {preview && <p className="school-request-card-preview">{preview}</p>}
+                    {(ticket.attachment_url || slot || ticket.appointment_date || ticket.appointment_period) && (
+                        <div className="school-request-card-facts">
+                            {ticket.attachment_url && (
+                                <span>
+                                    <Paperclip size={15} aria-hidden="true" /> Justificatif joint
+                                </span>
+                            )}
+                            {slot ? (
+                                <span>
+                                    <CalendarDays size={15} aria-hidden="true" />
+                                    <time dateTime={slot.date}>{formatDate(slot.date)}</time> · {slot.time}
+                                </span>
+                            ) : (
+                                (ticket.appointment_date || ticket.appointment_period) && (
+                                    <span>
+                                        <Clock3 size={15} aria-hidden="true" />
+                                        {[
+                                            ticket.appointment_date && formatDate(ticket.appointment_date),
+                                            ticket.appointment_period && requestPeriods[ticket.appointment_period],
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                    </span>
+                                )
+                            )}
+                        </div>
+                    )}
+                </div>
+                <span
+                    id={statusId}
+                    className="school-request-card-status"
+                    data-status={cancelled ? 'cancelled' : appointment || ticket.status === 'resolved' ? 'done' : 'open'}
+                >
+                    {status}
+                </span>
+                <span className="school-request-card-arrow">
+                    <span id={actionId}>Ouvrir la fiche</span>
+                    <ArrowRight size={17} aria-hidden="true" />
+                </span>
+            </Link>
+        </li>
+    );
+}
+
+function RequestQueue({
+    requests,
+    filters,
+    categories,
+    academic,
+    base,
+}: {
+    requests: NonNullable<Props['requests']>;
+    filters: Props['filters'];
+    categories: Props['request_categories'];
+    academic?: number;
+    base: string;
+}) {
+    const filtered = Boolean(filters.ticket || filters.request_category || filters.request_status);
+    const resetUrl = `${base}?tab=requests${academic ? `&academic=${academic}` : ''}`;
+
+    return (
+        <section className="school-request-queue" data-dashboard-panel="tab" aria-labelledby="academic-request-title">
+            <header className="school-request-queue-heading">
+                <span className="school-request-queue-symbol">
+                    <ClipboardList size={24} aria-hidden="true" />
+                </span>
+                <h2 id="academic-request-title">File de traitement</h2>
+                <p>
+                    {requests.total.toLocaleString('fr-FR')} {requests.total === 1 ? 'demande' : 'demandes'}
+                </p>
+            </header>
+            <form
+                key={`${filters.request_category ?? ''}-${filters.request_status ?? ''}-${filters.ticket ?? ''}`}
+                className="school-request-filters"
+                aria-label="Filtrer les demandes"
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    const values = new FormData(event.currentTarget);
+                    router.get(base, {
+                        tab: 'requests',
+                        academic,
+                        request_category: values.get('request_category') || undefined,
+                        request_status: values.get('request_status') || undefined,
+                    });
+                }}
+            >
+                <label>
+                    Type de démarche
+                    <select name="request_category" defaultValue={filters.request_category ?? ''}>
+                        <option value="">Toutes les démarches</option>
+                        {Object.entries(categories).map(([key, label]) => (
+                            <option key={key} value={key}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    Statut
+                    <select name="request_status" defaultValue={filters.request_status ?? ''}>
+                        <option value="">Tous les statuts</option>
+                        <option value="open">En cours</option>
+                        <option value="resolved">Résolues</option>
+                        <option value="cancelled">Annulées</option>
+                    </select>
+                </label>
+                <button type="submit" className="admin-primary">
+                    Filtrer
+                </button>
+                {filtered && (
+                    <Link className="school-request-reset" href={resetUrl}>
+                        Réinitialiser les filtres
+                    </Link>
+                )}
+            </form>
+            {requests.data.length > 0 ? (
+                <ul className="school-request-list" role="list">
+                    {requests.data.map((ticket) => (
+                        <RequestCard key={ticket.id} ticket={ticket} />
+                    ))}
+                </ul>
+            ) : (
+                <EmptyState title={filtered ? 'Aucune demande pour ces filtres.' : 'Aucune demande reçue.'} icon={Inbox}>
+                    {filtered ? 'Modifiez les filtres pour élargir la recherche.' : 'Les demandes transmises depuis Scolarité apparaissent ici.'}
+                </EmptyState>
+            )}
+            <Pagination value={requests} preserveScroll={false} />
+        </section>
+    );
+}
 
 export default function Index(props: Props) {
     const tab = props.filters.tab || 'students';
@@ -220,7 +424,7 @@ export default function Index(props: Props) {
     const [spec, setSpec] = useState<FormSpec | null>(null);
     const [toast, setToast] = useState<ToastFeedback | null>(null);
     const sequence = useRef(0);
-    const base = '/dashboard/admin/student-academic';
+    const base = '/app/dashboard/admin/student-academic';
     const show = (title: string, description: string, action: string, fields: Field[], submitLabel?: string) =>
         setSpec({ title, description, action, fields, submitLabel });
     const choose = (tab: string, id = selected?.id) => `${base}?${new URLSearchParams({ tab, ...(id ? { academic: String(id) } : {}) })}`;
@@ -441,7 +645,7 @@ export default function Index(props: Props) {
     ];
     return (
         <Dashboard hideAppsNavigation={tab === 'students'}>
-            <Head title={tab === 'students' ? directoryTitle : 'Nos étudiants'} />
+            <Head title={tab === 'students' ? directoryTitle : tab === 'requests' ? 'Demandes de scolarité' : 'Nos étudiants'} />
             {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
             <div className="student-portal academic-administration">
                 {tab === 'students' ? (
@@ -463,12 +667,33 @@ export default function Index(props: Props) {
                             <strong>{props.students.total.toLocaleString('fr-FR')}</strong>
                             <span>{props.students.total === 1 ? 'Inscription affichée' : 'Inscriptions affichées'}</span>
                         </div>
+                        {props.abilities.access && (
+                            <nav className="directory-heading-actions" aria-label="Demandes et rendez-vous étudiants">
+                                <Link href={choose('requests')}>
+                                    <MessageSquare size={16} aria-hidden="true" /> Demandes de scolarité
+                                </Link>
+                                <Link href={route('dashboard.admin.student-academic.requests.agenda')}>
+                                    <CalendarCheck size={16} aria-hidden="true" /> Agenda des rendez-vous
+                                </Link>
+                            </nav>
+                        )}
                     </header>
                 ) : (
                     <>
                         <PageHeading
-                            title="Nos étudiants"
-                            description="Admissions activées, affectations pédagogiques, suivi financier et droits d’accès."
+                            title={tab === 'requests' ? 'Demandes de scolarité' : 'Nos étudiants'}
+                            description={
+                                tab === 'requests'
+                                    ? 'Consultez les dossiers transmis par les étudiants et suivez leur traitement.'
+                                    : 'Admissions activées, affectations pédagogiques, suivi financier et droits d’accès.'
+                            }
+                            action={
+                                tab === 'requests' && props.abilities.access ? (
+                                    <Link href={route('dashboard.admin.student-academic.requests.agenda')} className="admin-primary">
+                                        <CalendarCheck size={17} aria-hidden="true" /> Agenda des rendez-vous
+                                    </Link>
+                                ) : undefined
+                            }
                         />
                         <nav className="portal-tabs" aria-label="Gestion du parcours étudiant">
                             {tabs
@@ -858,13 +1083,13 @@ export default function Index(props: Props) {
                                     <div>
                                         <h2>Obligations financières</h2>
                                         <p className="portal-muted">
-                                            Catégorie :{' '}
+                                            Catégorie tarifaire :{' '}
                                             {selected.category === 'national'
-                                                ? 'Nationaux'
+                                                ? 'National'
                                                 : selected.category === 'foreign'
-                                                  ? 'Étrangers'
-                                                  : 'À confirmer'}
-                                            . Les frais sont issus du barème enregistré sur le niveau.
+                                                  ? 'Étranger'
+                                                  : 'À déterminer'}
+                                            {selected.nationality && <> · Nationalité déclarée : {selected.nationality}</>}
                                         </p>
                                     </div>
                                     <button
@@ -872,7 +1097,7 @@ export default function Index(props: Props) {
                                         onClick={() =>
                                             show(
                                                 'Établir les frais académiques',
-                                                'Le compte est établi avec les deux tranches du barème existant. Une catégorie ne peut plus être modifiée après création d’un historique financier.',
+                                                'Confirmez la catégorie de l’étudiant. Le barème annuel actif fournit les montants et les dates. S’il est encore en préparation, seule la catégorie sera enregistrée.',
                                                 `${base}/${selected.id}/fees`,
                                                 [
                                                     {
@@ -880,13 +1105,14 @@ export default function Index(props: Props) {
                                                         label: 'Catégorie tarifaire confirmée',
                                                         type: 'select',
                                                         required: true,
+                                                        value: selected.category ?? selected.declared_category,
                                                         options: [
                                                             { value: 'national', label: 'Nationaux' },
                                                             { value: 'foreign', label: 'Étrangers' },
                                                         ],
                                                     },
-                                                    { name: 'first_due', label: 'Échéance de la première tranche', type: 'date' },
-                                                    { name: 'second_due', label: 'Échéance de la deuxième tranche', type: 'date' },
+                                                    { name: 'first_due', label: 'Première échéance hors barème annuel', type: 'date' },
+                                                    { name: 'second_due', label: 'Deuxième échéance hors barème annuel', type: 'date' },
                                                     reason,
                                                 ],
                                             )
@@ -1365,7 +1591,7 @@ export default function Index(props: Props) {
                         <section className="portal-panel" data-dashboard-panel="tab">
                             <header>
                                 <h2>Emploi du temps</h2>
-                                <Link className="admin-secondary" href="/dashboard/admin/schedule">
+                                <Link className="admin-secondary" href="/app/dashboard/admin/schedule">
                                     Gérer les horaires
                                 </Link>
                                 <button
@@ -1441,61 +1667,14 @@ export default function Index(props: Props) {
                         )}
                     </section>
                 )}
-                {tab === 'requests' && (
-                    <section className="portal-panel" data-dashboard-panel="tab">
-                        <h2>Demandes et réclamations</h2>
-                        {props.requests.length ? (
-                            props.requests.map((ticket) => (
-                                <article className="academic-ticket" key={ticket.id}>
-                                    <div>
-                                        <span className="portal-status">{labels[ticket.status]}</span>
-                                        <h3>{ticket.subject}</h3>
-                                        <small>
-                                            {ticket.student_name} · {formatDate(ticket.created_at)}
-                                        </small>
-                                        <p>{ticket.body}</p>
-                                        {ticket.response && <p className="academic-response">{ticket.response}</p>}
-                                    </div>
-                                    <button
-                                        className="admin-secondary"
-                                        onClick={() =>
-                                            show(
-                                                'Répondre à cette demande',
-                                                'La réponse sera visible dans l’espace de cet étudiant uniquement.',
-                                                `${base}/requests/${ticket.id}/reply`,
-                                                [
-                                                    {
-                                                        name: 'response',
-                                                        label: 'Votre réponse',
-                                                        type: 'textarea',
-                                                        required: true,
-                                                        value: ticket.response || '',
-                                                    },
-                                                    {
-                                                        name: 'status',
-                                                        label: 'Suivi',
-                                                        type: 'select',
-                                                        required: true,
-                                                        value: ticket.status,
-                                                        options: [
-                                                            { value: 'open', label: 'En cours' },
-                                                            { value: 'resolved', label: 'Résolue' },
-                                                        ],
-                                                    },
-                                                ],
-                                            )
-                                        }
-                                    >
-                                        Répondre
-                                    </button>
-                                </article>
-                            ))
-                        ) : (
-                            <EmptyState title="Aucune demande en attente." icon={MessageSquare}>
-                                Les échanges créés dans l’espace étudiant apparaîtront ici.
-                            </EmptyState>
-                        )}
-                    </section>
+                {tab === 'requests' && props.requests && (
+                    <RequestQueue
+                        requests={props.requests}
+                        filters={props.filters}
+                        categories={props.request_categories}
+                        academic={selected?.id}
+                        base={base}
+                    />
                 )}
                 {props.audit.length > 0 && (
                     <details className="academic-audit">

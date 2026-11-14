@@ -8,6 +8,7 @@ use App\Modules\Identity\Application\UseCases\RegisterUser;
 use App\Modules\Identity\Domain\Exceptions\InvalidCredentialsException;
 use App\Modules\Identity\Domain\Exceptions\TooManyLoginAttemptsException;
 use App\Modules\Identity\Domain\Exceptions\UserNotFoundException;
+use App\Modules\Identity\Domain\Nationality;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -21,9 +22,10 @@ class AuthController extends Controller
             'first_name' => 'required|string|max:255',
             'post_name' => 'nullable|string|max:255',
             'gender' => 'required|in:male,female,other',
+            'nationality_code' => Nationality::rules(),
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6|confirmed',
-        ]);
+        ], Nationality::messages());
 
         $user = $useCase->execute(
             $validated['last_name'],
@@ -31,7 +33,8 @@ class AuthController extends Controller
             $validated['post_name'] ?? null,
             $validated['gender'],
             $validated['email'],
-            $validated['password']
+            $validated['password'],
+            $validated['nationality_code'],
         );
 
         Auth::loginUsingId($user->id());
@@ -51,9 +54,10 @@ class AuthController extends Controller
             $userId = $useCase->execute($validated['email'], $validated['password']);
             Auth::loginUsingId($userId);
             $request->session()->regenerate();
+            Inertia::clearHistory();
             Inertia::flash('dashboardArrival', true);
 
-            return redirect()->route('dashboard.index');
+            return redirect()->intended(route('dashboard.index'));
         } catch (TooManyLoginAttemptsException $e) {
             return back()->withErrors([
                 'email' => $e->getMessage(),
@@ -69,7 +73,9 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        Inertia::clearHistory();
+
+        return redirect()->route('login.show');
     }
 
     public function showRegister()
@@ -77,11 +83,16 @@ class AuthController extends Controller
 
         return inertia('dashboard/auth/Signup', [
             'status' => session('status'),
+            'nationalities' => Nationality::choices(),
         ]);
     }
 
-    public function showLogin()
+    public function showLogin(Request $request)
     {
+        if ($request->is('app/login')) {
+            Inertia::clearHistory();
+        }
+
         return inertia('dashboard/auth/Login', [
             'status' => session('status'),
         ]);

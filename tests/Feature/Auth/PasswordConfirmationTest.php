@@ -15,7 +15,7 @@ class PasswordConfirmationTest extends TestCase
     public function test_password_change_requires_matching_confirmation(): void
     {
         $user = $this->studentContext();
-        $this->actingAs($user)->post('/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'different'])
+        $this->actingAs($user)->post('/app/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'different'])
             ->assertSessionHasErrorsIn('studentPassword', 'password');
         $this->assertSame($user->password, $user->fresh()->password);
     }
@@ -23,7 +23,7 @@ class PasswordConfirmationTest extends TestCase
     public function test_password_change_requires_current_password(): void
     {
         $user = $this->studentContext();
-        $this->actingAs($user)->post('/dashboard/student/profile/password', ['password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
+        $this->actingAs($user)->post('/app/dashboard/student/profile/password', ['password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
             ->assertSessionHasErrorsIn('studentPassword', 'current_password');
         $this->assertSame($user->password, $user->fresh()->password);
     }
@@ -31,7 +31,7 @@ class PasswordConfirmationTest extends TestCase
     public function test_account_without_academic_profile_cannot_use_student_password_form(): void
     {
         $user = User::factory()->create();
-        $this->actingAs($user)->post('/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])->assertForbidden();
+        $this->actingAs($user)->post('/app/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])->assertForbidden();
         $this->assertSame($user->password, $user->fresh()->password);
     }
 }

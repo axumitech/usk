@@ -18,7 +18,7 @@ async function load(path, imports = {}) {
         if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, preserveScroll, ...props }) => React.createElement('a', { ...props, 'data-inertia': 'true', 'data-preserve-scroll': preserveScroll || undefined }, children), useForm: data => ({ data, errors: {}, processing: false }) };
         if (name === '@/components/layouts/Dashboard/Dashboard') return { default: ({ children }) => React.createElement('div', {}, children) };
         if (name === '../studentAcademic/AcademicForm' || name === '@/components/admin/AdminModal') return { default: () => null };
-        if (name === '@/components/admin/Pagination') return { default: () => null };
+        if (name === '@/components/admin/Pagination' || name === '@/components/admin/FeedbackToast') return { default: () => null };
         if (name === '@/hooks/use-panel-fade') return { usePanelFade: React.useRef };
         if (name === '@/components/student/types') return { labels: { confirmed: 'Confirmée' }, money: (value, currency) => `${value} ${currency}` };
         if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });
@@ -29,7 +29,8 @@ async function load(path, imports = {}) {
 
 const charts = await load('pages/dashboard/finance/FinanceCharts.tsx');
 const overview = await load('pages/dashboard/finance/FinanceOverview.tsx', { './FinanceCharts': charts });
-const Finance = (await load('pages/dashboard/finance/Index.tsx', { './FinanceOverview': overview })).default;
+const enrollment = await load('lib/studentEnrollment.ts');
+const Finance = (await load('pages/dashboard/finance/Index.tsx', { './FinanceOverview': overview, '@/lib/studentEnrollment': enrollment })).default;
 const page = { entries: {data: []}, selected: null, filters: {}, statement: null, totals: [], cashflow: {start_month: '2025-12', end_month: '2026-11', series: []}, breakdowns: {faculties: [], fee_kinds: []}, obligations: [], adjustments: null, payments: null, refunds: null, tariffs: {data: []}, years: [], faculties: [], programs: [], levels: [], cycles: [], currencies: ['USD', 'CDF'], methods: ['cash', 'bank_transfer'], dualControl: false, preview: null };
 const total = (currency, amount) => ({currency, billed_cents: amount, waived_cents: 0, due_cents: amount, gross_cents: 0, refunded_cents: 0, net_cents: 0, balance_cents: amount, overdue_cents: 0, pending_cents: 0, cancelled_cents: 0, legacy_reversal_cents: 0});
 test('L’export CSV utilise un lien navigateur et conserve les filtres', () => {

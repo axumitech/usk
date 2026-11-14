@@ -31,11 +31,11 @@ final class LearningContentTest extends TestCase
 
     private const REASON = 'Support approuvé pour le cours.';
 
-    private const TEACHER = '/dashboard/teacher/resources';
+    private const TEACHER = '/app/dashboard/teacher/resources';
 
-    private const ADMIN = '/dashboard/admin/teaching/resources';
+    private const ADMIN = '/app/dashboard/admin/teaching/resources';
 
-    private const STUDENT = '/dashboard/student/resources';
+    private const STUDENT = '/app/dashboard/student/resources';
 
     private function fixtures(): array
     {
@@ -221,7 +221,7 @@ final class LearningContentTest extends TestCase
         $this->post(self::TEACHER.'/offerings/'.$offer->id, $this->payload(['academic_session_id' => $foreign->id]))->assertSessionHasErrors('academic_session_id');
         $resource = $this->upload($offer, ['academic_session_id' => $session->id, 'academic_content_section_id' => $section->id, 'kind' => 'syllabus']);
         $this->transition($resource, 'publish')->assertStatus(303);
-        $course = '/dashboard/student/courses/'.$offer->course_id;
+        $course = '/app/dashboard/student/courses/'.$offer->course_id;
         $this->actingAs($student)->get($course.'/files?q=Support')->assertInertia(fn (Assert $page) => $page
             ->has('resources', 1)->where('resources.0.section', 'Introduction')->where('resources.0.kind', 'syllabus'));
         $this->get($course.'/files?q=inconnu')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
@@ -251,6 +251,30 @@ final class LearningContentTest extends TestCase
         Storage::disk('local')->assertExists($copy->path);
     }
 
+    public function test_course_supports_only_lists_published_resources_allowed_for_the_enrollment(): void
+    {
+        [$student, $entry, $teacher, $offer] = $this->fixtures();
+        $other = $this->offering($entry, $teacher);
+        $session = $offer->sessions()->create(['starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHour(), 'room' => 'A', 'is_published' => true]);
+        $file = $offer->resources()->create(['kind' => 'material', 'title' => 'Chapitre de la séance', 'academic_session_id' => $session->id, 'is_published' => true]);
+        $video = $offer->resources()->create(['kind' => 'video', 'title' => 'Vidéo de révision', 'is_published' => true]);
+        $offer->resources()->create(['kind' => 'audio', 'title' => 'Brouillon', 'is_published' => false]);
+        $offer->resources()->create(['kind' => 'assignment', 'title' => 'Devoir', 'is_published' => true]);
+        $other->resources()->create(['kind' => 'video', 'title' => 'Autre cours', 'is_published' => true]);
+
+        $supports = route('dashboard.student.courses.show', ['course' => $offer->course_id, 'section' => 'supports', 'academic' => $entry->id]);
+        $this->actingAs($student)->get($supports)->assertInertia(fn (Assert $page) => $page->where('section', 'supports')
+            ->has('resources', 2)->where('resources.0.id', $file->id)->where('resources.1.id', $video->id));
+        $this->get($supports.'&session='.$session->id)->assertInertia(fn (Assert $page) => $page
+            ->has('resources', 1)->where('resources.0.id', $file->id)->where('resource_filters.session', $session->id));
+
+        AccessRule::where('feature', 'materials_download')->update(['mode' => 'hidden']);
+        $this->get($supports)->assertInertia(fn (Assert $page) => $page
+            ->has('resources', 1)->where('resources.0.id', $video->id));
+        $this->get(route('dashboard.student.courses.show', ['course' => $offer->course_id, 'section' => 'files', 'academic' => $entry->id]))
+            ->assertForbidden();
+    }
+
     public function test_assignment_attachment_follows_visibility_and_access_without_rewriting_the_work(): void
     {
         [$student, , $teacher, $offer] = $this->fixtures();
@@ -262,12 +286,12 @@ final class LearningContentTest extends TestCase
         $this->assertSame('Consignes', $work->fresh()->body);
         $support = $this->upload($offer, ['supplementary_for_id' => $work->id]);
         $this->transition($support, 'publish')->assertStatus(303);
-        $this->actingAs($student)->get('/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student/assignments')->assertInertia(fn (Assert $page) => $page
             ->has('resources.0.supports', 1)->where('resources.0.supports.0.id', $support->id));
         $this->get(self::STUDENT.'/'.$support->id.'/download')->assertDownload();
         AccessRule::where('feature', 'assignments_submit')->update(['mode' => 'hidden']);
         $this->get(self::STUDENT.'/'.$support->id.'/download')->assertForbidden();
-        $this->get('/dashboard/student/courses/'.$offer->course_id.'/files')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
+        $this->get('/app/dashboard/student/courses/'.$offer->course_id.'/files')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
         $work->update(['is_published' => false]);
         $this->get(self::STUDENT.'/'.$support->id.'/download')->assertNotFound();
     }
@@ -284,7 +308,7 @@ final class LearningContentTest extends TestCase
         $this->assertSame($entry->id, $notice->data['academic_enrollment_id']);
         $this->assertArrayNotHasKey('filename', $notice->data);
         $this->actingAs($student)->post(route('dashboard.notifications.open', $notice->id))
-            ->assertRedirectContains('/dashboard/student/courses/'.$offer->course_id.'/files');
+            ->assertRedirectContains('/app/dashboard/student/courses/'.$offer->course_id.'/files');
         $this->assertNotNull($notice->fresh()->read_at);
     }
 

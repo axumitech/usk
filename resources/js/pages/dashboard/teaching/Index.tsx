@@ -81,9 +81,9 @@ export default function Teaching(props: Props) {
                         <p>Maquettes, offres, équipes et inscriptions pédagogiques.</p>
                     </div>
                     <div className="student-dossier-links">
-                        <Link href="/dashboard/admin/course-catalog">Catalogue des matières</Link>
-                        <Link href="/dashboard/admin/academic-structure?tab=curriculum">UE, EC et maquettes</Link>
-                        <Link href="/dashboard/admin/professors">Enseignants</Link>
+                        <Link href="/app/dashboard/admin/course-catalog">Catalogue des matières</Link>
+                        <Link href="/app/dashboard/admin/academic-structure?tab=curriculum">UE, EC et maquettes</Link>
+                        <Link href="/app/dashboard/admin/professors">Enseignants</Link>
                         {props.canPublish && (
                             <Link href={route('dashboard.admin.assessments.index', offer ? { offering: offer.id } : {})}>
                                 Évaluations et corrections
@@ -330,9 +330,9 @@ export default function Teaching(props: Props) {
                                         Affecter un membre
                                     </button>
                                 )}
-                                <Link href={`/dashboard/admin/schedule?academic_year_id=${offer.year_id}`}>Horaires de l’année</Link>
+                                <Link href={`/app/dashboard/admin/schedule?academic_year_id=${offer.year_id}`}>Horaires de l’année</Link>
                                 {props.canPublish && (
-                                    <Link href="/dashboard/admin/student-academic?tab=teaching">Gestion des supports et travaux</Link>
+                                    <Link href="/app/dashboard/admin/student-academic?tab=teaching">Gestion des supports et travaux</Link>
                                 )}
                             </div>
                         </section>

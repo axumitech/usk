@@ -16,6 +16,8 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class AssessmentWorkflow
 {
@@ -78,6 +80,7 @@ final class AssessmentWorkflow
                 'accepts_until' => $input['modality'] === 'submission' ? $endWithGrace : null,
                 'group_work' => $input['group_work'], 'feedback_policy' => $input['feedback_policy'],
             ];
+            $values += $this->scheduleValues($offer, $actor, $input, $input['modality'], $opens, $closes, $assessment);
             $old = $assessment?->only(['maximum_points', 'weight', 'rubric']);
             if ($assessment) {
                 $assessment->update($values + ['revision' => $assessment->revision + 1]);
@@ -86,6 +89,7 @@ final class AssessmentWorkflow
             }
             Audit::record($actor->id, $old ? 'assessment_draft_updated' : 'assessment_created', $assessment, $input['reason'] ?? null, [
                 'previous_grading' => $old, 'grading' => array_intersect_key($values, array_flip(['maximum_points', 'weight', 'rubric'])),
+                'scheduled_publish_at' => $assessment->scheduled_publish_at?->toISOString(),
             ]);
 
             return $resource;
@@ -96,6 +100,21 @@ final class AssessmentWorkflow
     {
         $this->locked($resource, $actor, function (AcademicAssessment $assessment, AcademicResource $resource) use ($actor, $input) {
             $action = $input['action'];
+            if ($action === 'schedule') {
+                AssessmentRules::revision($assessment->revision, $input['revision']);
+                AssessmentRules::require($assessment->state === 'draft', 'state', 'Seul un brouillon peut être programmé.');
+                $session = $resource->session()->sharedLock()->first();
+                $opens = $assessment->modality === 'in_person' ? $session?->starts_at : $resource->opens_at;
+                $closes = $assessment->modality === 'in_person' ? $session?->ends_at : $resource->closes_at;
+                $values = $this->scheduleValues($resource->offering, $actor, ['scheduled_publish_at' => $input['scheduled_publish_at'] ?? null] + $input,
+                    $assessment->modality, $opens, $closes, $assessment);
+                $assessment->fill($values + ['revision' => $assessment->revision + 1])->save();
+                Audit::record($actor->id, 'assessment_publication_schedule_updated', $assessment, $input['reason'], [
+                    'scheduled_publish_at' => $values['scheduled_publish_at']?->toISOString(),
+                ]);
+
+                return;
+            }
             $next = ['publish' => 'published', 'close' => 'closed', 'cancel' => 'cancelled'][$action];
             if ($assessment->state === $next) {
                 return;
@@ -104,19 +123,7 @@ final class AssessmentWorkflow
             $session = $resource->session()->sharedLock()->first();
             $resource->setRelation('session', $session);
             if ($action === 'publish') {
-                AssessmentRules::require($assessment->state === 'draft' && $resource->offering->is_published
-                    && $resource->offering->academicYear->status === 'open', 'state', 'Publiez une évaluation en brouillon dans une offre ouverte et publiée.');
-                if ($assessment->modality === 'in_person') {
-                    AssessmentRules::require($session && $session->is_published && ! $session->cancelled_at && $session->starts_at->isFuture(),
-                        'academic_session_id', 'Publiez et validez d’abord le créneau à venir dans la planification.');
-                    $this->assertPeriod($resource->offering, $session->starts_at, $session->ends_at);
-                    $resource->fill(['opens_at' => $session->starts_at, 'closes_at' => $session->ends_at]);
-                }
-                AssessmentRules::require($resource->closes_at->isFuture(), 'closes_at', 'L’échéance doit être à venir.');
-                $resource->fill(['is_published' => true, 'published_at' => now()])->save();
-                if ($input['notify'] ?? false) {
-                    $this->notifyAudience($assessment, $resource, 'published');
-                }
+                $this->publish($assessment, $resource, $input['notify'] ?? false);
             } elseif ($action === 'close') {
                 AssessmentRules::require($assessment->state === 'published', 'state', 'Publiez l’évaluation avant de la clôturer.');
                 if ($assessment->modality === 'in_person') {
@@ -133,9 +140,96 @@ final class AssessmentWorkflow
                     $this->notifyAudience($assessment, $resource, 'cancelled');
                 }
             }
-            $assessment->fill(['state' => $next, 'revision' => $assessment->revision + 1])->save();
+            $assessment->fill(['state' => $next, 'revision' => $assessment->revision + 1] + $this->emptySchedule())->save();
             Audit::record($actor->id, 'assessment_'.$next, $assessment, $input['reason']);
         });
+    }
+
+    public function publishScheduled(AcademicAssessment $candidate): string
+    {
+        return DB::transaction(function () use ($candidate) {
+            // Match academic year and teaching changes before locking the course and its work.
+            AcademicYear::orderBy('id')->lockForUpdate()->firstOrFail();
+            $offer = AcademicOffering::lockForUpdate()->findOrFail($candidate->resource->academic_offering_id);
+            $resource = $offer->resources()->lockForUpdate()->findOrFail($candidate->academic_resource_id);
+            $assessment = $resource->assessment()->lockForUpdate()->firstOrFail();
+            if ($assessment->state !== 'draft' || ! $assessment->scheduled_publish_at || $assessment->scheduled_publish_at->isFuture() || $assessment->scheduled_publish_error) {
+                return 'skipped';
+            }
+            $resource->setRelation('offering', $offer);
+            $resource->setRelation('session', $resource->session()->sharedLock()->first());
+            $actor = $assessment->scheduled_publisher_id ? User::find($assessment->scheduled_publisher_id) : null;
+            $publicationAt = $assessment->scheduled_publish_at->toISOString();
+
+            try {
+                DB::transaction(function () use ($actor, $assessment, $offer, $resource) {
+                    abort_unless($actor && $actor->hasVerifiedEmail(), 403);
+                    $this->access->write($actor, $offer);
+                    $this->publish($assessment, $resource, $assessment->scheduled_publish_notify);
+                });
+            } catch (ValidationException|HttpException $error) {
+                if ($error instanceof HttpException && $error->getStatusCode() !== 403) {
+                    throw $error;
+                }
+                $message = $error instanceof ValidationException ? $error->validator->errors()->first()
+                    : 'L’auteur de la programmation ne peut plus publier pour ce cours.';
+                $assessment->update(['scheduled_publish_error' => $message, 'revision' => $assessment->revision + 1]);
+                Audit::record($actor?->id, 'assessment_scheduled_publication_blocked', $assessment, $message,
+                    ['scheduled_publish_at' => $publicationAt]);
+
+                return 'blocked';
+            }
+
+            $assessment->fill(['state' => 'published', 'revision' => $assessment->revision + 1] + $this->emptySchedule())->save();
+            Audit::record($actor->id, 'assessment_published', $assessment, 'Publication programmée.', ['scheduled_publish_at' => $publicationAt]);
+
+            return 'published';
+        }, 3);
+    }
+
+    private function publish(AcademicAssessment $assessment, AcademicResource $resource, bool $notify): void
+    {
+        $session = $resource->session;
+        AssessmentRules::require($assessment->state === 'draft' && $resource->offering->is_published
+            && $resource->offering->academicYear->status === 'open', 'state', 'Publiez une évaluation en brouillon dans une offre ouverte et publiée.');
+        if ($assessment->modality === 'in_person') {
+            AssessmentRules::require($session && $session->is_published && ! $session->cancelled_at && $session->starts_at->isFuture(),
+                'academic_session_id', 'Publiez et validez d’abord le créneau à venir dans la planification.');
+            $this->assertPeriod($resource->offering, $session->starts_at, $session->ends_at);
+            $resource->fill(['opens_at' => $session->starts_at, 'closes_at' => $session->ends_at]);
+        }
+        AssessmentRules::require($resource->closes_at?->isFuture() ?? false, 'closes_at', 'L’échéance doit être à venir.');
+        $resource->fill(['is_published' => true, 'published_at' => now()])->save();
+        if ($notify) {
+            $this->notifyAudience($assessment, $resource, 'published');
+        }
+    }
+
+    private function scheduleValues(AcademicOffering $offer, User $actor, array $input, string $modality, ?CarbonInterface $opens,
+        ?CarbonInterface $closes, ?AcademicAssessment $assessment): array
+    {
+        $explicit = array_key_exists('scheduled_publish_at', $input);
+        $at = $explicit ? $this->date($input['scheduled_publish_at']) : $assessment?->scheduled_publish_at;
+        if (! $at) {
+            return $explicit ? $this->emptySchedule() : [];
+        }
+
+        AssessmentRules::require(! $explicit || $at->isFuture(), 'scheduled_publish_at', 'Choisissez une date de publication future (heure de Kinshasa).');
+        AssessmentRules::require($opens && $closes && ($modality === 'in_person' ? $at->lt($opens) : $at->lte($opens)),
+            'scheduled_publish_at', $modality === 'in_person' ? 'Programmez la publication avant le début de l’épreuve.' : 'Programmez la publication au plus tard à l’ouverture des dépôts.');
+        $this->assertPeriod($offer, $at, $closes, 'scheduled_publish_at');
+
+        return $explicit ? [
+            'scheduled_publish_at' => $at,
+            'scheduled_publisher_id' => $actor->id,
+            'scheduled_publish_notify' => $input['scheduled_publish_notify'] ?? $assessment?->scheduled_publish_notify ?? false,
+            'scheduled_publish_error' => null,
+        ] : [];
+    }
+
+    private function emptySchedule(): array
+    {
+        return ['scheduled_publish_at' => null, 'scheduled_publisher_id' => null, 'scheduled_publish_notify' => false, 'scheduled_publish_error' => null];
     }
 
     public function group(AcademicResource $resource, User $actor, array $input): void
@@ -219,14 +313,14 @@ final class AssessmentWorkflow
         }, 100);
     }
 
-    private function assertPeriod(AcademicOffering $offer, CarbonInterface $opens, CarbonInterface $closes): void
+    private function assertPeriod(AcademicOffering $offer, CarbonInterface $opens, CarbonInterface $closes, string $field = 'closes_at'): void
     {
         $semester = $offer->academicSemester;
         $firstDay = $offer->starts_on ?? $semester?->start_date ?? $offer->academicYear->start_date;
         $lastDay = $offer->ends_on ?? $semester?->end_date ?? $offer->academicYear->end_date;
         AssessmentRules::require($opens->copy()->timezone('Africa/Kinshasa')->toDateString() >= substr((string) $firstDay, 0, 10)
             && $closes->copy()->timezone('Africa/Kinshasa')->toDateString() <= substr((string) $lastDay, 0, 10),
-            'closes_at', 'La période doit appartenir aux dates de cette offre.');
+            $field, 'La période doit appartenir aux dates de cette offre.');
     }
 
     private function date(?string $value): ?CarbonImmutable

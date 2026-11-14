@@ -5,6 +5,7 @@ use App\Models\AcademicYear;
 use App\Models\Enrollment;
 use App\Models\Level;
 use App\Models\Student\AcademicAudit;
+use App\Models\Student\ServiceRequest;
 use App\Models\Student\StudentPayment;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
@@ -15,9 +16,11 @@ use App\Modules\Enrollment\Application\UseCases\SubmitEnrollmentUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Enrollment\Domain\Services\MatriculeGenerator;
+use App\Modules\Student\Application\Services\StudentAppointmentBooking;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
@@ -51,6 +54,11 @@ try {
         $payment = StudentPayment::findOrFail($first);
         app(StudentFinanceService::class)->transition($payment, User::findOrFail($second), 'confirmed', 'Concurrent test confirmation');
         $result = $payment->fresh()->status;
+    } elseif ($mode === 'appointment-booking') {
+        $ticket = ServiceRequest::findOrFail($first);
+        $date = sprintf('%s-%s-%s', substr($second, 0, 4), substr($second, 4, 2), substr($second, 6, 2));
+        DB::transaction(fn () => app(StudentAppointmentBooking::class)->reserve($ticket, $date, '09:00'), 3);
+        $result = 'booked';
     } elseif (in_array($mode, ['curriculum-publish', 'curriculum-edit', 'curriculum-bind'], true)) {
         $version = CurriculumVersion::with('units.items')->findOrFail($first);
         $service = app(CurriculumService::class);

@@ -40,7 +40,7 @@ class EnrollmentReviewUpdated extends Mailable
             'preheader' => $this->wording()[0], 'eyebrow' => 'SUIVI DE VOTRE INSCRIPTION', 'heading' => $heading,
             'recipientName' => TransactionalEmail::recipientName($this->enrollment->student), 'paragraphs' => [$paragraph],
             'details' => array_merge(['Formation' => $this->enrollment->level?->title ?? 'À préciser', 'Référence du dossier' => $this->enrollment->reference], $this->remarks),
-            'actionUrl' => $this->kind === 'validated' ? url('/dashboard/student?application='.$this->enrollment->uuid.'&welcome=1') : url('/dashboard/enrollments/'.$this->enrollment->uuid), 'actionLabel' => $this->kind === 'validated' ? 'Accéder à mon espace étudiant' : 'Consulter mon dossier',
+            'actionUrl' => $this->kind === 'validated' ? url('/app/dashboard/student?application='.$this->enrollment->uuid.'&welcome=1') : url('/app/dashboard/enrollments/'.$this->enrollment->uuid), 'actionLabel' => $this->kind === 'validated' ? 'Accéder à mon espace étudiant' : 'Consulter mon dossier',
             'noticeTitle' => 'Votre espace de suivi',
             'notice' => $this->kind === 'validated' ? 'La validation du dossier ne modifie pas votre situation de paiement. Suivez les modalités communiquées par l’université.' : 'Vous retrouverez les remarques et l’historique de votre dossier dans votre espace. Ne transmettez pas de justificatifs sensibles par retour d’email.',
             'signature' => 'Le service des inscriptions',

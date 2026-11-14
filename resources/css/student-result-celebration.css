@@ -1,0 +1,323 @@
+.student-result-celebration {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: clamp(1.35rem, 4.5vw, 3.5rem) clamp(1rem, 5vw, 3.5rem);
+    border: 1px solid #507356;
+    border-radius: clamp(1.15rem, 3vw, 1.9rem);
+    background:
+        radial-gradient(ellipse at 49% 37%, #ae813329, transparent 42%), radial-gradient(ellipse at 0% 0%, #88834e38, transparent 49%),
+        linear-gradient(135deg, #24351f, #0c2d24 48%, #071b17 100%);
+    color: #fff5dc;
+    text-align: center;
+}
+
+.student-result-celebration::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0.45rem;
+    border: 1px solid #f7d28b32;
+    border-radius: inherit;
+    content: '';
+    pointer-events: none;
+}
+
+.result-celebration-brand {
+    display: flex;
+    width: min(100%, 31rem);
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    margin: 0 auto;
+    padding: 0 0 1rem;
+    border-bottom: 1px solid #f6d89753;
+    text-align: start;
+}
+
+.result-celebration-brand img {
+    width: clamp(2.25rem, 7vw, 3.375rem);
+    height: auto;
+    flex: none;
+    border: 0.2rem solid #fff9e9;
+    border-radius: 0.6rem;
+    background: #fff9e9;
+}
+
+.result-celebration-brand strong,
+.result-celebration-brand span {
+    display: block;
+}
+
+.result-celebration-brand strong {
+    color: #fff7e5;
+    font-size: clamp(0.78rem, 2.3vw, 1rem);
+    font-weight: 700;
+}
+
+.result-celebration-brand span {
+    margin-top: 0.12rem;
+    color: #e3d3af;
+    font-size: clamp(0.68rem, 2vw, 0.82rem);
+}
+
+.result-celebration-medal {
+    position: relative;
+    display: grid;
+    width: clamp(7.2rem, 24vw, 9.1rem);
+    aspect-ratio: 1;
+    place-items: center;
+    margin: clamp(1.7rem, 5vw, 2.5rem) auto clamp(1.7rem, 5vw, 2.3rem);
+}
+
+.result-celebration-medal::before,
+.result-celebration-medal::after {
+    position: absolute;
+    inset: -0.85rem;
+    border: 1px solid #e9c77666;
+    border-radius: 50%;
+    content: '';
+    pointer-events: none;
+}
+
+.result-celebration-medal::after {
+    inset: -1.65rem;
+    border-color: #e9c7762b;
+}
+
+.result-celebration-portrait {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    place-items: center;
+    border: 0.3rem solid #efd288;
+    border-radius: 50%;
+    background: #23372a;
+    box-shadow: 0 0 2.35rem #e9c77640;
+    color: #ffe7a5;
+    font-size: clamp(1.7rem, 6vw, 2.55rem);
+    font-weight: 700;
+}
+
+.result-celebration-portrait img {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+}
+
+.result-celebration-seal {
+    position: absolute;
+    z-index: 1;
+    right: -0.2rem;
+    bottom: -0.25rem;
+    display: grid;
+    width: 2.35rem;
+    height: 2.35rem;
+    place-items: center;
+    border: 1px solid #fff2c4;
+    border-radius: 50%;
+    background: #f4d68d;
+    box-shadow: 0 4px 14px #06261bc9;
+    color: #352f19;
+}
+
+.result-celebration-star {
+    position: absolute;
+    z-index: 1;
+    top: 18%;
+    left: -2.8rem;
+    color: #ffdb8e;
+}
+
+.result-celebration-star-right {
+    top: 46%;
+    right: -2.65rem;
+    left: auto;
+}
+
+.result-celebration-confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.result-celebration-confetti i {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.38rem;
+    height: 0.58rem;
+    border-radius: 0.15rem;
+    background: #e9c776;
+    opacity: 0;
+}
+
+.result-celebration-confetti i:nth-child(3n) {
+    background: #89c39e;
+}
+
+.result-celebration-confetti i:nth-child(5n) {
+    background: #ffe9b3;
+}
+
+.student-result-celebration .result-celebration-title,
+.usk-dashboard .student-portal .student-result-celebration .result-celebration-title {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    color: #fff1cb;
+    line-height: 1.1;
+}
+
+.result-celebration-title span {
+    color: #f4d68d;
+    font-size: clamp(0.79rem, 2.7vw, 0.95rem);
+    font-weight: 700;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+}
+
+.result-celebration-title strong {
+    font-family: 'Libre Caslon Display', Georgia, serif;
+    font-size: clamp(2.35rem, 7.5vw, 4.75rem);
+    font-weight: 400;
+    overflow-wrap: anywhere;
+}
+
+.result-celebration-message {
+    margin: 0.85rem 0 0;
+    color: #fff4de;
+    font-size: clamp(0.95rem, 2.5vw, 1.14rem);
+    font-weight: 500;
+}
+
+.result-celebration-year {
+    margin: 0.3rem 0 0;
+    color: #e1cca2;
+    font-size: 0.86rem;
+}
+
+.result-celebration-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.65rem;
+    margin-top: clamp(1rem, 3vw, 1.65rem);
+}
+
+.result-celebration-actions button {
+    display: inline-flex;
+    min-height: 2.9rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.62rem 1rem;
+    border: 1px solid #f3cf81;
+    border-radius: 1.75rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+}
+
+.result-celebration-actions button:focus-visible {
+    outline: 3px solid #fff6e0;
+    outline-offset: 3px;
+}
+
+.result-celebration-primary {
+    background: linear-gradient(145deg, #fff0bb, #e7ba60);
+    box-shadow: 0 0.35rem 1.25rem #d2a94f40;
+    color: #282214;
+}
+
+.result-celebration-download {
+    background: #ffe7a312;
+    color: #fff2ca;
+}
+
+.result-celebration-actions button:hover {
+    filter: brightness(1.12);
+}
+
+.result-celebration-actions button:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.result-celebration-error {
+    margin-top: 0.7rem;
+    color: #ffd1bc;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+    .result-celebration-actions {
+        display: grid;
+        justify-content: stretch;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .result-celebration-medal {
+        animation: result-medal-reveal 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .result-celebration-medal::after {
+        animation: result-medal-pulse 1.35s 150ms ease-out both;
+    }
+
+    .result-celebration-confetti i {
+        animation: result-celebration-burst 1.55s calc(230ms + var(--celebration-delay)) cubic-bezier(0.15, 0.66, 0.42, 1) both;
+    }
+
+    .result-celebration-title {
+        animation: result-celebration-reveal 650ms 180ms ease-out both;
+    }
+}
+
+@keyframes result-medal-reveal {
+    from {
+        transform: scale(0.66);
+        opacity: 0;
+    }
+}
+
+@keyframes result-medal-pulse {
+    from {
+        transform: scale(0.76);
+        opacity: 0;
+    }
+
+    45% {
+        opacity: 1;
+    }
+}
+
+@keyframes result-celebration-burst {
+    0% {
+        transform: scale(0.45);
+        opacity: 0;
+    }
+
+    15% {
+        opacity: 1;
+    }
+
+    65% {
+        opacity: 0.68;
+    }
+
+    100% {
+        transform: translate(var(--celebration-x), var(--celebration-y)) rotate(var(--celebration-turn));
+        opacity: 0;
+    }
+}
+
+@keyframes result-celebration-reveal {
+    from {
+        transform: translateY(0.45rem);
+        opacity: 0;
+    }
+}

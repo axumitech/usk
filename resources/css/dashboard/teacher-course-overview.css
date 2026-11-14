@@ -1,0 +1,143 @@
+.teacher-course-overview {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.7rem;
+    min-width: 0;
+    align-items: start;
+}
+
+.teacher-course-overview-text {
+    margin: 0;
+    color: var(--teacher-ink);
+    font-size: 0.92rem;
+    line-height: 1.57;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.teacher-course-overview-text[data-empty] {
+    color: var(--teacher-muted);
+}
+
+.teacher-course-objectives {
+    margin-top: 0.85rem;
+    padding: clamp(0.65rem, 2vw, 0.95rem);
+    border: 1px solid var(--teacher-line);
+    border-radius: 0.72rem;
+    background: var(--teacher-raised);
+}
+
+.usk-dashboard .teacher-workspace .teacher-course-objectives h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.34rem;
+    color: var(--teacher-ink);
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: 770;
+}
+
+.teacher-course-objectives h3 svg {
+    flex: none;
+    color: var(--teacher-green);
+}
+
+.teacher-course-progress-meter {
+    display: grid;
+    gap: 0.48rem;
+    margin-bottom: 0.65rem;
+}
+
+.teacher-course-progress-meter p {
+    margin: 0;
+    color: var(--teacher-muted);
+    font-size: 0.83rem;
+}
+
+.teacher-course-progress-meter strong {
+    margin-inline-end: 0.15rem;
+    color: var(--teacher-ink);
+    font-size: 1.23rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.teacher-course-progress-meter progress {
+    display: block;
+    width: 100%;
+    height: 0.53rem;
+    overflow: hidden;
+    appearance: none;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--teacher-line);
+    accent-color: var(--teacher-green);
+}
+
+.teacher-course-progress-meter progress::-webkit-progress-bar {
+    border-radius: 1rem;
+    background: var(--teacher-line);
+}
+
+.teacher-course-progress-meter progress::-webkit-progress-value {
+    border-radius: 1rem;
+    background: var(--teacher-green);
+}
+
+.teacher-course-progress-meter progress::-moz-progress-bar {
+    border-radius: 1rem;
+    background: var(--teacher-green);
+}
+
+.teacher-course-next-session {
+    display: grid;
+    gap: 0.14rem;
+    margin-bottom: 0.66rem;
+    padding: 0.6rem 0.73rem;
+    border-radius: 0.58rem;
+    background: var(--teacher-raised);
+    color: var(--teacher-muted);
+    font-size: 0.8rem;
+}
+
+.teacher-course-next-session time {
+    color: var(--teacher-ink);
+    font-size: 0.87rem;
+    font-weight: 710;
+}
+
+.teacher-course-plan .teacher-row {
+    min-height: 3rem;
+}
+
+#teacher-course-plan > .teacher-empty + a {
+    margin-top: 0.56rem;
+}
+
+.teacher-course-overview-form {
+    display: grid;
+    gap: 0.82rem;
+}
+
+.teacher-course-overview-form label {
+    display: grid;
+    gap: 0.35rem;
+    font-weight: 700;
+}
+
+.teacher-course-overview-field-help {
+    margin: -0.55rem 0 0;
+    color: var(--usk-night-muted, #53665a);
+    font-size: 0.76rem;
+    font-weight: 500;
+}
+
+@media (min-width: 52rem) {
+    .teacher-course-overview {
+        grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    }
+
+    #teacher-course-plan {
+        grid-column: 1 / -1;
+    }
+}

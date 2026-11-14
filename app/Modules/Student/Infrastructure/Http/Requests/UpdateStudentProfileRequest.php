@@ -12,6 +12,23 @@ class UpdateStudentProfileRequest extends FormRequest
         return $this->user()?->hasRole('student') && $this->user()->studentProfile;
     }
 
+    public function editingUrl(?int $academicId = null): ?string
+    {
+        $view = $this->query('view');
+        if (! in_array($view, ['personal', 'photo'], true)) {
+            return null;
+        }
+
+        $academicId ??= filter_var($this->query('academic'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: null;
+
+        return route('dashboard.student.index', ['section' => 'profile', 'academic' => $academicId, 'view' => $view]);
+    }
+
+    protected function getRedirectUrl()
+    {
+        return $this->editingUrl() ?? parent::getRedirectUrl();
+    }
+
     public function rules(): array
     {
         return [

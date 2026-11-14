@@ -166,7 +166,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             <span className="sm:hidden">Aide</span>
                         </div>
                         <Link
-                            href="/login"
+                            href="/app/login"
                             className="group relative inline-flex items-center gap-2 text-xs font-medium text-emerald-500 transition-all duration-300 hover:text-teal-600 sm:text-sm"
                         >
                             <svg

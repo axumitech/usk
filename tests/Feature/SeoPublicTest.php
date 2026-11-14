@@ -69,7 +69,7 @@ class SeoPublicTest extends TestCase
         $parsed = simplexml_load_string($xml);
         $this->assertNotFalse($parsed);
         $this->assertStringContainsString('/blog/'.$visible->id.'</loc>', $xml);
-        foreach (['/dashboard', '/login', '/blog/'.$draft->id.'</loc>', '/blog/'.$future->id.'</loc>'] as $private) {
+        foreach (['/app/dashboard', '/app/login', '/blog/'.$draft->id.'</loc>', '/blog/'.$future->id.'</loc>'] as $private) {
             $this->assertStringNotContainsString($private, $xml);
         }
     }
@@ -106,19 +106,19 @@ class SeoPublicTest extends TestCase
     public function test_admin_can_edit_metadata_but_cannot_index_private_routes_or_publish_incomplete_law(): void
     {
         $this->actingAs($this->admin());
-        $this->get('/dashboard/admin/seo')->assertOk()->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+        $this->get('/app/dashboard/admin/seo')->assertOk()->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
         $this->assertSame(6, LegalPage::where('status', 'draft')->count());
-        $this->put('/dashboard/admin/seo/pages', ['path' => '/', 'title' => 'Un titre utile', 'description' => 'Description vérifiée.', 'indexable' => false])->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/seo/pages', ['path' => '/', 'title' => 'Un titre utile', 'description' => 'Description vérifiée.', 'indexable' => false])->assertSessionHasNoErrors();
         $this->get('/')->assertSee('Un titre utile');
-        $this->put('/dashboard/admin/seo/pages', ['path' => '/dashboard', 'indexable' => true])->assertSessionHasErrors('path');
-        $this->put('/dashboard/admin/seo/legal/privacy', ['content' => '[[registration]]', 'status' => 'published', 'approved' => true])->assertSessionHasErrors('content');
+        $this->put('/app/dashboard/admin/seo/pages', ['path' => '/app/dashboard', 'indexable' => true])->assertSessionHasErrors('path');
+        $this->put('/app/dashboard/admin/seo/legal/privacy', ['content' => '[[registration]]', 'status' => 'published', 'approved' => true])->assertSessionHasErrors('content');
         $this->assertDatabaseHas('legal_pages', ['key' => 'privacy', 'status' => 'draft']);
     }
 
     public function test_guests_cannot_manage_seo_and_unknown_urls_have_real_404(): void
     {
-        $this->get('/dashboard/admin/seo')->assertRedirect();
-        $this->put('/dashboard/admin/seo/settings', [])->assertRedirect();
+        $this->get('/app/dashboard/admin/seo')->assertRedirect();
+        $this->put('/app/dashboard/admin/seo/settings', [])->assertRedirect();
         $this->get('/does-not-exist')->assertNotFound()->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
     }
 
@@ -127,15 +127,15 @@ class SeoPublicTest extends TestCase
         SeoPage::create(['path' => '/', 'title' => '</title><script>alert(1)</script>', 'description' => '"/><script>alert(2)</script>', 'indexable' => true]);
         $html = $this->get('/')->assertOk()->getContent();
         $this->assertStringNotContainsString('<script>alert(1)</script>', $html);
-        $this->actingAs($this->admin())->put('/dashboard/admin/seo/pages', ['path' => '/', 'image' => 'https://tracker.example/pixel', 'indexable' => true])->assertSessionHasErrors('image');
+        $this->actingAs($this->admin())->put('/app/dashboard/admin/seo/pages', ['path' => '/', 'image' => 'https://tracker.example/pixel', 'indexable' => true])->assertSessionHasErrors('image');
     }
 
     public function test_verified_student_cannot_read_or_change_admin_seo(): void
     {
         $user = $this->admin();
         $user->syncRoles([Role::findOrCreate('student', 'web')]);
-        $this->actingAs($user)->get('/dashboard/admin/seo')->assertForbidden();
-        $this->put('/dashboard/admin/seo/pages', ['path' => '/', 'indexable' => true])->assertForbidden();
+        $this->actingAs($user)->get('/app/dashboard/admin/seo')->assertForbidden();
+        $this->put('/app/dashboard/admin/seo/pages', ['path' => '/', 'indexable' => true])->assertForbidden();
         $this->assertDatabaseCount('seo_pages', 0);
     }
 
@@ -150,10 +150,10 @@ class SeoPublicTest extends TestCase
     {
         $this->actingAs($this->admin());
         $data = ['identity' => config('seo.identity'), 'origin' => '', 'indexable' => true];
-        $this->put('/dashboard/admin/seo/settings', $data)->assertSessionHasErrors('origin');
+        $this->put('/app/dashboard/admin/seo/settings', $data)->assertSessionHasErrors('origin');
         $data['indexable'] = false;
         $data['analytics_enabled'] = true;
-        $this->put('/dashboard/admin/seo/settings', $data)->assertSessionHasErrors('analytics_enabled');
+        $this->put('/app/dashboard/admin/seo/settings', $data)->assertSessionHasErrors('analytics_enabled');
         $this->assertDatabaseCount('seo_settings', 0);
     }
 }

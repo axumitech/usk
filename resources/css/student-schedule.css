@@ -1,0 +1,640 @@
+.student-agenda {
+    --agenda-ink: var(--student-app-ink, #173629);
+    --agenda-muted: var(--student-app-muted, #506b5e);
+    --agenda-accent: var(--student-app-accent, #176951);
+    --agenda-fill: var(--usk-night-brand, #12634d);
+    --agenda-surface: var(--student-app-card, #fff);
+    --agenda-line: var(--student-app-line, #dae7df);
+    --agenda-tint: var(--usk-night-positive, #eaf5ef);
+    --agenda-shadow: 0 3px 9px #123a2712;
+    width: min(100%, 52rem);
+    min-width: 0;
+    margin-inline: auto;
+    color: var(--agenda-ink);
+}
+
+.student-agenda-header {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+    align-items: start;
+    gap: 0.4rem;
+    border-radius: 1.35rem;
+    padding: clamp(1.15rem, 4vw, 1.65rem) clamp(0.75rem, 3vw, 1.4rem) 2.7rem;
+    color: #fff;
+    background: radial-gradient(ellipse at 98% 6%, #70c9aa40, transparent 62%), var(--student-app-cover, linear-gradient(100deg, #0e513f, #076b58));
+}
+
+.student-agenda-header[data-year-state='archive'] {
+    background:
+        radial-gradient(ellipse at 98% 6%, #efa95f40, transparent 62%), var(--student-app-cover-archive, linear-gradient(100deg, #583018, #85441e));
+}
+
+.student-agenda-heading {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    padding-top: 0.3rem;
+    min-width: 0;
+    text-align: center;
+}
+
+.usk-dashboard main[data-dashboard-navigation-surface][data-page-tone] .usk-page-current .student-agenda-heading h1,
+.usk-dashboard .student-portal .student-agenda-heading h1 {
+    margin: 0;
+    color: #fff;
+    font-family: inherit;
+    font-size: clamp(1.34rem, 5vw, 1.95rem);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1.15;
+}
+
+.student-agenda-heading p,
+.student-agenda-heading .student-agenda-year {
+    margin: 0;
+    color: #effaf3;
+    font-size: clamp(0.74rem, 2.8vw, 0.93rem);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.student-agenda-year {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+    min-height: 1.75rem;
+    padding: 0.17rem 0.36rem;
+    border-radius: 0.45rem;
+    background: #fff1;
+}
+
+.student-agenda-year svg {
+    flex: none;
+}
+
+.student-agenda-year select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.student-agenda-header .student-agenda-header-action {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid #ffffff36;
+    border-radius: 0.78rem;
+    background: #ffffff0d;
+    color: #fff;
+    cursor: pointer;
+}
+
+.student-agenda-header .student-agenda-header-action:hover,
+.student-agenda-header .student-agenda-header-action[aria-expanded='true'] {
+    background: #ffffff24;
+}
+
+.student-agenda-body {
+    position: relative;
+    display: grid;
+    gap: clamp(0.7rem, 2.25vw, 1.05rem);
+    min-width: 0;
+    margin-top: -1.7rem;
+    padding: clamp(0.65rem, 2.8vw, 1.2rem);
+    border: 1px solid var(--agenda-line);
+    border-radius: 1.35rem;
+    background: var(--agenda-surface);
+    box-shadow: var(--agenda-shadow);
+    animation: student-agenda-enter 360ms ease-out both;
+}
+
+.student-agenda[data-embedded] .student-agenda-body {
+    margin-top: 0;
+    padding: clamp(0.75rem, 3vw, 1.25rem);
+}
+
+.student-agenda-course-heading,
+.student-agenda-course-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.student-agenda-course-heading {
+    justify-content: space-between;
+}
+
+.usk-dashboard .student-portal .student-agenda-course-heading h2 {
+    color: var(--agenda-ink);
+    font-size: clamp(1rem, 3.6vw, 1.18rem);
+    font-weight: 780;
+}
+
+.student-agenda-course-heading svg {
+    flex: none;
+    color: var(--agenda-accent);
+}
+
+.student-agenda-course-heading button {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.75rem;
+    background: var(--agenda-tint);
+    cursor: pointer;
+}
+
+.student-agenda-course-heading button:hover,
+.student-agenda-course-heading button[aria-expanded='true'] {
+    border-color: var(--agenda-accent);
+}
+
+.student-agenda-course-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.student-agenda-views,
+.student-agenda-days {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.25rem, 1.5vw, 0.65rem);
+    min-width: 0;
+}
+
+.student-agenda[data-embedded] .student-agenda-views {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.2rem;
+    padding: 0.2rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.78rem;
+    background: var(--usk-night-raised, #f5f9f6);
+}
+
+.student-agenda[data-embedded] .student-agenda-views button {
+    border-radius: 0.58rem;
+    box-shadow: none;
+}
+
+.student-agenda-views :is(a, button),
+.student-agenda-days a {
+    display: flex;
+    min-width: 0;
+    min-height: 2.8rem;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.18rem, 1.1vw, 0.55rem);
+    padding-inline: 0.12rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.85rem;
+    background: var(--agenda-surface);
+    box-shadow: var(--agenda-shadow);
+    color: var(--agenda-ink);
+    font-size: clamp(0.72rem, 3.05vw, 0.9rem);
+    font-weight: 740;
+    line-height: 1.15;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.student-agenda-views svg {
+    width: clamp(0.9rem, 3.65vw, 1.15rem);
+    height: auto;
+    flex: none;
+    color: var(--agenda-accent);
+}
+
+.student-agenda :is(.student-agenda-views, .student-agenda-days) :is(a[aria-current], button[aria-pressed='true']) {
+    border-color: transparent;
+    background: var(--agenda-fill);
+    color: #fff;
+    box-shadow: 0 3px 10px #124c3330;
+}
+
+.student-agenda-views :is([aria-current], [aria-pressed='true']) svg {
+    color: inherit;
+}
+
+.student-agenda :is(.student-agenda-views, .student-agenda-days) :is(a, button):not([aria-current], [aria-pressed='true']):hover {
+    border-color: var(--agenda-accent);
+    background: var(--agenda-tint);
+}
+
+.student-agenda-week {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+    align-items: center;
+    text-align: center;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.85rem;
+    background: var(--usk-night-raised, #f5f9f6);
+    color: var(--agenda-ink);
+}
+
+.student-agenda-week strong {
+    overflow-wrap: anywhere;
+    font-size: clamp(0.74rem, 3vw, 0.94rem);
+    font-weight: 770;
+    line-height: 1.2;
+}
+
+.student-agenda-week strong span {
+    color: var(--agenda-muted);
+}
+
+.student-agenda-week a {
+    display: grid;
+    place-items: center;
+    min-height: 2.75rem;
+    border-radius: 0.75rem;
+    color: var(--agenda-accent);
+}
+
+.student-agenda-week a:hover {
+    background: var(--agenda-tint);
+}
+
+.student-agenda-days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.student-agenda-days a {
+    position: relative;
+    min-height: clamp(3.4rem, 10vw, 4.2rem);
+    flex-direction: column;
+    gap: 0.13rem;
+    padding-block: 0.38rem 0.58rem;
+    border-radius: clamp(0.55rem, 2.1vw, 0.85rem);
+    font-size: clamp(0.59rem, 2.45vw, 0.81rem);
+    text-transform: capitalize;
+}
+
+.student-agenda-days strong {
+    font-size: clamp(0.92rem, 3.45vw, 1.25rem);
+    line-height: 1.2;
+}
+
+.student-agenda-days i {
+    position: absolute;
+    inset: auto auto 0.3rem;
+    width: 0.24rem;
+    height: 0.24rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.student-agenda-date-picker {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.6rem;
+    padding: 0.55rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.85rem;
+    background: var(--usk-night-raised, #f5f9f6);
+    font-size: 0.86rem;
+}
+
+.student-agenda-date-picker input {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 2.75rem;
+    padding-inline: 0.45rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.65rem;
+    background: var(--agenda-surface);
+    color: var(--agenda-ink);
+}
+
+.student-agenda-date-picker :is(button, a) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 0.55rem;
+    border-radius: 0.65rem;
+    color: var(--agenda-accent);
+    font-weight: 740;
+}
+
+.student-agenda-date-picker button {
+    background: var(--agenda-fill);
+    color: #fff;
+    cursor: pointer;
+}
+
+.student-agenda-week-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.student-agenda-week-list .student-agenda-day h2 {
+    margin: 0 0 0.45rem;
+    color: var(--agenda-muted);
+    font-size: 0.83rem;
+    font-weight: 760;
+    text-transform: capitalize;
+}
+
+.student-agenda-day .student-schedule-exams,
+.student-agenda-week-list .student-schedule-exams {
+    margin: 0 0 0.65rem;
+}
+
+.student-agenda[data-embedded] :is(.student-agenda-day, .student-agenda-week-list, .student-agenda-rows) {
+    min-width: 0;
+}
+
+.student-agenda-rows {
+    display: grid;
+    gap: 0.56rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.student-agenda-row {
+    --slot-accent: var(--agenda-accent);
+    --slot-bg: var(--agenda-tint);
+    display: grid;
+    grid-template-columns: minmax(2.45rem, 0.14fr) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(0.3rem, 2vw, 0.9rem);
+    min-width: 0;
+}
+
+.student-agenda-row[data-tone='1'] {
+    --slot-accent: var(--usk-night-gold, #79551e);
+    --slot-bg: var(--usk-night-warm, #fcf1dc);
+}
+
+.student-agenda-row[data-tone='2'] {
+    --slot-accent: var(--usk-night-info, #386366);
+    --slot-bg: var(--usk-night-info-surface, #e4f1ef);
+}
+
+.student-agenda-row[data-tone='3'] {
+    --slot-accent: var(--usk-night-danger, #82445f);
+    --slot-bg: var(--usk-night-danger-surface, #f6e9ef);
+}
+
+.student-agenda-hours {
+    display: grid;
+    justify-items: end;
+    gap: 0.13rem;
+    padding-top: clamp(0.72rem, 4vw, 1.2rem);
+    color: var(--agenda-muted);
+    font-size: clamp(0.68rem, 2.8vw, 0.89rem);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.18;
+    white-space: nowrap;
+}
+
+.student-agenda-hours > time {
+    color: var(--agenda-ink);
+    font-weight: 770;
+}
+
+.student-agenda-row-card {
+    min-width: 0;
+    border-inline-start: 4px solid var(--slot-accent);
+    border-radius: 0.92rem;
+    background: var(--slot-bg);
+}
+
+.student-agenda-row[data-focused] .student-agenda-row-card {
+    box-shadow: inset 0 0 0 1px var(--slot-accent);
+}
+
+.student-agenda-row-main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(0.42rem, 1.95vw, 0.8rem);
+    min-height: 4.35rem;
+    padding: 0.61rem clamp(0.38rem, 2.1vw, 0.8rem);
+    border-radius: inherit;
+    color: var(--agenda-ink);
+    text-decoration: none;
+}
+
+.student-agenda-row-main:is(a:hover, a:focus-visible) {
+    background: color-mix(in srgb, var(--slot-accent) 8%, transparent);
+}
+
+.student-agenda-row-icon {
+    display: grid;
+    place-items: center;
+    width: clamp(1.8rem, 8.2vw, 2.8rem);
+    aspect-ratio: 1;
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--slot-accent) 10%, transparent);
+    color: var(--slot-accent);
+}
+
+.student-agenda-row-icon svg {
+    width: clamp(1rem, 4.7vw, 1.4rem);
+    height: auto;
+}
+
+.student-agenda-row-info {
+    display: grid;
+    gap: 0.22rem;
+    min-width: 0;
+    line-height: 1.23;
+    overflow-wrap: anywhere;
+}
+
+.student-agenda-row-info strong {
+    color: var(--agenda-ink);
+    font-size: clamp(0.88rem, 3.5vw, 1.13rem);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+}
+
+.student-agenda-row-info > span {
+    display: flex;
+    gap: 0.32rem;
+    align-items: flex-start;
+    color: var(--agenda-muted);
+    font-size: clamp(0.7rem, 2.85vw, 0.86rem);
+}
+
+.student-agenda-row-info > span svg {
+    flex: none;
+    margin-top: 0.05rem;
+    color: var(--slot-accent);
+}
+
+.student-agenda-row-info .student-agenda-row-status {
+    width: fit-content;
+    font-size: 0.69rem;
+    font-weight: 750;
+}
+
+.student-agenda-row[data-status='cancelled'] .student-agenda-row-status,
+.student-agenda-row[data-status='rescheduled'] .student-agenda-row-status {
+    color: var(--usk-night-danger, #8f4034);
+}
+
+.student-agenda-row-arrow {
+    width: clamp(0.8rem, 4vw, 1.15rem);
+    color: var(--slot-accent);
+}
+
+.student-agenda-row-resource {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    max-width: calc(100% - 0.5rem);
+    min-height: 2.35rem;
+    padding: 0.2rem 0.4rem;
+    margin: 0 0 0.2rem 0.3rem;
+    border-radius: 0.55rem;
+    color: var(--agenda-ink);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.student-agenda[data-embedded] .student-agenda-row {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.student-agenda[data-embedded] .student-agenda-hours {
+    display: flex;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0.25rem;
+    padding: 0.72rem 0.8rem 0;
+    font-size: 0.92rem;
+}
+
+.student-agenda[data-embedded] .student-agenda-row-main {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.6rem;
+    min-height: 0;
+    padding: 0.45rem 0.8rem 0.75rem;
+}
+
+.student-agenda[data-embedded] .student-agenda-row-resource {
+    display: flex;
+    gap: 0.45rem;
+    max-width: none;
+    min-height: 2.75rem;
+    margin: 0 0.8rem;
+    padding: 0.25rem 0;
+    border-top: 1px solid var(--agenda-line);
+    border-radius: 0;
+    color: var(--agenda-accent);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.student-agenda[data-embedded] .student-agenda-row-resource:hover {
+    text-decoration: underline;
+}
+
+.student-agenda[data-embedded] .student-agenda-row-resource svg {
+    flex: none;
+}
+
+.student-agenda[data-embedded] .student-agenda-row-resource svg:last-child {
+    margin-inline-start: auto;
+}
+
+.student-agenda-empty {
+    margin: 0;
+    padding: 1.2rem 0.7rem;
+    border: 1px dashed var(--agenda-line);
+    border-radius: 0.85rem;
+    background: var(--usk-night-raised, #f5f9f6);
+    color: var(--agenda-muted);
+    font-size: 0.88rem;
+    text-align: center;
+}
+
+.student-agenda-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.85rem;
+    padding-block: 0.3rem 0;
+    color: var(--agenda-muted);
+}
+
+.student-agenda-footer small {
+    font-size: 0.72rem;
+}
+
+.student-agenda-footer :is(a, button) {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    min-height: 2.65rem;
+    border-radius: 0.45rem;
+    color: var(--agenda-accent);
+    font-size: 0.81rem;
+    font-weight: 740;
+    cursor: pointer;
+}
+
+.student-agenda-footer :is(a, button):hover {
+    text-decoration: underline;
+}
+
+.student-agenda :is(a, button, input):focus-visible,
+.student-agenda-year:focus-within {
+    outline: 2px solid var(--agenda-accent);
+    outline-offset: 2px;
+}
+
+.student-agenda-header :is(a, button):focus-visible,
+.student-agenda-header .student-agenda-year:focus-within {
+    outline-color: #fff;
+    outline-offset: 0;
+}
+
+@media (min-width: 40rem) {
+    .student-agenda-course-controls {
+        grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.62fr);
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 43.99rem) {
+    .usk-student-app .student-app-container:has(.student-agenda:not([data-embedded])) {
+        padding-top: 0;
+    }
+
+    .student-agenda:not([data-embedded]) .student-agenda-header {
+        margin-inline: calc(-1 * clamp(1rem, 4vw, 2rem));
+        border-radius: 0 0 1.65rem 1.65rem;
+    }
+}
+
+@keyframes student-agenda-enter {
+    from {
+        opacity: 0;
+        transform: translateY(0.35rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .student-agenda-body {
+        animation: none;
+    }
+}

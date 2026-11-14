@@ -64,7 +64,7 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
           ];
     const viewFilters = { queue: filters.queue, reexamination: filters.reexamination };
     const apply = (reset = false) =>
-        router.get('/dashboard/admin/enrollments', reset ? viewFilters : search, {
+        router.get('/app/dashboard/admin/enrollments', reset ? viewFilters : search, {
             preserveScroll: true,
             onStart: () => setLoading(true),
             onFinish: () => setLoading(false),
@@ -79,7 +79,7 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
                         isDecision ? 'Retrouvez les admissions et les refus.' : 'Retrouvez les dossiers à examiner et les pièces à réexaminer.'
                     }
                     action={
-                        <Link className="admin-primary" href="/dashboard/admin/enrollments">
+                        <Link className="admin-primary" href="/app/dashboard/admin/enrollments">
                             Toutes les candidatures
                         </Link>
                     }
@@ -93,7 +93,7 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
                             if (id === 'reexamination') params.reexamination = '1';
                             else params.queue = id;
                             return (
-                                <Link key={id} href="/dashboard/admin/enrollments" data={params} aria-current={id === current ? 'page' : undefined}>
+                                <Link key={id} href="/app/dashboard/admin/enrollments" data={params} aria-current={id === current ? 'page' : undefined}>
                                     {label}
                                 </Link>
                             );
@@ -268,7 +268,7 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
                                                 </span>
                                             </td>
                                             <td>
-                                                <Link className="review-open-link" href={`/dashboard/admin/enrollments/${entry.id}`}>
+                                                <Link className="review-open-link" href={`/app/dashboard/admin/enrollments/${entry.id}`}>
                                                     Consulter <ArrowUpRight size={16} />
                                                 </Link>
                                             </td>

@@ -117,7 +117,7 @@ final class AcademicProgressionService
         return DB::transaction(function () use ($decision, $profile) {
             AcademicYear::orderBy('id')->lockForUpdate()->firstOrFail();
             AcademicYear::whereKey($decision->academic_year_id)->lockForUpdate()->firstOrFail();
-            User::lockForUpdate()->findOrFail($profile->user_id);
+            $user = User::lockForUpdate()->findOrFail($profile->user_id);
             $profile = StudentProfile::lockForUpdate()->findOrFail($profile->id);
             $decision = AcademicProgression::lockForUpdate()->findOrFail($decision->id);
             $source = $profile->enrollments()->lockForUpdate()->findOrFail($decision->source_enrollment_id);
@@ -163,11 +163,14 @@ final class AcademicProgressionService
             if ($departmentId && ! $level->departmentOptions()->where('is_active', true)->whereKey($departmentId)->exists()) {
                 $departmentId = null;
             }
+            $category = in_array($source->fee_category, ['national', 'foreign'], true)
+                ? $source->fee_category
+                : $user->feeCategoryFromNationality();
             $target = $profile->enrollments()->create([
                 'application_id' => $source->application_id,
                 'level_id' => $level->id, 'academic_year_id' => $year->id,
                 'academic_department_id' => $departmentId, 'matricule' => $source->matricule ?? $profile->matricule,
-                'enrollment_status' => 'pending_confirmation', 'currency' => $source->currency,
+                'enrollment_status' => 'pending_confirmation', 'currency' => $source->currency, 'fee_category' => $category,
             ]);
             $decision->update(['target_enrollment_id' => $target->id, 'target_curriculum_version_id' => $version?->id]);
             Audit::record($profile->user_id, 'academic_renewal_started', $target, data: ['source_enrollment_id' => $source->id]);
@@ -177,8 +180,8 @@ final class AcademicProgressionService
             } else {
                 $this->curricula->resolveNew($target, $author);
             }
-            if (in_array($source->fee_category, ['national', 'foreign'], true)) {
-                $this->finance->applyTuitionTariff($target, $profile->user_id, $source->fee_category, [], 'Barème du nouveau niveau appliqué lors de la réinscription.');
+            if ($category !== null) {
+                $this->finance->applyTuitionTariff($target->refresh(), $profile->user_id, $category, [], 'Barème du nouveau niveau appliqué lors de la réinscription.');
             }
 
             return $target;

@@ -38,7 +38,7 @@ export default function () {
     const params = { redirects: 0, headers: { Cookie: account.cookie, Accept: 'text/html' } };
     const academic = Number(account.academic_id);
     const run = Number(account.run_id);
-    const prefix = '/dashboard/admin/academic-results';
+    const prefix = '/app/dashboard/admin/academic-results';
     if (writes) {
         if (__ITER > 0) return sleep(1);
         if (!account.csrf || !account.payload) throw new Error('Jeton et scénario jetables requis.');
@@ -48,12 +48,12 @@ export default function () {
         check(http.post(origin + path, JSON.stringify(payload), { ...params, headers }), { 'opération jetable acceptée': (r) => r.status === 303 });
     } else {
         const reference = encodeURIComponent(account.reference || '');
-        const result = `/dashboard/student/results?academic=${academic}`;
+        const result = `/app/dashboard/student/results?academic=${academic}`;
         const paths = {
             results: result,
             peak: result,
-            mixed: __ITER % 3 === 0 ? `/dashboard/student/assignments?academic=${academic}` : result,
-            bulletin: `/dashboard/student/results/official/${reference}/report?academic=${academic}`,
+            mixed: __ITER % 3 === 0 ? `/app/dashboard/student/assignments?academic=${academic}` : result,
+            bulletin: `/app/dashboard/student/results/official/${reference}/report?academic=${academic}`,
             export: `${prefix}/deliberations/${run}/export`,
         };
         const response = http.get(origin + paths[mode], params);

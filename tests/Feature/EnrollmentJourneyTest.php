@@ -38,21 +38,21 @@ class EnrollmentJourneyTest extends TestCase
         $snapshot = $this->snapshot();
         $snapshot['cardNumber'] = 'test-card-data';
         $snapshot['cvv'] = 'test-code';
-        $response = $this->actingAs($student)->postJson('/dashboard/enrollments/save-progress', ['last_step' => 2, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('ok', true);
+        $response = $this->actingAs($student)->postJson('/app/dashboard/enrollments/save-progress', ['last_step' => 2, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('ok', true);
         $uuid = $response->json('draft.uuid');
         $this->assertNotEmpty($uuid);
         $this->assertArrayNotHasKey('cardNumber', $response->json('draft.form_snapshot'));
         $this->assertArrayNotHasKey('cvv', $response->json('draft.form_snapshot'));
-        $this->postJson('/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 3, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('draft.uuid', $uuid)->assertJsonPath('draft.last_step', 3);
+        $this->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 3, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('draft.uuid', $uuid)->assertJsonPath('draft.last_step', 3);
         $this->assertDatabaseCount('enrollments', 1);
-        $this->get('/dashboard/enrollments/'.$uuid.'/edit')->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/enrollments/'.$uuid.'/edit')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('dashboard/enrollments/Enrollment')
             ->where('draft.uuid', $uuid)
             ->where('draft.last_step', 3)
             ->where('draft.form_snapshot.program', 'Droit')
         );
 
-        $this->postJson('/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 1, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('draft.last_step', 1);
+        $this->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 1, 'form_snapshot' => $snapshot])->assertOk()->assertJsonPath('draft.last_step', 1);
     }
 
     public function test_another_student_cannot_change_the_draft(): void
@@ -61,7 +61,7 @@ class EnrollmentJourneyTest extends TestCase
         $other = $this->student('other@example.test');
         $snapshot = $this->snapshot();
         $draft = Enrollment::create(['student_id' => $owner->id, 'level_id' => $snapshot['level_id'], 'academic_year_id' => $snapshot['year_id'], 'status' => 'draft']);
-        $this->actingAs($other)->postJson('/dashboard/enrollments/save-progress', ['uuid' => $draft->uuid, 'last_step' => 2, 'form_snapshot' => $snapshot])->assertUnprocessable()->assertJsonValidationErrors('uuid');
+        $this->actingAs($other)->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $draft->uuid, 'last_step' => 2, 'form_snapshot' => $snapshot])->assertUnprocessable()->assertJsonValidationErrors('uuid');
         $this->assertNull($draft->fresh()->form_snapshot);
     }
 
@@ -73,7 +73,7 @@ class EnrollmentJourneyTest extends TestCase
         $snapshot = $this->snapshot();
         Storage::disk('temp')->put("enrollments/tmp/{$student->id}/token/diploma.pdf", 'first document');
         $snapshot['documents']['diploma'] = ['temp' => ['token' => 'token', 'path' => "enrollments/tmp/{$student->id}/token/diploma.pdf"], 'filename' => 'diploma.pdf', 'mime' => 'application/pdf', 'size_bytes' => 14];
-        $response = $this->actingAs($student)->postJson('/dashboard/enrollments/save-progress', ['last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
+        $response = $this->actingAs($student)->postJson('/app/dashboard/enrollments/save-progress', ['last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
         $uuid = $response->json('draft.uuid');
         $document = EnrollmentDocument::firstOrFail();
         Storage::disk('local')->assertExists($document->path);
@@ -82,14 +82,14 @@ class EnrollmentJourneyTest extends TestCase
         $oldPath = $document->path;
         Storage::disk('temp')->put("enrollments/tmp/{$student->id}/replacement/diploma.pdf", 'replacement');
         $snapshot['documents']['diploma']['temp'] = ['token' => 'replacement', 'path' => "enrollments/tmp/{$student->id}/replacement/diploma.pdf"];
-        $this->postJson('/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
+        $this->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 4, 'form_snapshot' => $snapshot])->assertOk();
         $this->assertDatabaseCount('enrollment_documents', 1);
         Storage::disk('local')->assertMissing($oldPath);
         Storage::disk('local')->assertExists($document->fresh()->path);
         $this->assertSame(hash('sha256', 'replacement'), $document->fresh()->sha256);
         $replacementPath = $document->fresh()->path;
         $snapshot['documents'] = [];
-        $this->postJson('/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 3, 'form_snapshot' => $snapshot])->assertOk();
+        $this->postJson('/app/dashboard/enrollments/save-progress', ['uuid' => $uuid, 'last_step' => 3, 'form_snapshot' => $snapshot])->assertOk();
         $this->assertSame(0, EnrollmentDocument::count());
         Storage::disk('local')->assertMissing($replacementPath);
 

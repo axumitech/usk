@@ -24,7 +24,7 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
     const apply = (reset = false) => {
         const values = reset ? { q: '', status: '' } : search;
         if (reset) setSearch(values);
-        router.get('/dashboard/enrollments', values, {
+        router.get('/app/dashboard/enrollments', values, {
             preserveState: true,
             preserveScroll: true,
             onStart: () => setLoading(true),
@@ -41,7 +41,7 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                         <h1>Mes inscriptions</h1>
                         <p>Chaque étape de votre candidature, dans un seul espace.</p>
                     </div>
-                    <Link href="/dashboard/enrollments/create" className="student-primary">
+                    <Link href="/app/dashboard/enrollments/create" className="student-primary">
                         <Plus size={17} />
                         Nouvelle inscription
                     </Link>
@@ -160,16 +160,16 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                                         )}
                                         {entry.status === 'draft' ? (
                                             <>
-                                                <Link className="student-primary" href={`/dashboard/enrollments/${entry.uuid}/edit`}>
+                                                <Link className="student-primary" href={`/app/dashboard/enrollments/${entry.uuid}/edit`}>
                                                     <FilePenLine size={16} />
                                                     Reprendre le brouillon
                                                 </Link>
-                                                <Link className="student-text-button" href={`/dashboard/enrollments/${entry.uuid}`}>
+                                                <Link className="student-text-button" href={`/app/dashboard/enrollments/${entry.uuid}`}>
                                                     Consulter
                                                 </Link>
                                             </>
                                         ) : (
-                                            <Link className="student-primary" href={`/dashboard/enrollments/${entry.uuid}`}>
+                                            <Link className="student-primary" href={`/app/dashboard/enrollments/${entry.uuid}`}>
                                                 Consulter mon dossier
                                                 <ArrowUpRight size={17} />
                                             </Link>
@@ -194,7 +194,7 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                                 Effacer les filtres
                             </button>
                         ) : (
-                            <Link className="student-primary" href="/dashboard/enrollments/create">
+                            <Link className="student-primary" href="/app/dashboard/enrollments/create">
                                 Commencer mon inscription
                                 <ArrowUpRight size={17} />
                             </Link>

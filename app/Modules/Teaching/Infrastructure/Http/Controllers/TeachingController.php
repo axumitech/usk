@@ -106,7 +106,7 @@ final class TeachingController extends Controller
 
     public static function student(AcademicEnrollment $entry): array
     {
-        return ['id' => $entry->id, 'name' => $entry->profile->user->full_name, 'matricule' => $entry->matricule ?? $entry->profile->matricule];
+        return CourseAudience::studentRow($entry);
     }
 
     public function store(Request $request, TeachingOfferingService $service)

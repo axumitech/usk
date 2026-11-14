@@ -44,7 +44,7 @@ function LegalEditor({ document }: { document: Document }) {
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
-                    form.put(`/dashboard/admin/seo/legal/${document.key}`);
+                    form.put(`/app/dashboard/admin/seo/legal/${document.key}`);
                 }}
             >
                 <p>
@@ -116,7 +116,7 @@ export default function SeoIndex({
     };
     const saveSettings = (event: FormEvent) => {
         event.preventDefault();
-        global.put('/dashboard/admin/seo/settings');
+        global.put('/app/dashboard/admin/seo/settings');
     };
     return (
         <Dashboard>
@@ -193,7 +193,7 @@ export default function SeoIndex({
                     <form
                         onSubmit={(event) => {
                             event.preventDefault();
-                            metadata.put('/dashboard/admin/seo/pages');
+                            metadata.put('/app/dashboard/admin/seo/pages');
                         }}
                     >
                         <label>

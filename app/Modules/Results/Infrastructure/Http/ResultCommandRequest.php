@@ -27,6 +27,7 @@ final class ResultCommandRequest extends FormRequest
                 'meeting_at' => 'required|date_format:Y-m-d\TH:i', 'chair' => 'required|integer|min:1',
                 'secretary' => 'required|integer|min:1', 'members' => 'required|array|min:2|max:25', 'members.*' => 'required|integer|min:1|distinct',
                 'previous_id' => 'nullable|integer|min:1', 'appeal_id' => 'nullable|integer|min:1', 'reason' => $reason,
+                'period_code' => 'nullable|string|max:60',
                 'equivalences' => 'nullable|array|max:1000', 'equivalences.*' => 'array:enrollment,item,reference',
                 'equivalences.*.enrollment' => 'required|integer|min:1', 'equivalences.*.item' => 'required|integer|min:1',
                 'equivalences.*.reference' => 'required|string|max:255',

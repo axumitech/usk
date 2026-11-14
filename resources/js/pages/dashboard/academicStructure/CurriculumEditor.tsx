@@ -41,23 +41,24 @@ export default function CurriculumEditor({ version, context, onValidate }: { ver
         );
     const setItem = (unitIndex: number, itemIndex: number, patch: Partial<Item>) =>
         setUnit(unitIndex, { items: form.data.units[unitIndex].items.map((item, i) => (i === itemIndex ? { ...item, ...patch } : item)) });
-    const appendCourse = (units: Unit[], item: Item, destination: string) => {
+    const appendStandalone = (units: Unit[], item: Item, destination: string) => {
         if (!level) return units;
-        const target = units.findIndex((unit) => unit.level_id === level.id && unit.period_code === destination);
-        if (target >= 0) {
-            return units.map((unit, index) => (index === target ? { ...unit, items: [...unit.items, item] } : unit));
+        const usedCodes = new Set(
+            units.filter((unit) => unit.level_id === level.id && unit.period_code === destination).map((unit) => unit.code.trim().toUpperCase()),
+        );
+        const base = `COURS-${item.source_course_id}`;
+        let code = base;
+        for (let suffix = 2; usedCodes.has(code); suffix++) {
+            code = `${base}-${suffix}`;
         }
-        return [
-            ...units,
-            { level_id: level.id, period_code: destination, code: 'CAT-1', name: 'Matières du catalogue', expected_credits: null, items: [item] },
-        ];
+        return [...units, { level_id: level.id, period_code: destination, code, name: item.name, expected_credits: null, items: [item] }];
     };
     const addCourse = (id: number) => {
         const course = context.catalog.find((item) => item.id === id);
         if (!course) return;
         form.setData(
             'units',
-            appendCourse(
+            appendStandalone(
                 form.data.units,
                 {
                     source_course_id: course.id,
@@ -93,10 +94,18 @@ export default function CurriculumEditor({ version, context, onValidate }: { ver
         form.data.units.flatMap((unit, index) => {
             if (index !== unitIndex) return [unit];
             const items = unit.items.filter((entry) => entry.source_course_id !== item.source_course_id);
-            return !items.length && unit.expected_credits === null && /^CAT-\d+$/.test(unit.code) ? [] : [{ ...unit, items }];
+            const generated = /^CAT-\d+$/.test(unit.code) || (/^COURS-\d+(?:-\d+)?$/.test(unit.code) && unit.name === item.name);
+            return !items.length && unit.expected_credits === null && generated ? [] : [{ ...unit, items }];
         });
     const moveCourse = (unitIndex: number, item: Item, destination: string) =>
-        form.setData('units', appendCourse(withoutCourse(unitIndex, item), item, destination));
+        form.setData('units', appendStandalone(withoutCourse(unitIndex, item), item, destination));
+    const moveToUnit = (unitIndex: number, item: Item, targetIndex: number) => {
+        const target = form.data.units[targetIndex];
+        form.setData(
+            'units',
+            withoutCourse(unitIndex, item).map((unit) => (unit === target ? { ...unit, items: [...unit.items, item] } : unit)),
+        );
+    };
     return (
         <div className="as-stack">
             <div className="as-panel-title as-review-overview">
@@ -191,7 +200,7 @@ export default function CurriculumEditor({ version, context, onValidate }: { ver
                         </label>
                         {editable && (
                             <label className="admin-field">
-                                Ajouter un cours du catalogue de ce niveau
+                                Ajouter un cours seul depuis le catalogue
                                 <select value="" onChange={(event) => addCourse(Number(event.target.value))}>
                                     <option value="">Choisir un cours</option>
                                     {context.catalog
@@ -217,6 +226,15 @@ export default function CurriculumEditor({ version, context, onValidate }: { ver
                                 unit.level_id === level.id &&
                                 unit.period_code === periodCode && (
                                     <section className="as-unit" key={index} aria-label={`Unité ${index + 1}`}>
+                                        {unit.items.length > 1 &&
+                                            !(/^CAT-\d+$/.test(unit.code) && /^Matières du catalogue(?: · \d+)?$/.test(unit.name)) && (
+                                                <p className="as-note">UE composée · Tous les cours requis doivent être validés ou reconnus.</p>
+                                            )}
+                                        {editable && /^CAT-\d+$/.test(unit.code) && /^Matières du catalogue(?: · \d+)?$/.test(unit.name) && (
+                                            <p className="as-note">
+                                                Pour créer une UE composée, ajoutez une unité puis déplacez-y les cours concernés.
+                                            </p>
+                                        )}
                                         <div className="as-fields">
                                             <label>
                                                 Code UE
@@ -332,6 +350,28 @@ export default function CurriculumEditor({ version, context, onValidate }: { ver
                                                             ))}
                                                             {editable && (
                                                                 <td>
+                                                                    {visibleUnits.length > 1 && (
+                                                                        <select
+                                                                            aria-label={`Déplacer ${item.name} vers une autre UE`}
+                                                                            value=""
+                                                                            onChange={(event) => moveToUnit(index, item, Number(event.target.value))}
+                                                                        >
+                                                                            <option value="" disabled>
+                                                                                Changer d’UE…
+                                                                            </option>
+                                                                            {form.data.units.map((target, targetIndex) =>
+                                                                                targetIndex !== index &&
+                                                                                target.level_id === unit.level_id &&
+                                                                                target.period_code === unit.period_code ? (
+                                                                                    <option key={targetIndex} value={targetIndex}>
+                                                                                        {target.name ||
+                                                                                            target.code ||
+                                                                                            `Nouvelle UE ${targetIndex + 1}`}
+                                                                                    </option>
+                                                                                ) : null,
+                                                                            )}
+                                                                        </select>
+                                                                    )}
                                                                     {version.periods.length > 1 && (
                                                                         <select
                                                                             aria-label={`Changer la période de ${item.name}`}

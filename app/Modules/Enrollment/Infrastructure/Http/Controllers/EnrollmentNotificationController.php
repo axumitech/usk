@@ -3,15 +3,29 @@
 namespace App\Modules\Enrollment\Infrastructure\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Enrollment;
+use App\Modules\Student\Application\Services\AcademicAccessService;
+use App\Modules\Student\Application\Services\StudentAnnouncements;
+use App\Modules\Student\Application\Services\StudentNotifications;
+use App\Notifications\AcademicAssessmentNotice;
+use App\Notifications\AcademicEnrollmentChanged;
+use App\Notifications\AcademicScheduleNotice;
 use App\Notifications\EnrollmentDocumentReplacement;
+use App\Notifications\FinancialOperationNotice;
+use App\Notifications\LearningContentNotice;
+use App\Notifications\OfficialDocumentNotice;
+use App\Notifications\OfficialResultNotice;
+use App\Notifications\StudentAdmissionActivated;
+use App\Notifications\StudentAppointmentNotice;
+use App\Notifications\TeacherAnnouncementNotice;
 use Illuminate\Http\Request;
 
 class EnrollmentNotificationController extends Controller
 {
     public function open(Request $request, string $notification)
     {
-        $notice = $request->user()->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, \App\Notifications\AcademicScheduleNotice::class])->findOrFail($notification);
-        if ($notice->type === \App\Notifications\AcademicScheduleNotice::class) {
+        $notice = $request->user()->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, AcademicScheduleNotice::class])->findOrFail($notification);
+        if ($notice->type === AcademicScheduleNotice::class) {
             $notice->markAsRead();
             return to_route('dashboard.admin.schedule.absences', [], 303);
         }
@@ -19,7 +33,7 @@ class EnrollmentNotificationController extends Controller
         $document = $entry->documents()->where('uuid', $notice->data['document_uuid'])->firstOrFail();
         $notice->markAsRead();
 
-        return redirect('/dashboard/admin/enrollments/'.$entry->id.'?'.http_build_query(['document' => $document->uuid]).'#review-document-'.$document->uuid, 303);
+        return redirect('/app/dashboard/admin/enrollments/'.$entry->id.'?'.http_build_query(['document' => $document->uuid]).'#review-document-'.$document->uuid, 303);
     }
 
     public function readAll(Request $request)
@@ -29,10 +43,29 @@ class EnrollmentNotificationController extends Controller
         return back();
     }
 
-    public function openStudent(Request $request, string $notification)
+    public function openStudent(Request $request, string $notification, StudentNotifications $notifications)
     {
-        $notice = $request->user()->notifications()->whereIn('type', [\App\Notifications\EnrollmentDocumentReviewed::class, \App\Notifications\StudentAdmissionActivated::class, \App\Notifications\AcademicEnrollmentChanged::class, \App\Notifications\FinancialOperationNotice::class, \App\Notifications\AcademicScheduleNotice::class, \App\Notifications\LearningContentNotice::class, \App\Notifications\AcademicAssessmentNotice::class, \App\Notifications\OfficialResultNotice::class, \App\Notifications\OfficialDocumentNotice::class])->findOrFail($notification);
-        if ($notice->type === \App\Notifications\OfficialDocumentNotice::class) {
+        $notice = $notifications->find($request->user(), $notification);
+        if ($notice->type === TeacherAnnouncementNotice::class) {
+            abort_unless($request->user()->hasRole('student'), 403);
+            $academic = $request->user()->studentProfile?->enrollments()->whereHas('application')->findOrFail($notice->data['academic_enrollment_id']);
+            abort_unless($academic, 404);
+            $permissions = app(AcademicAccessService::class)->permissions($academic);
+            abort_unless($permissions['courses_view']['allowed'], 403, $permissions['courses_view']['reason'] ?? 'Accès refusé.');
+            $announcement = app(StudentAnnouncements::class)->query($academic, $permissions)->findOrFail($notice->data['resource_id']);
+            $notice->markAsRead();
+
+            return to_route('dashboard.student.announcements', ['academic' => $academic->id, 'announcement' => $announcement->id], 303);
+        }
+        if ($notice->type === StudentAppointmentNotice::class) {
+            $academic = $request->user()->studentProfile?->enrollments()->findOrFail($notice->data['academic_enrollment_id']);
+            abort_unless($academic, 404);
+            $ticket = $academic->serviceRequests()->where('category', 'appointment')->findOrFail($notice->data['ticket_id']);
+            $notice->markAsRead();
+
+            return to_route('dashboard.student.index', ['section' => 'requests', 'academic' => $academic->id, 'request' => $ticket->id], 303);
+        }
+        if ($notice->type === OfficialDocumentNotice::class) {
             $academic = $request->user()->studentProfile?->enrollments()->findOrFail($notice->data['academic_enrollment_id']);
             abort_unless($academic, 404);
             $notice->markAsRead();
@@ -96,17 +129,25 @@ class EnrollmentNotificationController extends Controller
             abort_unless($academic, 404);
             $notice->markAsRead();
 
-            return redirect('/dashboard/student?academic='.$academic->id, 303);
+            return redirect('/app/dashboard/student?academic='.$academic->id, 303);
         }
         $document = $entry->documents()->where('uuid', $notice->data['document_uuid'])->firstOrFail();
         $notice->markAsRead();
 
-        return redirect('/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $document->uuid]).'#student-document-'.$document->uuid, 303);
+        return redirect('/app/dashboard/enrollments/'.$entry->uuid.'?'.http_build_query(['document' => $document->uuid]).'#student-document-'.$document->uuid, 303);
     }
 
-    public function readAllStudent(Request $request)
+    public function readAllStudent(Request $request, StudentNotifications $notifications)
     {
-        $request->user()->unreadNotifications()->whereIn('type', [\App\Notifications\EnrollmentDocumentReviewed::class, \App\Notifications\StudentAdmissionActivated::class, \App\Notifications\AcademicEnrollmentChanged::class, \App\Notifications\FinancialOperationNotice::class, \App\Notifications\AcademicScheduleNotice::class, \App\Notifications\LearningContentNotice::class, \App\Notifications\AcademicAssessmentNotice::class, \App\Notifications\OfficialResultNotice::class, \App\Notifications\OfficialDocumentNotice::class])->update(['read_at' => now()]);
+        $teacherOnly = $request->query('audience') === 'teacher';
+        abort_if($teacherOnly && ! $request->user()->hasRole('professor'), 403);
+        $context = $request->boolean('inbox')
+            ? $request->validate(['academic' => 'nullable|integer', 'filter' => 'nullable|in:all,unread'])
+            : null;
+        $notifications->readAll($request->user(), $teacherOnly);
+        if ($context !== null) {
+            return to_route('dashboard.student.notifications.index', $context, 303);
+        }
 
         return back();
     }

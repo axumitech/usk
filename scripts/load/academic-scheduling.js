@@ -17,10 +17,10 @@ export default function () {
     const params = { headers: { Cookie: account.cookie, Accept: 'text/html' }, redirects: 0 };
     if (mode === 'read') {
         const path = account.role === 'admin'
-            ? '/dashboard/admin/schedule/reports'
+            ? '/app/dashboard/admin/schedule/reports'
             : account.role === 'professor'
-              ? `/dashboard/teacher?offering=${account.offering_id}`
-              : `/dashboard/student/schedule?academic=${account.academic_id}`;
+              ? `/app/dashboard/teacher?offering=${account.offering_id}`
+              : `/app/dashboard/student/schedule?academic=${account.academic_id}`;
         check(http.get(base + path, params), { 'page autorisée': result => result.status === 200 });
     } else {
         // The fixture defines a disposable schedule, decision or attendance batch and is supplied out of band.

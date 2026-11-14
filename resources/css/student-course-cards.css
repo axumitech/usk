@@ -1,0 +1,270 @@
+.student-course-cards > li {
+    --course-tint: #e8f2fb;
+    --course-ink: #244c6b;
+    display: flex;
+    min-width: 0;
+}
+
+.student-course-cards > li:nth-child(4n + 2) {
+    --course-tint: #fbf1dc;
+    --course-ink: #6c4d1b;
+}
+
+.student-course-cards > li:nth-child(4n + 3) {
+    --course-tint: #e7f4eb;
+    --course-ink: #286344;
+}
+
+.student-course-cards > li:nth-child(4n) {
+    --course-tint: #f1ebfa;
+    --course-ink: #624483;
+}
+
+.student-course-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+    min-height: 9rem;
+    padding: clamp(0.85rem, 2vw, 1.15rem);
+    border-radius: 13px;
+    border: 1px solid var(--usk-night-border, transparent);
+    background: var(--usk-night-raised, var(--course-tint));
+    color: var(--usk-night-muted, var(--course-ink));
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.student-course-card:hover :is(h3, h4) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.student-course-card-top,
+.student-course-card-details {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.6875rem;
+    font-weight: 650;
+}
+
+.student-course-card-top > svg:last-child {
+    margin-inline-start: auto;
+}
+
+.student-course-card p {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.student-course-card-details {
+    margin-top: auto;
+}
+
+.student-course-card-details > span + span::before {
+    content: '·';
+    margin-inline-end: 6px;
+}
+
+.usk-dashboard .student-portal .student-course-card :is(h3, h4) {
+    color: var(--usk-night-text, #173a2f);
+    font-size: 0.9375rem;
+    font-weight: 750;
+    line-height: 1.3;
+}
+
+.student-course-card:focus-visible {
+    outline: 2px solid var(--usk-night-gold, #176951);
+    outline-offset: 2px;
+}
+
+.student-course-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+    gap: clamp(0.55rem, 2vw, 1rem);
+}
+
+.student-course-cards > .student-course-unit {
+    grid-column: 1 / -1;
+}
+
+.student-course-unit-card {
+    display: grid;
+    flex: 1;
+    gap: 0.7rem;
+    min-width: 0;
+    padding: clamp(0.65rem, 2vw, 1.05rem);
+    border: 1px solid var(--student-app-line);
+    border-radius: 0.9rem;
+    background: var(--usk-night-surface, #f4f8f5);
+    overflow-wrap: anywhere;
+}
+
+.student-course-unit-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.65rem;
+}
+
+.student-course-unit-header > div {
+    flex: 1 1 10rem;
+    min-width: 0;
+}
+
+.usk-dashboard .student-portal .student-course-unit-header h3 {
+    margin-top: 0.2rem;
+    color: var(--student-app-ink);
+    font-size: 1rem;
+    line-height: 1.25;
+    font-weight: 780;
+}
+
+.student-course-unit-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.2rem 0.4rem;
+    color: var(--student-app-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+}
+
+.student-course-unit-badge,
+.student-course-unit-credits {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.45rem;
+    background: var(--usk-night-positive, #e1eee6);
+    color: var(--student-app-accent);
+    font-size: 0.72rem;
+    font-weight: 750;
+}
+
+.student-course-unit-rule {
+    color: var(--student-app-muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.student-course-unit-card .student-course-card {
+    min-height: 0;
+}
+
+.student-courses-intro {
+    margin-block: 0 1.3rem;
+}
+
+.student-courses-intro > p {
+    color: var(--student-app-muted);
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.usk-dashboard .student-portal .student-courses-intro h1 {
+    font-size: clamp(1.55rem, 5vw, 2.1rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+}
+
+.student-semester-groups {
+    display: grid;
+    gap: 1rem;
+}
+
+.student-semester-group {
+    min-width: 0;
+    padding: clamp(0.9rem, 3vw, 1.45rem);
+    border: 1px solid var(--student-app-line);
+    border-radius: 1rem;
+    background: var(--student-app-card);
+}
+
+.student-semester-group > header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 0.9rem;
+}
+
+.student-semester-group > header h2 {
+    font-size: 1.05rem;
+    font-weight: 750;
+}
+
+.student-semester-group > header p {
+    color: var(--student-app-muted);
+    font-size: 0.8rem;
+}
+
+.student-semester-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 0.75rem;
+    color: var(--student-app-accent);
+    background: var(--usk-night-positive, #e7f4eb);
+}
+
+.student-semester-credits {
+    margin-inline-start: auto;
+    padding: 0.35rem 0.65rem;
+    border-radius: 2rem;
+    color: var(--student-app-accent);
+    background: var(--usk-night-positive, #e7f4eb);
+    font-size: 0.73rem;
+    font-weight: 700;
+}
+
+@media (min-width: 350px) and (max-width: 620px) {
+    .student-course-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.student-course-credits {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(0.4rem, 2vw, 0.85rem);
+    margin: 0 0 1.1rem;
+}
+
+.student-course-credits > div {
+    display: grid;
+    align-content: space-between;
+    gap: 0.55rem;
+    padding: clamp(0.65rem, 3vw, 1.15rem);
+    border: 1px solid var(--student-app-line);
+    border-radius: 0.95rem;
+    color: var(--usk-night-text, #244737);
+    background: var(--usk-night-surface, #e7f4eb);
+}
+
+.student-course-credits > [data-tone='sand'] {
+    background: var(--usk-night-warm, #fbf1dc);
+}
+.student-course-credits > [data-tone='sky'] {
+    background: var(--usk-night-info-surface, #e8f2fb);
+}
+.student-course-credits dt {
+    font-size: clamp(0.68rem, 2.65vw, 0.88rem);
+    font-weight: 650;
+    line-height: 1.25;
+}
+.student-course-credits dd {
+    font-size: clamp(1.3rem, 5vw, 2rem);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+.student-course-credits-note {
+    margin: -0.45rem 0 1rem;
+    color: var(--student-app-muted);
+    font-size: 0.8rem;
+}

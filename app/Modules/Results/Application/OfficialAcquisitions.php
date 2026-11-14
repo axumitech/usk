@@ -11,12 +11,17 @@ final class OfficialAcquisitions
 {
     public function profiles(int $unitId, Collection $profileIds): Collection
     {
-        $version = CurriculumUnit::whereKey($unitId)->value('curriculum_version_id');
+        $unit = CurriculumUnit::find($unitId, ['curriculum_version_id', 'period_code']);
+        if (! $unit) {
+            return collect();
+        }
         $published = AcademicOfficialResult::published()
             ->join('academic_enrollments', 'academic_enrollments.id', '=', 'academic_official_results.academic_enrollment_id')
             ->join('academic_deliberations', 'academic_deliberations.id', '=', 'academic_official_results.academic_deliberation_id')
             ->join('academic_result_rules', 'academic_result_rules.id', '=', 'academic_deliberations.academic_result_rule_id')
-            ->where('academic_result_rules.curriculum_version_id', $version)->whereIn('academic_enrollments.student_profile_id', $profileIds)
+            ->where(fn ($query) => $query->whereNull('academic_deliberations.context->period_code')
+                ->orWhere('academic_deliberations.context->period_code', $unit->period_code))
+            ->where('academic_result_rules.curriculum_version_id', $unit->curriculum_version_id)->whereIn('academic_enrollments.student_profile_id', $profileIds)
             ->orderByDesc('academic_deliberations.published_at')->orderByDesc('academic_deliberations.id')
             ->get(['academic_official_results.*', 'academic_enrollments.student_profile_id'])->unique('academic_enrollment_id');
         $legacy = AcademicUnitResult::where('curriculum_unit_id', $unitId)->where('validated', true)

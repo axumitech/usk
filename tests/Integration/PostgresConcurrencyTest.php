@@ -11,9 +11,11 @@ use App\Models\Faculty;
 use App\Models\Level;
 use App\Models\Student\AcademicAudit;
 use App\Models\Student\StudentPayment;
+use App\Models\Student\StudentProfile;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
+use App\Modules\Student\Application\Services\StudentAppointmentBooking;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Spatie\Permission\Models\Role;
@@ -95,6 +97,35 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame(1, StudentPayment::count());
         $this->assertSame(1, AcademicAudit::where('action', 'payment_confirmed')->where('entity_id', $payment->id)->count());
         $this->assertSame(10000, app(StudentFinanceService::class)->balance($entry)['paid_cents']);
+    }
+
+    public function test_two_students_cannot_reserve_the_same_service_at_the_same_time(): void
+    {
+        $entry = $this->studentContext()->studentProfile->enrollments()->sole();
+        $student = User::factory()->create();
+        $application = Enrollment::create([
+            'student_id' => $student->id, 'level_id' => $entry->level_id,
+            'academic_year_id' => $entry->academic_year_id, 'status' => 'validated',
+        ]);
+        $profile = StudentProfile::create(['user_id' => $student->id, 'student_status' => 'active']);
+        $other = $profile->enrollments()->create([
+            'application_id' => $application->id, 'level_id' => $entry->level_id,
+            'academic_year_id' => $entry->academic_year_id, 'enrollment_status' => 'confirmed', 'currency' => 'USD',
+        ]);
+        $service = 'finance-appointment';
+        $day = now('Africa/Kinshasa')->addDays(2)->startOfDay();
+        app(StudentAppointmentBooking::class)->saveWindows($service, [
+            ['weekday' => $day->isoWeekday(), 'starts_at' => '09:00', 'ends_at' => '10:00'],
+        ]);
+        $request = ['category' => 'appointment', 'procedure' => $service, 'subject' => 'Rendez-vous financier', 'body' => 'Vérifier un versement.'];
+        $first = $entry->serviceRequests()->create($request);
+        $second = $other->serviceRequests()->create($request);
+
+        $results = $this->race('appointment-booking', $first->id, (int) $day->format('Ymd'), $second->id);
+        sort($results);
+        $this->assertSame(['booked', 'refused'], $results);
+        $this->assertDatabaseCount('student_appointment_reservations', 1);
+        $this->assertDatabaseHas('student_appointment_reservations', ['service' => $service, 'starts_at' => $day->copy()->setTime(9, 0)->utc()]);
     }
 
     public function test_concurrent_admission_submissions_and_conflicting_decisions_have_one_effect(): void

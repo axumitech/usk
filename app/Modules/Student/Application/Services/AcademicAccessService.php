@@ -67,10 +67,17 @@ final class AcademicAccessService
         }
         $balance = $readBalance($rule->fee_kind);
         if (! $balance['assessed']) {
+            if ($rule->mode === 'due_installments' && ($rule->fee_kind !== 'tuition' || $entry->fee_category !== null)) {
+                return ['allowed' => false, 'reason' => 'Le service financier doit encore établir les échéances de votre inscription.'];
+            }
+
             return ['allowed' => false, 'reason' => 'La catégorie tarifaire de votre dossier doit être confirmée par le service financier.'];
         }
         if ($rule->allow_exemption && $adjustments->contains(fn ($a) => $a->type === 'exemption' && $a->fee_kind === $rule->fee_kind)) {
             return $yes;
+        }
+        if ($rule->mode === 'due_installments') {
+            return $balance['overdue_cents'] === 0 ? $yes : ['allowed' => false, 'reason' => 'Une échéance de paiement est dépassée. Consultez vos frais pour régulariser la situation.'];
         }
         if ($rule->allow_plan) {
             foreach ($adjustments->where('type', 'plan')->where('fee_kind', $rule->fee_kind) as $plan) {
@@ -159,10 +166,24 @@ final class AcademicAccessService
         $reference = $course->only(['id', 'title', 'code', 'description', 'credits', 'semester', 'cmi_hours', 'td_hours', 'tp_hours', 'pedagogical_content']);
         $item ??= $this->curriculumItems($entry)?->get($course->id);
         if ($item) {
-            $reference = array_replace($reference, $item->only(['code', 'description', 'cmi_hours', 'td_hours', 'tp_hours', 'pedagogical_content']), ['curriculum_item_id' => $item->id, 'curriculum_unit_id' => $item->curriculum_unit_id, 'curriculum_version_id' => $entry->curriculum_version_id, 'title' => $item->name, 'credits' => $item->credits === null ? null : (float) $item->credits, 'coefficient' => $item->coefficient === null ? null : (float) $item->coefficient, 'semester' => $item->unit->period_name, 'unit' => $item->unit->name, 'unit_code' => $item->unit->code, 'is_optional' => $item->is_optional]);
+            $reference = array_replace($reference, $item->only(['code', 'description', 'cmi_hours', 'td_hours', 'tp_hours', 'pedagogical_content']), ['curriculum_item_id' => $item->id, 'curriculum_unit_id' => $item->curriculum_unit_id, 'curriculum_version_id' => $entry->curriculum_version_id, 'title' => $item->name, 'credits' => $item->credits === null ? null : (float) $item->credits, 'coefficient' => $item->coefficient === null ? null : (float) $item->coefficient, 'semester' => $item->unit->period_name, 'is_optional' => $item->is_optional]);
+            $reference += $this->unitReference($entry, $item);
         }
 
         return $reference;
+    }
+
+    public function unitReference(AcademicEnrollment $entry, ?CurriculumItem $item): array
+    {
+        $catalogItem = $item ? $this->curriculumItems($entry)?->get($item->source_course_id) : null;
+        $unit = $catalogItem && $catalogItem->is($item) ? $catalogItem->unit : $item?->unit;
+        $components = $unit?->items;
+
+        return [
+            'unit_id' => $unit?->id, 'unit' => $unit?->name, 'unit_code' => $unit?->code,
+            'unit_is_composite' => $unit?->isComposite($components->count()) ?? false,
+            'unit_component_count' => $components?->count(),
+        ];
     }
 
     public function curriculumContext(AcademicEnrollment $entry): ?array
@@ -184,41 +205,69 @@ final class AcademicAccessService
         $formatSemester = fn ($semester) => match ((string) $semester) {
             '1' => '1er semestre', '2' => '2e semestre', default => $semester,
         };
-        $published = $this->offerings($entry)->with(['course', 'professor', 'curriculumItem.unit'])->get()->map(function ($offering) use ($entry, $formatSemester) {
+        $offers = $this->offerings($entry)->with(['course', 'professor', 'curriculumItem.unit.items'])->orderBy('id')->get()
+            ->sortByDesc(fn ($offer) => $offer->curriculum_item_id !== null)->unique('course_id');
+        $published = $offers->map(function ($offering) use ($entry, $formatSemester) {
             $reference = $this->reference($entry, $offering->course, $offering->curriculumItem);
 
             return [
-                'id' => $offering->id, 'course_id' => $offering->course_id, 'detail_url' => '/dashboard/student/courses/'.$offering->course_id.'?academic='.$entry->id,
+                'id' => $offering->id, 'course_id' => $offering->course_id, 'detail_url' => '/app/dashboard/student/courses/'.$offering->course_id.'?academic='.$entry->id,
                 'title' => $reference['title'], 'code' => $reference['code'], 'credits' => $reference['credits'],
                 'semester' => $entry->curriculum_version_id !== null ? $reference['semester'] : $formatSemester($offering->semester ?: $offering->course->semester),
                 'teacher' => $offering->professor?->full_name ?? $offering->course->teacher, 'unit' => $reference['unit'] ?? null,
                 'registered' => $offering->curriculum_item_id !== null, 'is_optional' => $offering->is_optional,
                 'archived' => $offering->archived_at !== null, 'catalog_only' => false,
-            ];
+            ] + $this->courseUnitFields($reference);
         });
-        $catalog = $this->catalog($entry)->get()->map(function ($course) use ($entry, $formatSemester) {
+        $catalog = $this->catalog($entry)->whereIntegerNotInRaw('id', $published->pluck('course_id')->all())->get()->map(function ($course) use ($entry, $formatSemester) {
             $reference = $this->reference($entry, $course);
 
             return [
-                'id' => -$course->id, 'course_id' => $course->id, 'detail_url' => '/dashboard/student/courses/'.$course->id.'?academic='.$entry->id,
+                'id' => -$course->id, 'course_id' => $course->id, 'detail_url' => '/app/dashboard/student/courses/'.$course->id.'?academic='.$entry->id,
                 'title' => $reference['title'], 'code' => $reference['code'], 'credits' => $reference['credits'], 'semester' => $formatSemester($reference['semester']),
                 'unit' => $reference['unit'] ?? null, 'is_optional' => $reference['is_optional'] ?? false, 'teacher' => null, 'catalog_only' => true,
+            ] + $this->courseUnitFields($reference);
+        });
+
+        $registered = $offers->whereNotNull('curriculum_item_id')->pluck('curriculum_item_id')->flip();
+        $units = ($this->curriculumItems($entry) ?? collect())->map->unit
+            ->concat($offers->whereNotNull('curriculum_item_id')->map(fn ($offer) => $offer->curriculumItem->unit))
+            ->keyBy('id');
+        $totals = $units->map(function ($unit) use ($registered) {
+            $selected = $unit->items->filter(fn ($item) => $registered->has($item->id));
+            $expected = $unit->items->filter(fn ($item) => ! $item->is_optional || $registered->has($item->id));
+
+            return [
+                'unit_credits' => $expected->isEmpty() ? null : $unit->creditTotal($expected),
+                'unit_registered_credits' => $selected->isEmpty() ? null : $unit->creditTotal($selected),
             ];
         });
 
-        return $published->concat($catalog)->sortBy([['semester', 'asc'], ['title', 'asc']])->values();
+        return $published->concat($catalog)->sortBy([['semester', 'asc'], ['title', 'asc']])->values()
+            ->map(fn ($course) => array_replace($course, $totals->get($course['unit_id'], ['unit_registered_credits' => null])));
+    }
+
+    private function courseUnitFields(array $reference): array
+    {
+        return [
+            'unit_id' => $reference['unit_id'] ?? null, 'unit_code' => $reference['unit_code'] ?? null,
+            'unit_is_composite' => $reference['unit_is_composite'] ?? false, 'unit_component_count' => $reference['unit_component_count'] ?? null,
+            'unit_credits' => null,
+        ];
     }
 
     public function catalog(AcademicEnrollment $entry): Builder
     {
+        $items = $this->curriculumItems($entry);
+        $components = $items?->filter(fn ($item) => $item->unit->isComposite($item->unit->items->count()))->keys()->all() ?? [];
         $configured = AcademicOffering::where('level_id', $entry->level_id)
             ->where(fn ($q) => $q->where('academic_year_id', $entry->academic_year_id)->orWhere(fn ($legacy) => $legacy->whereNull('curriculum_item_id')->whereNotNull('academic_department_id')))
-            ->where(fn ($q) => $q->whereNull('curriculum_item_id')->orWhereIn('curriculum_item_id', $this->curriculumItems($entry)?->pluck('id')->all() ?? []))
+            ->where(fn ($q) => $q->whereNull('curriculum_item_id')->orWhereIn('curriculum_item_id', $items?->pluck('id')->all() ?? []))
             ->select('course_id');
 
         return Courses::where('level_id', $entry->level_id)
-            ->when($entry->curriculum_version_id !== null, fn ($q) => $q->whereIn('id', $this->curriculumItems($entry)->keys()), fn ($q) => $q->where('catalog_status', 'active'))
-            ->whereNotIn('id', $configured);
+            ->when($items !== null, fn ($q) => $q->whereIn('id', $items->keys()), fn ($q) => $q->where('catalog_status', 'active'))
+            ->where(fn ($q) => $q->whereNotIn('id', $configured)->orWhereIntegerInRaw('id', $components));
     }
 
     private function contextOfferings(AcademicEnrollment $entry, bool $forSessions = false): Builder

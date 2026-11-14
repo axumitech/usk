@@ -27,7 +27,7 @@ export function ReplacementForm({ document, limit }: { document: Document; limit
                     return;
                 }
                 form.transform(() => ({ file }));
-                form.post(`/dashboard/enrollments/documents/${document.uuid}/replace`, {
+                form.post(`/app/dashboard/enrollments/documents/${document.uuid}/replace`, {
                     forceFormData: true,
                     preserveScroll: true,
                     errorBag: `replacement-${document.uuid}`,

@@ -7,7 +7,7 @@ const reducedMotion = '(prefers-reduced-motion: reduce)';
 
 export const DashboardDepartureContext = createContext<{ phase: DeparturePhase; logout: (animate: boolean) => void }>({
     phase: null,
-    logout: () => router.post('/logout'),
+    logout: () => router.post('/app/logout'),
 });
 
 export default function DashboardDeparture({ children }: { children: ReactNode }) {
@@ -24,7 +24,7 @@ export default function DashboardDeparture({ children }: { children: ReactNode }
 
         move(animated ? 'waiting' : 'immediate');
         router.post(
-            '/logout',
+            '/app/logout',
             {},
             {
                 showProgress: false,

@@ -46,7 +46,7 @@ class AcademicEnrollmentManagementTest extends TestCase
     public function test_leave_resume_and_terminal_states_are_audited_and_idempotent(): void
     {
         [$admin, $student, $entry] = $this->context();
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
         $data = $this->data('on_leave') + ['ends_at' => now()->addMonth()->toIso8601String()];
         $this->actingAs($student)->post($url, $data)->assertForbidden();
         $this->actingAs($admin)->post($url, $data)->assertSessionHasNoErrors();
@@ -69,11 +69,11 @@ class AcademicEnrollmentManagementTest extends TestCase
         [$admin, $student, $entry] = $this->context();
         $foreignFaculty = DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'AUTRE']);
         $admin->academicFaculties()->attach($foreignFaculty);
-        $this->actingAs($admin)->get('/dashboard/admin/student-academic')->assertInertia(fn (Assert $page) => $page->has('students.data', 0));
-        $this->get('/dashboard/admin/student-academic/'.$entry->id)->assertForbidden();
-        $this->post('/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->data('suspended'))->assertForbidden();
-        $this->get('/dashboard/admin/student-academic/administration/closure')->assertForbidden();
-        $this->patch('/dashboard/admin/academic-years/'.$entry->academic_year_id.'/close', ['reason' => 'Tentative hors périmètre.'])->assertForbidden();
+        $this->actingAs($admin)->get('/app/dashboard/admin/student-academic')->assertInertia(fn (Assert $page) => $page->has('students.data', 0));
+        $this->get('/app/dashboard/admin/student-academic/'.$entry->id)->assertForbidden();
+        $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->data('suspended'))->assertForbidden();
+        $this->get('/app/dashboard/admin/student-academic/administration/closure')->assertForbidden();
+        $this->patch('/app/dashboard/admin/academic-years/'.$entry->academic_year_id.'/close', ['reason' => 'Tentative hors périmètre.'])->assertForbidden();
     }
 
     public function test_group_capacity_and_context_are_enforced_without_erasing_history(): void
@@ -81,7 +81,7 @@ class AcademicEnrollmentManagementTest extends TestCase
         [$admin,, $entry] = $this->context();
         $intake = DB::table('intakes')->insertGetId(['name' => 'Groupe test']);
         $group = Classes::create(['intake_id' => $intake, 'faculty_id' => $entry->level->faculty_id, 'level_id' => $entry->level_id, 'capacity' => 0]);
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
         $this->actingAs($admin)->post($url, $this->data('confirmed') + ['class_id' => $group->id])->assertSessionHasErrors('class_id');
         $group->update(['capacity' => 1]);
         $this->post($url, $this->data('confirmed') + ['class_id' => $group->id])->assertSessionHasNoErrors();
@@ -94,11 +94,11 @@ class AcademicEnrollmentManagementTest extends TestCase
     {
         [$admin,, $entry] = $this->context();
         $year = $entry->academicYear;
-        $this->actingAs($admin)->get('/dashboard/admin/student-academic/administration/closure?year='.$year->id)
+        $this->actingAs($admin)->get('/app/dashboard/admin/student-academic/administration/closure?year='.$year->id)
             ->assertInertia(fn (Assert $page) => $page->where('report.can_close', false)->where('report.unresolved', 1));
-        $url = '/dashboard/admin/academic-years/'.$year->id;
+        $url = '/app/dashboard/admin/academic-years/'.$year->id;
         $this->patch($url.'/close', ['reason' => 'Rapport de clôture contrôlé.'])->assertSessionHasErrors('general');
-        $this->post('/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->data('completed'))->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->data('completed'))->assertSessionHasNoErrors();
         $this->patch($url.'/close', ['reason' => 'Rapport de clôture contrôlé.'])->assertSessionHasNoErrors();
         $this->assertSame('closed', $year->fresh()->status);
         $this->patch($url.'/open')->assertSessionHasErrors('general');
@@ -111,10 +111,10 @@ class AcademicEnrollmentManagementTest extends TestCase
     public function test_student_sees_only_own_annual_contexts_and_cannot_choose_another_profile(): void
     {
         [$admin, $student, $entry] = $this->context();
-        $this->actingAs($student)->get('/dashboard/student/enrollments?academic=99999')
+        $this->actingAs($student)->get('/app/dashboard/student/enrollments?academic=99999')
             ->assertInertia(fn (Assert $page) => $page->has('entries.data', 1)->where('entries.data.0.id', $entry->id)->missing('changes.data.0.reason'));
-        $this->get('/dashboard/admin/student-academic/administration')->assertForbidden();
-        $this->actingAs($admin)->get('/dashboard/admin/student-academic/administration?academic='.$entry->id)
+        $this->get('/app/dashboard/admin/student-academic/administration')->assertForbidden();
+        $this->actingAs($admin)->get('/app/dashboard/admin/student-academic/administration?academic='.$entry->id)
             ->assertInertia(fn (Assert $page) => $page->where('selected.id', $entry->id)->has('transitions'));
     }
 
@@ -134,7 +134,7 @@ class AcademicEnrollmentManagementTest extends TestCase
         DB::table('curriculum_units')->insert(['curriculum_version_id' => $versionId, 'level_id' => $level->id, 'level_code' => 'N2', 'level_title' => 'Autre parcours', 'period_code' => 'P1', 'period_name' => 'Période', 'code' => 'UE1', 'name' => 'Unité']);
         StudentObligation::create(['academic_enrollment_id' => $source->id, 'kind' => 'tuition', 'title' => 'Dette historique', 'installment' => 1, 'amount_cents' => 10000]);
         $data = ['expected_status' => $source->enrollment_status, 'operation_key' => (string) Str::uuid(), 'level_id' => $level->id, 'curriculum_version_id' => $versionId, 'reason' => 'Réorientation approuvée par décision officielle.'];
-        $url = '/dashboard/admin/student-academic/'.$source->id.'/transfer';
+        $url = '/app/dashboard/admin/student-academic/'.$source->id.'/transfer';
         $this->actingAs($student)->post($url, $data)->assertForbidden();
         $this->actingAs($admin)->post($url, $data)->assertSessionHasNoErrors();
         $this->post($url, $data)->assertSessionHasNoErrors();
@@ -149,7 +149,7 @@ class AcademicEnrollmentManagementTest extends TestCase
         $this->assertSame(0, $target->obligations()->count());
         $this->assertDatabaseCount('student_profiles', 1);
         $this->assertDatabaseCount('notifications', 1);
-        $this->actingAs($student)->get('/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2));
+        $this->actingAs($student)->get('/app/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2));
     }
 
     public function test_closed_year_refuses_first_activation_without_creating_a_student_profile(): void
@@ -173,11 +173,11 @@ class AcademicEnrollmentManagementTest extends TestCase
     public function test_stale_decision_is_rejected_and_malformed_context_is_validated(): void
     {
         [$admin,, $entry] = $this->context();
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
         $data = $this->data('suspended');
         $this->actingAs($admin)->post($url, $data)->assertSessionHasNoErrors();
         $this->post($url, array_replace($data, ['operation_key' => (string) Str::uuid(), 'enrollment_status' => 'on_leave']))->assertSessionHasErrors('enrollment_status');
         $this->assertSame('suspended', $entry->fresh()->enrollment_status);
-        $this->get('/dashboard/admin/student-academic?academic[]=1')->assertSessionHasErrors('academic');
+        $this->get('/app/dashboard/admin/student-academic?academic[]=1')->assertSessionHasErrors('academic');
     }
 }

@@ -16,6 +16,7 @@ use App\Modules\Enrollment\Application\UseCases\ReviewEnrollment;
 use App\Modules\Enrollment\Application\UseCases\ValidateEnrollmentUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
+use App\Modules\Identity\Domain\Nationality;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -191,15 +192,18 @@ class EnrollmentManagementController extends Controller
 
     public function show(Request $request, int $id)
     {
-        $entry = Enrollment::with(['student:id,first_name,last_name,post_name,email', 'level.faculty', 'academicYear', 'documents', 'events.actor:id,first_name,last_name'])->findOrFail($id);
+        $entry = Enrollment::with(['student:id,first_name,last_name,post_name,email,nationality_code', 'level.faculty', 'academicYear', 'documents', 'events.actor:id,first_name,last_name'])->findOrFail($id);
         $data = Arr::only($entry->toArray(), ['id', 'uuid', 'reference', 'matricule', 'status', 'status_label', 'payment_status_label', 'created_at', 'enrolled_at', 'student', 'level', 'academic_year']);
+        $data['nationality'] = Nationality::label($entry->student?->nationality_code);
+        $academic = $entry->academicEnrollment;
+        $data['fee_category'] = $academic ? $academic->fee_category : $entry->student?->feeCategoryFromNationality();
         $selected = $request->query('document');
         if ($selected !== null) {
             abort_unless(is_string($selected) && $entry->documents->contains('uuid', $selected), 404);
         }
         $data['selected_document_uuid'] = $selected;
-        if ($entry->academicEnrollment) {
-            $state = app(StudentFinanceService::class)->balance($entry->academicEnrollment)['financial_clearance_status'];
+        if ($academic) {
+            $state = app(StudentFinanceService::class)->balance($academic)['financial_clearance_status'];
             $data['payment_status_label'] = ['unassessed' => 'Tarif à confirmer', 'unpaid' => 'Non payé', 'partial' => 'Partiellement payé', 'cleared' => 'Solde réglé', 'exempted' => 'Exonération', 'overdue' => 'Échéance dépassée'][$state] ?? 'À confirmer';
         }
         $data['snapshot'] = Arr::only($entry->form_snapshot ?? [], ['name', 'email', 'program', 'isConfirmed']);
@@ -266,9 +270,15 @@ class EnrollmentManagementController extends Controller
     public function validate(Request $request, int $id)
     {
         try {
-            $this->validateUseCase->execute($id, $request->user()->id);
+            $application = $this->validateUseCase->execute($id, $request->user()->id);
+            $academic = $application->academicEnrollment;
+            $feesMessage = match (true) {
+                $academic->obligations()->where('kind', 'tuition')->whereNotNull('finance_tariff_id')->exists() => 'Les échéances sont visibles dans Finances pour l’étudiant.',
+                $academic->fee_category === null => 'Le service financier doit encore confirmer la catégorie tarifaire.',
+                default => 'Les frais sont en attente d’un barème actif et en vigueur pour cette inscription.',
+            };
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'Le dossier a été validé. La décision est visible dans l’espace étudiant.');
+            return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'Le dossier a été validé. '.$feesMessage);
         } catch (InvalidEnrollmentStateException $e) {
             return to_route('dashboard.admin.enrollments.show', $id)->withErrors(['decision' => $e->getMessage()]);
         }

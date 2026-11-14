@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicCalendarEvent;
 use App\Models\AcademicYear;
 use App\Models\Student\AcademicSemester;
+use App\Modules\AcademicYear\Application\AcademicCalendar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,9 @@ class AcademicCalendarController extends Controller
             'category' => ['required', Rule::in(array_keys(AcademicCalendarEvent::CATEGORIES))],
             'start_date' => 'required|date_format:Y-m-d',
             'end_date' => 'required|date_format:Y-m-d|after_or_equal:start_date',
+            'location' => 'nullable|string|max:160',
+            'description' => 'nullable|string|max:3000',
+            'instructions' => 'nullable|string|max:2000',
         ]);
 
         DB::transaction(function () use ($year, $event, $data) {
@@ -55,37 +59,11 @@ class AcademicCalendarController extends Controller
         return back()->with('success', 'Événement enregistré.');
     }
 
-    public function export(AcademicYear $year)
+    public function export(AcademicYear $year, AcademicCalendar $calendar)
     {
-        $lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//USK//Calendrier academique//FR', 'CALSCALE:GREGORIAN'];
-        $host = parse_url(config('app.url'), PHP_URL_HOST) ?: 'usk';
-        foreach ($this->semesters($year->id)->get() as $semester) {
-            array_push($lines,
-                'BEGIN:VEVENT',
-                "UID:academic-semester-{$semester->id}@{$host}",
-                'DTSTAMP:'.$semester->updated_at->utc()->format('Ymd\THis\Z'),
-                'DTSTART;VALUE=DATE:'.$semester->start_date->format('Ymd'),
-                'DTEND;VALUE=DATE:'.$semester->end_date->addDay()->format('Ymd'),
-                "SUMMARY:Période de cours · Semestre {$semester->number}",
-                'CATEGORIES:Cours',
-                'END:VEVENT',
-            );
-        }
-        foreach ($this->events($year->id)->get() as $event) {
-            array_push($lines,
-                'BEGIN:VEVENT',
-                "UID:academic-event-{$event->id}@{$host}",
-                'DTSTAMP:'.$event->updated_at->utc()->format('Ymd\THis\Z'),
-                'DTSTART;VALUE=DATE:'.$event->start_date->format('Ymd'),
-                'DTEND;VALUE=DATE:'.$event->end_date->addDay()->format('Ymd'),
-                'SUMMARY:'.$this->calendarText($event->title),
-                'CATEGORIES:'.$this->calendarText(AcademicCalendarEvent::CATEGORIES[$event->category]),
-                'END:VEVENT',
-            );
-        }
-        $lines[] = 'END:VCALENDAR';
+        $entries = $this->semesters($year->id)->get()->toBase()->concat($this->events($year->id)->get());
 
-        return response(implode("\r\n", $lines)."\r\n", 200, [
+        return response($calendar->export($entries), 200, [
             'Content-Type' => 'text/calendar; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="calendrier-academique-'.$year->id.'.ics"',
         ]);
@@ -99,19 +77,5 @@ class AcademicCalendarController extends Controller
     private function semesters(int $yearId): Builder
     {
         return AcademicSemester::where('academic_year_id', $yearId)->orderBy('number');
-    }
-
-    private function calendarText(string $value): string
-    {
-        $value = str_replace(["\\", "\r\n", "\r", "\n", ';', ','], ["\\\\", '\n', '\n', '\n', '\;', '\,'], $value);
-        // A continuation begins with one space, leaving 74 bytes for UTF-8 text.
-        $parts = [];
-        while ($value !== '') {
-            $part = mb_strcut($value, 0, 60, 'UTF-8');
-            $parts[] = $part;
-            $value = substr($value, strlen($part));
-        }
-
-        return implode("\r\n ", $parts);
     }
 }

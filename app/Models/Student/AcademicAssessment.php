@@ -8,7 +8,8 @@ final class AcademicAssessment extends Model
 {
     protected $guarded = ['id'];
 
-    protected $casts = ['rubric' => 'array', 'group_work' => 'boolean', 'closed_at' => 'datetime', 'accepts_until' => 'datetime', 'weight' => 'decimal:2'];
+    protected $casts = ['rubric' => 'array', 'group_work' => 'boolean', 'closed_at' => 'datetime', 'accepts_until' => 'datetime', 'weight' => 'decimal:2',
+        'submission_formats' => 'array', 'submission_max_kb' => 'integer', 'scheduled_publish_at' => 'datetime', 'scheduled_publish_notify' => 'boolean'];
 
     public function resource()
     {

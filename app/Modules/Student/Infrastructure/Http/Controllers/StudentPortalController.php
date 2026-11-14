@@ -6,46 +6,99 @@ use App\Http\Controllers\Controller;
 use App\Models\AcademicCalendarEvent;
 use App\Models\Level;
 use App\Models\Student\AcademicEnrollment;
+use App\Models\Student\AcademicProgression;
+use App\Models\Student\AcademicResource;
+use App\Models\Student\AcademicSubmission;
 use App\Models\Student\AssessmentRecord;
+use App\Models\Student\ServiceRequest;
 use App\Modules\Assessment\Application\AssessmentAccess;
 use App\Modules\Assessment\Application\AssessmentCopies;
 use App\Modules\Assessment\Application\AssessmentStudent;
 use App\Modules\Assessment\Application\AssessmentSubmissions;
-use App\Models\Student\AcademicProgression;
-use App\Models\Student\AcademicResource;
-use App\Models\Student\AcademicSubmission;
-use App\Models\Student\ServiceRequest;
+use App\Modules\Assessment\Application\StudentAssignmentStatus;
+use App\Modules\Assessment\Application\StudentEvaluationTimeline;
+use App\Modules\Documents\Application\DocumentQueries;
+use App\Modules\Documents\Application\StudentDocumentLibrary;
+use App\Modules\Progression\Application\AcademicLifecycle;
+use App\Modules\Results\Application\ResultInputs;
+use App\Modules\Results\Application\StudentResultPeriods;
+use App\Modules\Results\Infrastructure\Http\StudentResultsController;
 use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Application\Services\AcademicProgressionService;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Student\Application\Services\CardEligibility;
+use App\Modules\Student\Application\Services\Money;
+use App\Modules\Student\Application\Services\StudentAnnouncements;
+use App\Modules\Student\Application\Services\StudentFinanceActivity;
 use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentOverviewService;
+use App\Modules\Student\Application\Services\StudentPortalContext;
+use App\Modules\Student\Application\Services\StudentScolarite;
+use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use App\Modules\Teaching\Application\Services\LearningAccess;
 use App\Modules\Teaching\Application\Services\LearningFiles;
+use App\Modules\Teaching\Application\Services\TeachingTeam;
+use App\Support\DocumentUploadLimit;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class StudentPortalController extends Controller
 {
-    public function __construct(private AcademicAccessService $access, private StudentFinanceService $finance) {}
+    public function __construct(
+        private AcademicAccessService $access,
+        private StudentFinanceService $finance,
+        private StudentPortalContext $portalContext,
+    ) {}
 
-    public function context(Request $request): AcademicEnrollment
+    public function context(Request $request, ?int $preferredYearId = null): AcademicEnrollment
     {
         abort_unless($request->user()->hasRole('student'), 403);
         $profile = $request->user()->studentProfile;
         abort_unless($profile, 403, 'Votre profil étudiant n’est pas encore activé.');
-        $request->validate(['academic' => 'nullable|integer', 'application' => 'nullable|uuid']);
+        $selection = validator($request->query(), ['academic' => 'nullable|integer', 'application' => 'nullable|uuid'])->validate();
         $query = $profile->enrollments()->whereHas('application')->with(['profile.user', 'application', 'level.faculty', 'level.detail', 'academicYear', 'group.intake', 'department:id,name']);
-        if ($request->query('academic')) {
-            $query->where('academic_enrollments.id', $request->query('academic'));
+        if (isset($selection['academic'])) {
+            $query->where('academic_enrollments.id', $selection['academic']);
         }
-        if ($request->query('application')) {
-            $query->whereHas('application', fn ($q) => $q->where('uuid', $request->query('application')))->orderBy('academic_enrollments.id');
+        if (isset($selection['application'])) {
+            $query->whereHas('application', fn ($q) => $q->where('uuid', $selection['application']))->orderBy('academic_enrollments.id');
+        }
+        if (! isset($selection['academic']) && ! isset($selection['application']) && $preferredYearId !== null) {
+            $query->orderByRaw('case when academic_enrollments.academic_year_id = ? then 0 else 1 end', [$preferredYearId]);
         }
 
         return $query->join('academic_years', 'academic_years.id', '=', 'academic_enrollments.academic_year_id')->orderByDesc('academic_years.start_date')->orderByDesc('academic_enrollments.id')->select('academic_enrollments.*')->firstOrFail();
+    }
+
+    private function courseCredits(AcademicEnrollment $entry, Collection $courses, ?array $official): array
+    {
+        $planned = $official['planned'] ?? null;
+        if ($planned === null) {
+            $units = $this->access->curriculumItems($entry)?->groupBy('curriculum_unit_id');
+            $registered = $courses->where('registered', true)->keyBy('course_id');
+            $values = $units?->isNotEmpty()
+                ? $units->map(function (Collection $items) use ($registered) {
+                    $expected = $items->filter(fn ($item) => ! $item->is_optional || $registered->has($item->source_course_id));
+
+                    return $expected->isEmpty() ? 0 : $items->first()->unit->creditTotal($expected);
+                })
+                : $courses->unique('course_id')->pluck('credits');
+            $planned = $values->isNotEmpty() && ! $values->containsStrict(null)
+                ? $values->sum(fn ($value) => (int) round((float) $value * 100))
+                : null;
+        }
+
+        return [
+            'earned' => $official['earned'] ?? null,
+            'remaining' => $official['remaining'] ?? null,
+            'compensated' => $official['compensated'] ?? null,
+            'planned' => $planned,
+        ];
     }
 
     private function requireFeature(AcademicEnrollment $entry, string $feature): void
@@ -116,55 +169,83 @@ class StudentPortalController extends Controller
 
     public function show(Request $request, string $section = 'overview')
     {
-        $entry = $this->context($request);
+        $currentYearId = $this->portalContext->currentYearId();
+        $entry = $this->context($request, in_array($section, ['overview', 'services', 'requests'], true) ? $currentYearId : null);
         $permissions = $this->access->permissions($entry);
         $sectionFeature = ['materials' => 'materials_download', 'assignments' => 'assignments_submit', 'evaluations' => 'evaluations_participate', 'results' => 'results_view'][$section] ?? null;
         if ($sectionFeature && ($permissions[$sectionFeature]['visible'] ?? true) === false) {
             abort(403, 'Ce service n’est pas proposé pour votre parcours.');
         }
         $feature = match ($section) {
-            'courses','materials','assignments','evaluations','announcements' => 'courses_view','schedule' => 'schedule_view','results' => 'results_view',default => 'dashboard_view'
+            'courses','materials','assignments','evaluations' => 'courses_view','schedule' => 'schedule_view','results' => 'results_view',default => 'dashboard_view'
         };
         abort_unless($permissions[$feature]['allowed'], 403, $permissions[$feature]['reason'] ?? 'Accès refusé.');
         $courses = $this->access->courses($entry);
-        $submissions = $section === 'documents'
-            ? AcademicSubmission::with('resource:id,title')->where('academic_enrollment_id', $entry->id)->get()->keyBy('academic_resource_id')
-            : collect();
-        $kindForSection = ['materials' => 'material', 'assignments' => 'assignment', 'evaluations' => 'evaluation', 'results' => 'result', 'announcements' => 'announcement', 'documents' => 'document'][$section] ?? null;
+        $submissions = collect();
+        $kindForSection = ['materials' => 'material', 'assignments' => 'assignment', 'evaluations' => 'evaluation', 'results' => 'result'][$section] ?? null;
         $offerings = $permissions['courses_view']['allowed'] && ($kindForSection !== null || in_array($section, ['overview', 'schedule'], true))
             ? $this->access->offerings($entry)->get(['id'])
             : collect();
         $resources = collect();
         $workPagination = null;
+        $assignmentCounts = null;
         $workSection = in_array($section, ['assignments', 'evaluations'], true);
-        $workFilter = $workSection ? $request->validate(['activity' => 'nullable|in:available,upcoming,submitted,grading,corrected', 'work' => 'nullable|integer|min:1']) : [];
+        $workRules = [
+            'activity' => ['nullable', Rule::in(StudentAssignmentStatus::FILTERS)],
+            'work' => 'nullable|integer|min:1',
+        ];
+        $isEvaluation = $section === 'evaluations';
+        if ($isEvaluation) {
+            $workRules['view'] = ['nullable', Rule::in(StudentEvaluationTimeline::VIEWS)];
+        }
+        $workFilter = $workSection ? $request->validate($workRules) : [];
+        $evaluationView = $isEvaluation ? ($workFilter['view'] ?? 'upcoming') : null;
+        $evaluationCounts = $isEvaluation && ! isset($workFilter['work']) ? array_fill_keys(StudentEvaluationTimeline::VIEWS, 0) : null;
+        $evaluationTimeline = $isEvaluation ? new StudentEvaluationTimeline(now()) : null;
         $assessmentStudent = app(AssessmentStudent::class);
+        if ($section === 'assignments') {
+            $assignmentCounts = array_fill_keys(['all', ...StudentAssignmentStatus::FILTERS], 0);
+        }
         if ($offerings->isNotEmpty() && ($section === 'overview' || $kindForSection !== null)) {
             $query = AcademicResource::visible()->forStudent($entry)->forLearningPermissions($permissions)
                 ->with('offering.course')->whereIn('academic_offering_id', $offerings->pluck('id'));
             $query->when($kindForSection, fn ($q, $kind) => $kind === 'material' ? $q->whereIn('kind', ['material', 'syllabus', 'audio']) : $q->where('kind', $kind));
-            if ($workSection) {
-                $own = fn ($row) => $row->where('academic_enrollment_id', $entry->id);
-                $attempt = fn ($row) => $own($row)->whereIn('participation', ['submitted', 'late_submission']);
-                $released = fn ($row) => $own($row)->whereNotNull('released_at');
-                $query->when($workFilter['work'] ?? null, fn ($q, $id) => $q->whereKey($id));
-                match ($workFilter['activity'] ?? null) {
-                    'upcoming' => $query->where('opens_at', '>', now()),
-                    'available' => $query->where(fn ($q) => $q->whereNull('opens_at')->orWhere('opens_at', '<=', now()))
-                        ->where(fn ($q) => $q->where(fn ($legacy) => $legacy->whereDoesntHave('assessment')
-                            ->where(fn ($period) => $period->whereNull('closes_at')->orWhere('closes_at', '>=', now())))
-                            ->orWhereHas('assessment', fn ($item) => $item->where('state', 'published')->where('modality', 'submission')
-                                ->where('accepts_until', '>=', now())->where(fn ($group) => $group->where('group_work', false)
-                                    ->orWhereHas('records.group', fn ($membership) => $membership->where('leader_enrollment_id', $entry->id)))))
-                        ->whereDoesntHave('assessment.records', $attempt)->whereDoesntHave('submissions', $own),
-                    'submitted' => $query->where(fn ($q) => $q->whereHas('assessment.records', $attempt)->orWhereHas('submissions', $own)),
-                    'grading' => $query->whereHas('assessment', fn ($q) => $q->where('state', 'closed')->whereDoesntHave('records', $released)),
-                    'corrected' => $permissions['results_view']['allowed'] ? $query->whereHas('assessment.records', $released) : $query->whereRaw('1 = 0'),
-                    default => null,
-                };
-                $page = $query->orderByDesc('id')->paginate(25, ['*'], 'work_page')->withQueryString();
-                $workPagination = ['links' => $page->linkCollection()];
-                $rows = $page->getCollection();
+            if ($section === 'assignments') {
+                if (isset($workFilter['work'])) {
+                    $rows = $query->whereKey($workFilter['work'])->get();
+                } else {
+                    $statuses = new StudentAssignmentStatus($entry, $permissions['assignments_submit']['allowed'], $permissions['results_view']['allowed']);
+                    $assignmentCounts = $statuses->counts($query);
+                    $page = $statuses->filter($query, $workFilter['activity'] ?? null)->orderByDesc('id')->paginate(25, ['*'], 'work_page')->withQueryString();
+                    $workPagination = ['links' => $page->linkCollection()];
+                    $rows = $page->getCollection();
+                }
+                [$participants, $groupCopies] = $assessmentStudent->context($rows, $entry);
+            } elseif ($evaluationTimeline) {
+                $query = $evaluationTimeline->query($query)->with('session.registeredRoom');
+                if ($evaluationCounts !== null) {
+                    foreach (StudentEvaluationTimeline::VIEWS as $view) {
+                        $evaluationCounts[$view] = $evaluationTimeline->filter(clone $query, $view)->count();
+                    }
+                }
+                $evaluationTimeline->selectStatus($query);
+                if (isset($workFilter['work'])) {
+                    $rows = $query->whereKey($workFilter['work'])->get();
+                    if (! isset($workFilter['view']) && ! isset($workFilter['activity'])
+                        && in_array($rows->first()?->evaluation_status, ['past', 'cancelled'], true)) {
+                        $evaluationView = 'past';
+                    }
+                } elseif (isset($workFilter['activity']) && ! isset($workFilter['view'])) {
+                    $evaluationTimeline->legacyFilter($query, $workFilter['activity'], $entry, $permissions['results_view']['allowed']);
+                    $page = $query->orderByDesc('academic_resources.id')->paginate(25, ['*'], 'work_page')->withQueryString();
+                    $workPagination = ['links' => $page->linkCollection()];
+                    $rows = $page->getCollection();
+                } else {
+                    $evaluationTimeline->filter($query, $evaluationView);
+                    $page = $evaluationTimeline->sorted($query, $evaluationView)->paginate(25, ['*'], 'work_page')->withQueryString();
+                    $workPagination = ['links' => $page->linkCollection()];
+                    $rows = $page->getCollection();
+                }
                 [$participants, $groupCopies] = $assessmentStudent->context($rows, $entry);
             } else {
                 $rows = $query->get();
@@ -177,10 +258,10 @@ class StudentPortalController extends Controller
             $availableKinds = $permissions['materials_download']['allowed'] ? AcademicResource::CONTENT_KINDS : ['online', 'video'];
             $workSupports = $workSection && $permissions[$section === 'assignments' ? 'assignments_submit' : 'evaluations_participate']['allowed']
                 ? AcademicResource::visible()->forStudent($entry)->whereIn('supplementary_for_id', $rows->modelKeys())
-                    ->whereIn('kind', $availableKinds)->orderBy('position')->orderBy('id')->get(['id', 'kind', 'title', 'path', 'supplementary_for_id'])
+                    ->whereIn('kind', $availableKinds)->orderBy('position')->orderBy('id')->get(['id', 'kind', 'title', 'path', 'filename', 'size_bytes', 'supplementary_for_id'])
                     ->groupBy('supplementary_for_id')
                 : collect();
-            $resources = $rows->map(function ($r) use ($entry, $permissions, $submissions, $section, $workSupports, $workSection, $participants, $groupCopies, $assessmentStudent) {
+            $resources = $rows->map(function ($r) use ($entry, $permissions, $submissions, $section, $workSupports, $workSection, $participants, $groupCopies, $assessmentStudent, $evaluationTimeline) {
                 $feature = $workSection ? AssessmentAccess::feature($r) : LearningAccess::fileFeature($r);
                 if (($permissions[$feature]['visible'] ?? true) === false) {
                     return null;
@@ -194,17 +275,29 @@ class StudentPortalController extends Controller
                 if ($workSection && ! $allowed && ! $assessment && $r->assessment) {
                     $submission = null;
                 }
+                $assignment = $section === 'assignments' ? $this->assignmentPresentation($r, $assessment, $submission, $allowed) : null;
+                $evaluation = $evaluationTimeline?->presentation($r, $assessment, $allowed);
 
-
-                return ['id' => $r->id, 'kind' => $r->kind, 'title' => $r->kind === 'result' && ! $allowed ? 'Résultat publié (accès soumis à une règle administrative)' : $r->title, 'body' => $allowed && $section !== 'overview' ? $r->body : null, 'course' => $this->access->reference($entry, $r->offering->course)['title'], 'allowed' => $allowed, 'reason' => $permissions[$feature]['reason'], 'download_url' => $r->path && $allowed ? '/dashboard/student/resources/'.$r->id.'/download?academic='.$entry->id : null, 'opens_at' => $r->opens_at, 'closes_at' => $r->closes_at, 'assessment' => $assessment, 'supports' => $workSupports->get($r->id, collect())->map(fn ($item) => [
+                return ['id' => $r->id, 'kind' => $r->kind, 'title' => $r->kind === 'result' && ! $allowed ? 'Résultat publié (accès soumis à une règle administrative)' : $r->title, 'body' => $allowed && $section !== 'overview' ? $r->body : null, 'course' => $this->access->reference($entry, $r->offering->course)['title'], 'allowed' => $allowed, 'reason' => $permissions[$feature]['reason'], 'download_url' => $r->path && $allowed ? '/app/dashboard/student/resources/'.$r->id.'/download?academic='.$entry->id : null, 'opens_at' => $r->opens_at, 'closes_at' => $r->closes_at, 'assessment' => $assessment, 'assignment' => $assignment, 'evaluation' => $evaluation, 'supports' => $workSupports->get($r->id, collect())->map(fn ($item) => [
                     'id' => $item->id, 'title' => $item->title,
-                    'url' => route('dashboard.student.courses.show', ['course' => $r->offering->course_id, 'section' => match ($item->kind) { 'online' => 'online', 'video' => 'videos', default => 'files' }, 'academic' => $entry->id, 'support' => $item->id]),
+                    'url' => route('dashboard.student.courses.show', ['course' => $r->offering->course_id, 'section' => match ($item->kind) {
+                        'online' => 'online', 'video' => 'videos', default => 'files'
+                    }, 'academic' => $entry->id, 'support' => $item->id]),
                     'download_url' => $item->path ? route('dashboard.student.resources.download', ['resource' => $item->id, 'academic' => $entry->id]) : null,
-                ]), 'submission' => $submission ? ['id' => $submission->id, 'body' => $submission->body, 'version' => $submission->version, 'submitted_at' => $submission->updated_at, 'filename' => $submission->filename, 'download_url' => $submission->path ? '/dashboard/student/submissions/'.$submission->id.'/download?academic='.$entry->id : null] : null];
+                    'filename' => $item->filename, 'size_bytes' => $item->size_bytes === null ? null : (int) $item->size_bytes,
+                ]), 'submission' => $submission ? ['id' => $submission->id, 'body' => $submission->body, 'version' => $submission->version, 'submitted_at' => $submission->updated_at, 'filename' => $submission->filename, 'download_url' => $submission->path ? '/app/dashboard/student/submissions/'.$submission->id.'/download?academic='.$entry->id : null] : null];
             })->filter()->values();
         }
-        $weekInput = in_array($section, ['schedule', 'overview'], true) ? $request->validate(['week' => 'nullable|date_format:Y-m-d']) : [];
-        $scheduleWeek = \Carbon\CarbonImmutable::parse($weekInput['week'] ?? now('Africa/Kinshasa')->toDateString(), 'Africa/Kinshasa')->startOfWeek();
+        if ($workSection && isset($workFilter['work'])) {
+            abort_if($resources->isEmpty(), 404);
+        }
+        $scheduleRules = match ($section) {
+            'schedule' => ['week' => 'nullable|date_format:Y-m-d', 'day' => 'nullable|date_format:Y-m-d', 'view' => 'nullable|in:week,list,exams'],
+            'overview' => ['week' => 'nullable|date_format:Y-m-d'],
+            default => [],
+        };
+        $scheduleInput = $scheduleRules ? $request->validate($scheduleRules) : [];
+        $scheduleWeek = CarbonImmutable::parse($scheduleInput['week'] ?? $scheduleInput['day'] ?? now('Africa/Kinshasa')->toDateString(), 'Africa/Kinshasa')->startOfWeek();
         $calendarEvents = in_array($section, ['schedule', 'overview'], true) && $permissions['schedule_view']['allowed']
             ? AcademicCalendarEvent::where('academic_year_id', $entry->academic_year_id)
                 ->whereIn('category', ['exam', 'resit'])
@@ -214,37 +307,43 @@ class StudentPortalController extends Controller
                 ->get(['id', 'title', 'category', 'start_date', 'end_date'])
                 ->map(fn (AcademicCalendarEvent $event) => $event->toArray() + ['category_label' => AcademicCalendarEvent::CATEGORIES[$event->category]])
             : [];
-        $sessionsQuery = $this->access->sessions($entry)->with(['successor:id,replaces_session_id,starts_at', 'offering.course', 'offering.professor', 'offering.assignments.professor']);
+        $sessionsQuery = $this->access->sessions($entry)->with(['successor:id,replaces_session_id,starts_at', 'registeredRoom:id,name,building', 'offering.course', 'offering.professor', 'offering.assignments.professor']);
         if ($section === 'schedule') {
             $sessionsQuery->where('starts_at', '<', $scheduleWeek->addWeek()->utc())->where('ends_at', '>', $scheduleWeek->utc());
         } else {
             $sessionsQuery->whereNull('cancelled_at')->where('ends_at', '>=', now('Africa/Kinshasa')->startOfWeek()->utc())->limit(50);
         }
-        $sessions = in_array($section, ['overview', 'schedule'], true) ? $sessionsQuery->orderBy('starts_at')->get() : collect();
+        $sessions = in_array($section, ['overview', 'schedule'], true) ? $sessionsQuery->orderBy('starts_at')->orderBy('id')->get() : collect();
         $sessionContent = $offerings->isNotEmpty() && $sessions->isNotEmpty()
             ? AcademicResource::visible()->forStudent($entry)->forLearningPermissions($permissions)->whereIn('academic_offering_id', $offerings->pluck('id'))
                 ->whereIn('kind', $permissions['materials_download']['allowed'] ? AcademicResource::CONTENT_KINDS : ['online', 'video'])
                 ->whereIn('academic_session_id', $sessions->pluck('id'))->distinct()->pluck('academic_session_id')->flip()
             : collect();
-        $sessions = $sessions->map(fn ($s) => [
-            'id' => $s->id, 'course' => $this->access->reference($entry, $s->offering->course)['title'], 'starts_at' => $s->starts_at, 'ends_at' => $s->ends_at, 'room' => $s->room,
-            'resource_url' => $sessionContent->has($s->id) ? route('dashboard.student.courses.show', ['course' => $s->offering->course_id, 'section' => 'online', 'academic' => $entry->id, 'session' => $s->id]) : null,
-            'status' => $s->cancelled_at ? ($s->successor ? 'rescheduled' : 'cancelled') : 'published',
-            'teacher' => \App\Modules\Teaching\Application\Services\TeachingTeam::leadNameAt($s->offering, $s->starts_at) ?? $s->offering->course->teacher, 'level_id' => $s->offering->level_id,
-        ]);
-        $detail = $entry->level->detail;
-        $paymentsPage = $section === 'transactions'
-            ? $entry->payments()->withSum(['refunds as refunded_cents' => fn ($q) => $q->where('status', 'executed')], 'amount_cents')->latest('id')->paginate(20, ['*'], 'payments_page')->withQueryString()
-            : null;
-        $payments = ($paymentsPage?->getCollection() ?? collect())->map(fn ($p) => ['id' => $p->id, 'uuid' => $p->uuid, 'reference' => $p->reference, 'amount_cents' => $p->amount_cents, 'currency' => $p->currency, 'refunded_cents' => (int) $p->refunded_cents, 'status' => $p->status, 'method' => $p->method, 'created_at' => $p->created_at, 'confirmed_at' => $p->confirmed_at, 'receipt_url' => $p->confirmed_at ? '/dashboard/student/payments/'.$p->uuid.'/receipt?academic='.$entry->id : null]);
+        $sessions = $sessions->map(function ($session) use ($entry, $sessionContent) {
+            $offering = $session->offering;
+            $reference = $this->access->reference($entry, $offering->course);
+            $semester = $entry->curriculum_version_id ? $reference['semester'] : ($offering->semester ?: $reference['semester']);
+            $room = $session->room ?: $session->registeredRoom?->name;
+            $location = collect([$session->registeredRoom?->building, $room])->filter()->unique()->join(' · ');
 
+            return [
+                'id' => $session->id, 'course_id' => $offering->course_id, 'course' => $reference['title'],
+                'semester' => match ((string) $semester) {
+                    '1' => '1er semestre', '2' => '2e semestre', '' => null, default => (string) $semester
+                },
+                'activity_type' => $session->activity_type, 'starts_at' => $session->starts_at, 'ends_at' => $session->ends_at, 'room' => $room, 'location' => $location ?: null,
+                'resource_url' => $sessionContent->has($session->id) ? route('dashboard.student.courses.show', ['course' => $offering->course_id, 'section' => 'online', 'academic' => $entry->id, 'session' => $session->id]) : null,
+                'status' => $session->cancelled_at ? ($session->successor ? 'rescheduled' : 'cancelled') : 'published',
+                'teacher' => TeachingTeam::leadNameAt($offering, $session->starts_at) ?? $offering->course->teacher, 'level_id' => $offering->level_id,
+            ];
+        });
+        $detail = $entry->level->detail;
         $statement = $this->finance->statement($entry);
         $balance = $statement['balance'];
-        $photoUrl = $entry->profile->photo_path ? '/dashboard/student/profile/photo?academic='.$entry->id.'&v='.$entry->profile->updated_at->timestamp : null;
-        if (! $photoUrl) {
-            $photo = $entry->application->documents()->where('key', 'like', '%photo%')->where('review_status', 'accepted')->where('mime', 'like', 'image/%')->first();
-            $photoUrl = $photo ? route('dashboard.enrollments.documents.preview', $photo->uuid) : null;
-        }
+        $financeActivity = app(StudentFinanceActivity::class);
+        $financeView = $section === 'transactions' ? ($request->query('view') === 'receipts' ? 'receipts' : 'history') : null;
+        $paymentsPage = $financeView !== null ? $financeActivity->transactions($entry, $statement['kind_titles'], $financeView === 'receipts') : null;
+        $studentChrome = $this->portalContext->forEnrollment($entry, $permissions, $currentYearId);
 
         $progression = in_array($section, ['overview', 'academics', 'fees'], true)
             ? AcademicProgression::with(['level:id,title', 'academicYear:id,title,status', 'target:id,enrollment_status'])
@@ -256,10 +355,14 @@ class StudentPortalController extends Controller
             ->whereIn('status', ['approved', 'refused'])->latest('decided_at')->latest('id')->limit(20)
             ->get()->map(fn ($case) => $case->only(['reference', 'kind', 'status', 'decided_at'])) : [];
         $officialProgress = $section === 'academics' && $permissions['results_view']['allowed']
-            ? app(\App\Modules\Results\Application\ResultInputs::class)->latest($entry) : null;
+            ? app(ResultInputs::class)->latest($entry) : null;
+
+        $courseResults = $section === 'courses' && $permissions['results_view']['allowed']
+            ? app(StudentResultPeriods::class)->publishedCredits($entry) : null;
 
         return Inertia::render('dashboard/student/Portal', [
             'lifecycle' => $lifecycle,
+            'course_credits' => $section === 'courses' ? $this->courseCredits($entry, $courses, $courseResults) : null,
             'progression_credits' => $officialProgress ? [
                 'earned' => $officialProgress->snapshot['credits']['earned'], 'remaining' => $officialProgress->snapshot['credits']['remaining'],
                 'reference' => $officialProgress->reference,
@@ -279,31 +382,62 @@ class StudentPortalController extends Controller
                 ? $entry->level->departmentOptions()->where('faculty_id', $entry->level->faculty_id)->where('is_active', true)->orderBy('name')->get(['academic_departments.id', 'name'])->makeHidden('pivot')
                 : [],
             'curriculum' => $this->access->curriculumContext($entry),
-            'overview' => $section === 'overview' ? app(\App\Modules\Student\Application\Services\StudentOverviewService::class)->summary($entry, $permissions, $balance, $scheduleWeek) : null,
+            'overview' => $section === 'overview' ? app(StudentOverviewService::class)->summary($entry, $permissions, $balance, $scheduleWeek) : null,
             'card_eligibility' => $section === 'card' ? (function () use ($entry) {
                 $eligibility = app(\App\Modules\Student\Application\Services\CardEligibility::class);
 
                 return $eligibility->summary($eligibility->query()->findOrFail($entry->id));
             })() : null,
             'profile_form' => $section === 'profile' ? ['values' => array_merge(array_fill_keys(config('student_profile.detail_fields'), null), $entry->profile->personal_details ?? [], $entry->profile->user->only(['first_name', 'last_name', 'post_name', 'gender', 'email'])), 'provinces' => config('student_profile.provinces')] : null,
+            'profile_view' => $section === 'profile' ? match ($request->query('view')) {
+                'personal' => 'personal', 'photo' => 'photo', 'settings' => 'settings', default => 'overview',
+            } : null,
             'welcome_pending' => $entry->profile->welcome_seen_at === null,
-            'section' => $section, 'academic' => ['id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference, 'matricule' => $entry->matricule ?? $entry->profile->matricule, 'application_status' => $entry->application->status->value, 'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status, 'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title, 'group' => $entry->group?->intake?->name, 'fee_category' => $entry->fee_category, 'name' => implode(' ', array_filter([$entry->profile->user->first_name, $entry->profile->user->post_name, $entry->profile->user->last_name])), 'email' => $entry->profile->user->email, 'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $photoUrl],
-            'contexts' => $entry->profile->enrollments()->with(['level.faculty', 'academicYear'])->get()->map(fn ($e) => ['id' => $e->id, 'label' => $e->level->title.' · '.$e->level->faculty->name.' · '.$e->academicYear->title]),
-            'finance_schedule' => $section === 'fees' ? collect($statement['schedules'])->flatten(1)->values() : [],
+            'section' => $section, 'academic' => ['id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference, 'matricule' => $studentChrome['matricule'], 'application_status' => $entry->application->status->value, 'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status, 'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title, 'group' => $entry->group?->intake?->name, 'fee_category' => $entry->fee_category, 'name' => $studentChrome['name'], 'email' => $entry->profile->user->email, 'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $studentChrome['photo_url']],
+            'studentChrome' => $studentChrome,
+            'finance_schedule' => $section === 'fees' ? collect($statement['schedules'])->flatten(1)->sortBy(fn ($line) => $line['due_at'] ?? '9999-12-31')->values() : [],
+            'finance_details' => $section === 'fees' ? fn () => $financeActivity->overview($entry, $statement) : null,
+            'finance_view' => $financeView,
             'payments_pagination' => ['links' => $paymentsPage?->linkCollection() ?? []],
             'permissions' => $permissions, 'balance' => $balance, 'obligations' => $entry->obligations()->get(['id', 'title', 'amount_cents', 'due_at', 'installment']),
             'tariffs' => collect(['national' => [$detail?->price_national_first, $detail?->price_national_second], 'foreign' => [$detail?->price_foreign_first, $detail?->price_foreign_second]])->map(fn ($values) => array_map(fn ($value) => $value !== null && $entry->currency === config('student.currency') ? \App\Modules\Student\Application\Services\Money::cents($value) : null, $values)),
             'official_results' => $section === 'results' ? app(\App\Modules\Results\Infrastructure\Http\StudentResultsController::class)->presentation($request, $entry) : null,
             'document_center' => in_array($section, ['documents', 'card'], true)
-                ? app(\App\Modules\Documents\Application\DocumentQueries::class)->student($entry, $section) : null,
-            'work_archive' => $section === 'documents' ? $submissions->values()->map(fn ($work) => ['id' => $work->id, 'title' => $work->resource->title, 'body' => $work->body, 'version' => $work->version, 'submitted_at' => $work->updated_at, 'filename' => $work->filename, 'download_url' => $work->path ? '/dashboard/student/submissions/'.$work->id.'/download?academic='.$entry->id : null]) : [],
-            'payments' => $payments, 'adjustments' => $this->finance->activeAdjustments($entry)->map(fn ($a) => $a->only(['id', 'type', 'amount_cents', 'funding_source', 'feature', 'starts_at', 'expires_at', 'schedule'])),
+                ? app(DocumentQueries::class)->student($entry, $section) : null,
+            'document_library' => $section === 'documents' ? fn () => app(StudentDocumentLibrary::class)
+                ->forStudent($entry, StudentDocumentLibrary::filter($request->query('category'))) : null,
+            'payments' => $paymentsPage?->items() ?? [], 'adjustments' => $this->finance->activeAdjustments($entry)->map(fn ($a) => $a->only(['id', 'type', 'fee_kind', 'amount_cents', 'funding_source', 'feature', 'starts_at', 'expires_at', 'schedule'])),
             'schedule_week' => $scheduleWeek->toDateString(),
+            'schedule_day' => $scheduleInput['day'] ?? null,
+            'schedule_view' => $scheduleInput['view'] ?? 'week',
             'calendar_events' => $calendarEvents,
             'courses' => $courses, 'sessions' => $sessions, 'upcoming_sessions' => $sessions->filter(fn ($session) => $session['ends_at']->gte(now()))->values(), 'resources' => $resources, 'work_pagination' => $workPagination, 'activity_filter' => $workFilter['activity'] ?? null,
-            'requests' => $section === 'requests' ? ServiceRequest::where('academic_enrollment_id', $entry->id)->latest()->get(['id', 'category', 'subject', 'body', 'status', 'response', 'created_at']) : [],
+            'work_id' => isset($workFilter['work']) ? (int) $workFilter['work'] : null, 'assignment_counts' => $assignmentCounts,
+            'evaluation_view' => $evaluationView, 'evaluation_counts' => $evaluationCounts,
+            'scolarite' => in_array($section, ['services', 'requests'], true) ? fn () => app(StudentScolarite::class)->page($request, $entry, $permissions, $section) : null,
             'success' => session('success'),
         ]);
+    }
+
+    private function assignmentPresentation(AcademicResource $resource, ?array $assessment, ?AcademicSubmission $submission, bool $allowed): array
+    {
+        $now = now();
+        $status = $assessment['status'] ?? match (true) {
+            $submission !== null => 'submitted',
+            $resource->opens_at?->gt($now) => 'upcoming',
+            $resource->closes_at?->lt($now) => 'ended',
+            default => 'available',
+        };
+        $canSubmit = $assessment['can_submit'] ?? ($allowed && ! $resource->assessment
+            && ! $resource->offering->archived_at && ! $resource->opens_at?->gt($now) && ! $resource->closes_at?->lt($now));
+
+        return [
+            'status' => $status,
+            'can_submit' => $canSubmit,
+            'teacher' => $assessment['teacher'] ?? $resource->offering->professor?->full_name ?? $resource->offering->course->teacher,
+            'filename' => $allowed ? $resource->filename : null,
+            'size_bytes' => $allowed && $resource->size_bytes !== null ? (int) $resource->size_bytes : null,
+        ];
     }
 
     public function download(Request $request, int $resource, LearningFiles $files)
@@ -320,12 +454,13 @@ class StudentPortalController extends Controller
     {
         $entry = $this->context($request);
         $resource = $this->resource($entry, $id);
-        $this->requireFeature($entry, LearningAccess::fileFeature($resource));
+        $this->requireFeature($entry, $resource->kind === 'assignment' ? 'assignments_submit' : LearningAccess::fileFeature($resource));
         if ($feature = LearningAccess::parentFeature($resource)) {
             $this->requireFeature($entry, $feature);
         }
         if ($inline) {
-            abort_unless(in_array($resource->kind, AcademicResource::CONTENT_KINDS, true), 404);
+            abort_unless(in_array($resource->kind, AcademicResource::CONTENT_KINDS, true)
+                || ($resource->kind === 'announcement' && StudentAnnouncements::previewable($resource)), 404);
         }
         $response = $files->stream($resource->only(AcademicResource::EDITION_FIELDS), $inline);
         if (! $inline && $request->isMethod('GET') && ! $request->headers->has('Range')
@@ -342,19 +477,51 @@ class StudentPortalController extends Controller
         $resource = $this->resource($entry, $resource);
         abort_unless(in_array($resource->kind, ['assignment', 'evaluation'], true), 404);
         $this->requireFeature($entry, AssessmentAccess::feature($resource));
-        $data = $request->validate([
+        $returnTo = $this->workReturnUrl($request, $entry, $resource);
+        $rules = [
             'body' => 'required_without:file|nullable|string|max:20000',
-            'file' => 'nullable|file|extensions:pdf,jpg,jpeg,png,webp|max:'.\App\Support\DocumentUploadLimit::kilobytes(),
+            'file' => 'nullable|file|max:'.DocumentUploadLimit::kilobytes(),
             'operation_key' => 'nullable|uuid', 'expected_version' => 'nullable|integer|min:0',
-        ]);
-        $submissions->submit($entry, $resource, $data, $request->file('file'), $request->user()->id);
+        ];
+        try {
+            $data = $request->validate($rules);
+            $submissions->submit($entry, $resource, $data, $request->file('file'), $request->user()->id);
+        } catch (ValidationException $exception) {
+            if ($returnTo) {
+                $exception->redirectTo($returnTo);
+            }
+            throw $exception;
+        }
 
-        return back()->with('success', 'Votre travail a été transmis.');
+        return ($returnTo ? redirect()->to($returnTo, 303) : back())->with('success', 'Votre travail a été transmis.');
+    }
+
+    private function workReturnUrl(Request $request, AcademicEnrollment $entry, AcademicResource $resource): ?string
+    {
+        $section = match ($resource->kind) {
+            'assignment' => $request->boolean('assignment_detail') ? 'assignments' : null,
+            'evaluation' => $request->boolean('evaluation_detail') ? 'evaluations' : null,
+            default => null,
+        };
+        if ($section === null) {
+            return null;
+        }
+        $activity = $request->query('activity');
+        $view = $request->query('view');
+        $page = filter_var($request->query('work_page'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 2]]);
+
+        return route('dashboard.student.index', [
+            'section' => $section, 'academic' => $entry->id,
+            'view' => $section === 'evaluations' && in_array($view, StudentEvaluationTimeline::VIEWS, true) ? $view : null,
+            'activity' => in_array($activity, StudentAssignmentStatus::FILTERS, true) ? $activity : null,
+            'work' => $resource->id,
+            'work_page' => $page ?: null,
+        ]);
     }
 
     public function downloadSubmission(Request $request, int $submission, AssessmentAccess $access, AssessmentCopies $copies)
     {
-        $work = $this->ownSubmission($request, $submission, $access);
+        $work = $this->ownSubmission($this->context($request), $submission, $access);
         $data = $request->validate(['version' => 'nullable|integer|min:1']);
 
         return $copies->download($work, isset($data['version']) ? (int) $data['version'] : null);
@@ -362,24 +529,25 @@ class StudentPortalController extends Controller
 
     public function submissionVersion(Request $request, int $submission, int $version, AssessmentAccess $access, AssessmentCopies $copies)
     {
-        $work = $this->ownSubmission($request, $submission, $access);
+        $entry = $this->context($request);
+        $work = $this->ownSubmission($entry, $submission, $access);
         $edition = $copies->snapshot($work, $version);
-        $parameters = ['submission' => $work->id, 'academic' => $request->query('academic')];
+        $parameters = ['submission' => $work->id, 'academic' => $entry->id];
 
         return Inertia::render('dashboard/student/SubmissionVersion', [
+            'studentChrome' => fn () => $this->portalContext->forEnrollment($entry, $this->access->permissions($entry), $this->portalContext->currentYearId()),
             'title' => $work->resource->title, 'number' => $version, 'current' => (int) $work->version,
             'body' => $edition['body'], 'late' => $edition['late'], 'received_at' => $edition['received_at'],
             'download_url' => $edition['path'] ? route('dashboard.student.submissions.download', $parameters + ['version' => $version]) : null,
             'previous_url' => $version > 1 ? route('dashboard.student.submissions.version', $parameters + ['version' => $version - 1]) : null,
             'next_url' => $version < $work->version ? route('dashboard.student.submissions.version', $parameters + ['version' => $version + 1]) : null,
             'return_url' => route('dashboard.student.index', ['section' => $work->resource->kind === 'evaluation' ? 'evaluations' : 'assignments',
-                'academic' => $request->query('academic'), 'work' => $work->academic_resource_id]),
+                'academic' => $entry->id, 'work' => $work->academic_resource_id]),
         ]);
     }
 
-    private function ownSubmission(Request $request, int $submission, AssessmentAccess $access): AcademicSubmission
+    private function ownSubmission(AcademicEnrollment $entry, int $submission, AssessmentAccess $access): AcademicSubmission
     {
-        $entry = $this->context($request);
         $work = AcademicSubmission::with('resource.assessment')->findOrFail($submission);
         $assessment = $work->resource->assessment;
         if ($assessment) {
@@ -406,8 +574,17 @@ class StudentPortalController extends Controller
     public function requestAssessmentReview(Request $request, int $resource, AssessmentAccess $access)
     {
         $entry = $this->context($request);
-        $data = $request->validate(['body' => 'required|string|min:10|max:6000']);
-        $assessment = $this->resource($entry, $resource)->assessment()->firstOrFail();
+        $resource = $this->resource($entry, $resource);
+        $returnTo = $this->workReturnUrl($request, $entry, $resource);
+        try {
+            $data = $request->validate(['body' => 'required|string|min:10|max:6000']);
+        } catch (ValidationException $exception) {
+            if ($returnTo) {
+                $exception->redirectTo($returnTo);
+            }
+            throw $exception;
+        }
+        $assessment = $resource->assessment()->firstOrFail();
         DB::transaction(function () use ($entry, $assessment, $access, $request, $data) {
             $assessment = $assessment->newQuery()->sharedLock()->findOrFail($assessment->id);
             abort_unless($access->canReadFeedback($entry, $assessment), 404);
@@ -424,7 +601,7 @@ class StudentPortalController extends Controller
             Audit::record($request->user()->id, 'assessment_review_requested', $record, null, ['ticket_id' => $ticket->id, 'revision' => $record->revision]);
         });
 
-        return back(303)->with('success', 'Demande de révision enregistrée.');
+        return ($returnTo ? redirect()->to($returnTo, 303) : back(303))->with('success', 'Demande de révision enregistrée.');
     }
 
     public function receipt(Request $request, string $payment)
@@ -435,9 +612,12 @@ class StudentPortalController extends Controller
         return response()->view('student.receipt', ['payment' => $record, 'academic' => $entry])->header('Cache-Control', 'private, no-store');
     }
 
-    public function requestService(Request $request)
+    public function requestService(Request $request, StudentScolarite $scolarite)
     {
-        $entry = $this->context($request);
+        $entry = $this->context($request, $this->portalContext->currentYearId());
+        if ($request->exists('procedure')) {
+            return $this->submitProcedure($request, $entry, $scolarite);
+        }
         $data = $request->validate(['category' => 'required|in:support,appeal,document,finance', 'subject' => 'required|string|max:180', 'body' => 'required|string|min:10|max:6000']);
         if ($data['category'] === 'document') {
             $this->requireFeature($entry, 'documents_request');
@@ -446,5 +626,45 @@ class StudentPortalController extends Controller
         Audit::record($request->user()->id, 'student_request_created', $ticket);
 
         return back()->with('success', 'Votre demande a été transmise à l’administration.');
+    }
+
+    private function submitProcedure(Request $request, AcademicEnrollment $entry, StudentScolarite $scolarite)
+    {
+        $slug = $request->input('procedure');
+        $procedure = is_string($slug) ? StudentServiceCatalog::find($slug) : null;
+        $appointment = ($procedure['category'] ?? null) === 'appointment';
+        $returnUrl = route('dashboard.student.index', ['section' => 'services', 'academic' => $entry->id, 'procedure' => $procedure['id'] ?? null]);
+        try {
+            $data = $request->validate([
+                'procedure' => ['required', 'string', Rule::in($procedure ? [$procedure['id']] : [])],
+                'body' => 'required|string|min:10|max:6000',
+                'file' => ($procedure['attachment'] ?? false) ? 'nullable|file|extensions:pdf,jpg,jpeg,png,webp|max:'.DocumentUploadLimit::kilobytes() : 'prohibited',
+                'appointment_slot' => $appointment ? 'required|date_format:Y-m-d\TH:i' : 'prohibited',
+                'operation_key' => 'nullable|uuid',
+            ], messages: [
+                'procedure.in' => 'Choisissez une démarche proposée dans Scolarité.',
+                'body.required' => 'Décrivez votre demande.',
+                'body.min' => 'Votre description doit contenir au moins 10 caractères.',
+                'body.max' => 'Votre description ne peut pas dépasser 6 000 caractères.',
+                'file.extensions' => 'Le justificatif doit être un fichier PDF, JPG, PNG ou WebP.',
+                'file.max' => 'Le justificatif dépasse la taille maximale autorisée.',
+                'appointment_slot.required' => 'Choisissez un créneau libre.',
+                'appointment_slot.date_format' => 'Choisissez un créneau proposé.',
+            ], attributes: ['procedure' => 'démarche', 'body' => 'description', 'file' => 'justificatif', 'appointment_slot' => 'créneau']);
+            $ticket = $scolarite->submit($entry, $procedure, $data, $request->file('file'), $request->user()->id);
+        } catch (ValidationException $error) {
+            throw $error->redirectTo($returnUrl);
+        }
+
+        return redirect()->route('dashboard.student.index', ['section' => 'requests', 'academic' => $entry->id, 'request' => $ticket->id], 303)
+            ->with('success', 'Votre demande a été transmise à l’administration.');
+    }
+
+    public function requestAttachment(Request $request, int $ticket, LearningFiles $files)
+    {
+        $entry = $this->context($request, $this->portalContext->currentYearId());
+        $row = $entry->serviceRequests()->whereKey($ticket)->whereNotNull('request_attachment_path')->firstOrFail();
+
+        return $files->stream(['path' => $row->request_attachment_path, 'filename' => $row->request_attachment_name]);
     }
 }

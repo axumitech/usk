@@ -115,6 +115,15 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                                     ['Nom déclaré', enrollment.snapshot?.name || applicantName(enrollment.student)],
                                     ['Email du dossier', enrollment.snapshot?.email || enrollment.student?.email || '—'],
                                     ['Email du compte', enrollment.student?.email || '—'],
+                                    ['Nationalité déclarée', enrollment.nationality ?? 'Non renseignée'],
+                                    [
+                                        'Catégorie tarifaire',
+                                        enrollment.fee_category === 'national'
+                                            ? 'National'
+                                            : enrollment.fee_category === 'foreign'
+                                              ? 'Étranger'
+                                              : 'À déterminer',
+                                    ],
                                     ['Faculté', enrollment.level?.faculty?.name || '—'],
                                     ['Niveau', enrollment.level?.title || '—'],
                                     ['Année académique', enrollment.academic_year?.title || '—'],
@@ -281,7 +290,7 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                                     className="admin-primary"
                                     disabled={reviewAction.processing}
                                     onClick={() =>
-                                        reviewAction.post(`/dashboard/admin/enrollments/${enrollment.id}/start-analysis`, {
+                                        reviewAction.post(`/app/dashboard/admin/enrollments/${enrollment.id}/start-analysis`, {
                                             preserveScroll: true,
                                             onSuccess: (page) => announce(String(page.props.success || 'Analyse commencée.')),
                                             onError: (errors) => announce(String(Object.values(errors)[0] || 'Action impossible.'), 'error'),
@@ -312,7 +321,7 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                                         className="review-secondary"
                                         disabled={reviewAction.processing}
                                         onClick={() =>
-                                            reviewAction.post(`/dashboard/admin/enrollments/${enrollment.id}/request-corrections`, {
+                                            reviewAction.post(`/app/dashboard/admin/enrollments/${enrollment.id}/request-corrections`, {
                                                 preserveScroll: true,
                                                 onSuccess: (page) => announce(String(page.props.success || 'Demande de corrections enregistrée.')),
                                                 onError: (errors) => announce(String(Object.values(errors)[0] || 'Action impossible.'), 'error'),
@@ -370,7 +379,7 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                         onSubmit={(e) => {
                             e.preventDefault();
                             if (!decision || !reviewed) return;
-                            form.post(`/dashboard/admin/enrollments/${enrollment.id}/${decision}`, {
+                            form.post(`/app/dashboard/admin/enrollments/${enrollment.id}/${decision}`, {
                                 preserveScroll: true,
                                 onSuccess: (page) => {
                                     announce(String(page.props.success || 'Décision enregistrée.'));

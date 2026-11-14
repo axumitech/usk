@@ -10,8 +10,10 @@ use App\Models\Courses;
 use App\Models\Intake;
 use App\Models\LevelDetail;
 use App\Models\Professor;
+use App\Models\Student\AcademicDeliberation;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
+use App\Models\Student\AcademicResultRule;
 use App\Models\Student\AcademicSemester;
 use App\Models\Student\AcademicUnitResult;
 use App\Models\Student\AccessRule;
@@ -19,6 +21,9 @@ use App\Models\Student\CourseRegistration;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
+use App\Modules\Assessment\Application\AssessmentCorrections;
+use App\Modules\Results\Application\OfficialAcquisitions;
+use App\Modules\Results\Application\ResultInputs;
 use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Teaching\Application\Services\CourseAudience;
@@ -44,7 +49,7 @@ class AcademicTeachingTest extends TestCase
 
     private const REASON = 'Décision pédagogique validée par le responsable.';
 
-    private function context(bool $optional = false, bool $prerequisite = false): array
+    private function context(bool $optional = false, bool $prerequisite = false, bool $twoSemesters = false, bool $composite = false): array
     {
         $this->travelTo(Carbon::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
         $student = $this->studentContext();
@@ -56,22 +61,36 @@ class AcademicTeachingTest extends TestCase
         $university = $structure->save('university', $common + ['code' => 'UNI-TEACH', 'name' => 'Université de test'], $admin);
         $entry->level->faculty->forceFill(['university_id' => $university->id])->save();
         $entry->academicYear->forceFill(['university_id' => $university->id])->save();
-        $cycle = $structure->save('cycle', $common + ['code' => 'CUSTOM', 'name' => 'Cycle configurable', 'normal_duration' => 4, 'progression_mode' => 'custom', 'weighting_mode' => 'both', 'periods' => [['code' => 'P1', 'name' => 'Période personnalisée']]], $admin);
+        $periods = $twoSemesters
+            ? [['code' => 'S1', 'name' => 'Semestre 1'], ['code' => 'S2', 'name' => 'Semestre 2']]
+            : [['code' => 'P1', 'name' => 'Période personnalisée']];
+        $cycle = $structure->save('cycle', $common + ['code' => 'CUSTOM', 'name' => 'Cycle configurable', 'normal_duration' => 4, 'progression_mode' => 'custom', 'weighting_mode' => 'both', 'periods' => $periods], $admin);
         $program = $structure->save('program', $common + ['code' => 'P-TEACH', 'name' => 'Programme pédagogique', 'faculty_id' => $entry->level->faculty_id, 'academic_cycle_id' => $cycle->id, 'level_ids' => [$entry->level_id]], $admin);
         $course = $this->subject($entry, 'TEST-EC', 'Matière du catalogue');
         $units = [[
-            'level_id' => $entry->level_id, 'period_code' => 'P1', 'code' => 'UE1', 'name' => 'UE principale',
+            'level_id' => $entry->level_id, 'period_code' => $periods[0]['code'], 'code' => 'UE1', 'name' => 'UE principale',
             'credit_rule' => 'independent', 'expected_credits' => '5.00',
             'items' => [['source_course_id' => $course->id, 'name' => 'EC historique', 'credits' => '3.00', 'coefficient' => '2.250', 'is_optional' => $optional]],
         ]];
+        if ($composite) {
+            $second = $this->subject($entry, 'EC2', 'Applications');
+            $elective = $this->subject($entry, 'EC3', 'Option');
+            $units[0]['items'][] = ['source_course_id' => $second->id, 'credits' => '3.00', 'coefficient' => '1.000'];
+            $units[0]['items'][] = ['source_course_id' => $elective->id, 'credits' => '3.00', 'coefficient' => '1.000', 'is_optional' => true];
+        }
         if ($prerequisite) {
             $before = $this->subject($entry, 'PREREQ', 'Initiation');
             $units[] = ['level_id' => $entry->level_id, 'period_code' => 'P1', 'code' => 'UE0', 'name' => 'UE préalable', 'items' => [['source_course_id' => $before->id, 'credits' => '2.00', 'coefficient' => '1.000']]];
         }
+        if ($twoSemesters) {
+            $next = $this->subject($entry, 'S2-EC', 'Matière du second semestre');
+            $units[] = ['level_id' => $entry->level_id, 'period_code' => 'S2', 'code' => 'UE2', 'name' => 'UE du second semestre',
+                'items' => [['source_course_id' => $next->id, 'name' => 'EC du second semestre', 'credits' => '4.00', 'coefficient' => '1.000']]];
+        }
         $version = $this->publishVersion($admin, $entry, $program, $units);
         app(CurriculumService::class)->bind($version->id, $entry->id, $admin, self::REASON);
 
-        return [$admin, $student, $entry->fresh(), $program, $course, $version, $version->units()->where('code', 'UE1')->sole()->items()->sole(), $units];
+        return [$admin, $student, $entry->fresh(), $program, $course, $version, $version->units()->where('code', 'UE1')->sole()->items()->where('source_course_id', $course->id)->sole(), $units];
     }
 
     private function subject(AcademicEnrollment $entry, string $code, string $title): Courses
@@ -168,7 +187,7 @@ class AcademicTeachingTest extends TestCase
         }
 
         Storage::fake('local');
-        $admin = '/dashboard/admin/academic-results';
+        $admin = '/app/dashboard/admin/academic-results';
         $rulesUrl = $admin.'/versions/'.$version->id.'/rules';
         $configuration = [
             'scale' => 2000, 'precision' => 2, 'rounding' => 'half_up', 'weighting' => 'coefficients',
@@ -197,9 +216,12 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame(500, $result->snapshot['credits']['earned']);
         $state = $admin.'/deliberations/'.$run->id.'/state';
         $move = fn ($action, $extra = []) => $this->post($state, $extra + ['action' => $action, 'revision' => $run->fresh()->revision, 'reason' => self::REASON]);
-        $studentUrl = '/dashboard/student/results?academic='.$entry->id;
-        $pdf = '/dashboard/student/results/official/'.$result->reference.'/report?academic='.$entry->id;
+        $studentUrl = '/app/dashboard/student/results?academic='.$entry->id;
+        $pdf = '/app/dashboard/student/results/official/'.$result->reference.'/report?academic='.$entry->id;
         $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page->where('official_results.selected', null));
+        $coursesUrl = '/app/dashboard/student/courses?academic='.$entry->id;
+        $this->get($coursesUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('course_credits.planned', 500)->where('course_credits.earned', null)->where('course_credits.remaining', null));
         $this->get($pdf)->assertNotFound();
         $this->actingAs($manager);
         $move('open', ['attendance' => [$manager->id]])->assertSessionHasErrors('attendance');
@@ -230,6 +252,9 @@ class AcademicTeachingTest extends TestCase
         $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page
             ->where('official_results.selected.annual', '12.80')->where('official_results.selected.units.0.items.0.grade', '12.80')
             ->missing('official_results.selected.units.0.items.0.sources'));
+        $this->get($coursesUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('course_credits.planned', 500)->where('course_credits.earned', 500)
+            ->where('course_credits.remaining', 0)->where('course_credits.compensated', 0));
         $first = $this->get($pdf)->assertOk()->assertHeader('Content-Type', 'application/pdf')->getContent();
         $this->assertStringStartsWith('%PDF-', $first);
         $this->assertSame($first, $this->get($pdf)->assertOk()->getContent());
@@ -245,7 +270,7 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame($result->id, $progression->academic_official_result_id);
         $this->assertNull($progression->target_enrollment_id);
 
-        $appealUrl = '/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id;
+        $appealUrl = '/app/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id;
         $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303)->assertSessionHasNoErrors();
         $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303);
         $appeal = \App\Models\Student\ServiceRequest::sole();
@@ -299,19 +324,123 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame($first, $this->actingAs($student)->get($pdf)->assertOk()->getContent());
     }
 
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function test_first_semester_can_be_published_before_second_semester_assessments_exist(): void
+    {
+        [$manager, $student, $entry, , , $version, $item] = $context = $this->context(twoSemesters: true, composite: true);
+        $publisher = User::factory()->create();
+        $secretary = User::factory()->create();
+        foreach ([$publisher, $secretary] as $actor) {
+            $actor->assignRole('admin');
+        }
+        foreach (['manage academic results', 'deliberate academic results', 'publish official results'] as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+        $manager->givePermissionTo(['manage academic results', 'deliberate academic results']);
+        $publisher->givePermissionTo('publish official results');
+        $secretary->givePermissionTo('deliberate academic results');
+        $this->actingAs($manager)->put('/app/dashboard/admin/student-academic/'.$entry->id.'/unit-results/'.$item->curriculum_unit_id, [
+            'score' => 16, 'validated' => true,
+        ])->assertSessionHasErrors('score');
+        $studentUrl = '/app/dashboard/student/results?academic='.$entry->id;
+        $coursesUrl = '/app/dashboard/student/courses?academic='.$entry->id;
+        $elective = $item->unit->items()->where('is_optional', true)->sole();
+        $electiveOffer = $this->offer($context, ['curriculum_item_id' => $elective->id]);
+        $electiveAssessment = $electiveOffer->resources()->create(['kind' => 'evaluation', 'title' => 'Épreuve réservée à l’option', 'is_published' => true])
+            ->assessment()->create(['category' => 'exam', 'session_code' => 'ordinaire', 'modality' => 'in_person',
+                'state' => 'published', 'maximum_points' => 2000, 'attempt_limit' => 1]);
+        $weights = [$elective->id => [$electiveAssessment->id => 10000]];
+        foreach ($item->unit->items()->where('is_optional', false)->get() as $component) {
+            $offer = $this->offer($context, ['curriculum_item_id' => $component->id]);
+            app(CourseRegistrationService::class)->sync($offer, $manager, self::REASON);
+            $resource = $offer->resources()->create(['kind' => 'evaluation', 'title' => 'Épreuve du premier semestre', 'is_published' => true]);
+            $assessment = $resource->assessment()->create(['category' => 'exam', 'session_code' => 'ordinaire', 'modality' => 'in_person',
+                'state' => 'closed', 'maximum_points' => 2000, 'attempt_limit' => 1, 'closed_at' => now()]);
+            $assessment->records()->create(['academic_enrollment_id' => $entry->id, 'academic_course_registration_id' => $offer->registrations()->sole()->id,
+                'participation' => 'present', 'correction_state' => 'finalized', 'points' => 1600]);
+            app(AssessmentCorrections::class)->batch($resource, $manager,
+                ['revision' => 1, 'action' => 'validate', 'reason' => self::REASON]);
+            $weights[$component->id] = [$assessment->id => 10000];
+        }
+        $admin = '/app/dashboard/admin/academic-results';
+        $this->actingAs($student)->get($coursesUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('course_credits.planned', 900)
+            ->where('courses', function ($rows) use ($item, $elective) {
+                $courses = collect($rows)->where('unit_id', $item->curriculum_unit_id);
+                $option = $courses->firstWhere('course_id', $elective->source_course_id);
+
+                return $courses->count() === 3 && $courses->every(fn ($course) => $course['unit_is_composite']
+                    && $course['unit_component_count'] === 3 && $course['unit_registered_credits'] === 5 && $course['unit_credits'] === 5)
+                    && $courses->where('registered', true)->count() === 2 && $option['is_optional'] && $option['catalog_only'];
+            }));
+        $this->get('/app/dashboard/student/courses/'.$elective->source_course_id.'?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page
+            ->where('registered', false)->where('course.unit_is_composite', true));
+        $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected', null)
+            ->where('official_results.semesters.0.status', 'awaiting_publication')
+            ->has('official_results.semesters.0.courses', 2)
+            ->where('official_results.semesters.0.courses.0.unit_is_composite', true)
+            ->where('official_results.semesters.0.courses.0.state', 'evaluated')
+            ->where('official_results.semesters.1.courses.0.state', 'pending'));
+        $this->actingAs($manager)->post($admin.'/versions/'.$version->id.'/rules', [
+            'level_id' => $entry->level_id, 'code' => 'S1', 'session_code' => 'ordinaire',
+            'effective_on' => '2026-10-01', 'reference' => 'Règlement semestriel',
+            'configuration' => ['period_code' => 'S1', 'scale' => 2000, 'precision' => 2, 'rounding' => 'half_up',
+                'weighting' => 'coefficients', 'ec_pass' => 1000, 'ue_pass' => 1000, 'compensation' => 'none', 'credit_label' => 'crédits',
+                'allow_equivalence' => false, 'appeal_days' => 7, 'quorum' => 2,
+                'decisions' => ['validated' => ['label' => 'Semestre validé', 'permits_incomplete' => false,
+                    'permits_eliminatory' => false, 'progression' => 'none', 'minimum_credits' => 500]],
+                'items' => $weights],
+        ])->assertStatus(303)->assertSessionHasNoErrors();
+        $rule = AcademicResultRule::sole();
+        $this->actingAs($publisher)->post($admin.'/rules/'.$rule->id.'/approval', ['reason' => self::REASON])->assertStatus(303);
+        $juryForm = ['meeting_at' => '2026-11-10T11:00', 'chair' => $manager->id, 'secretary' => $secretary->id,
+            'members' => [$manager->id, $secretary->id], 'reason' => self::REASON];
+        $prepare = $admin.'/rules/'.$rule->id.'/deliberations';
+        $this->actingAs($manager)->post($prepare, $juryForm + ['period_code' => 'S2'])->assertSessionHasErrors('period_code');
+        $this->post($prepare, $juryForm + ['period_code' => 'S1'])->assertStatus(303)->assertSessionHasNoErrors();
+        $run = AcademicDeliberation::sole();
+        $result = $run->results()->sole();
+        $this->assertSame(['S1'], array_keys($result->snapshot['periods']));
+        $this->assertSame([], $result->snapshot['anomalies']);
+        $state = $admin.'/deliberations/'.$run->id.'/state';
+        $move = fn ($action, $extra = []) => $this->post($state, $extra + ['action' => $action, 'revision' => $run->fresh()->revision, 'reason' => self::REASON]);
+        $move('open', ['attendance' => [$manager->id, $secretary->id]])->assertStatus(303)->assertSessionHasNoErrors();
+        $this->post($admin.'/deliberations/'.$run->id.'/results/'.$result->id.'/decision', [
+            'revision' => $run->fresh()->revision, 'decision' => 'validated', 'reason' => self::REASON,
+        ])->assertStatus(303)->assertSessionHasNoErrors();
+        $move('approve')->assertStatus(303)->assertSessionHasNoErrors();
+        $this->actingAs($publisher);
+        $move('publish')->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertNull(app(ResultInputs::class)->latest($entry));
+        $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.semesters.0.status', 'published')->where('official_results.semesters.0.passed', true)
+            ->where('official_results.semesters.1.status', 'in_progress')->where('official_results.semesters.1.passed', false)
+            ->where('official_results.selected.units.0.requires_all_items', true)
+            ->where('official_results.selected.units.0.earned_credits', 500)
+            ->has('official_results.selected.units.0.items', 2)
+            ->where('official_results.selected.units.0.items.0.grade', '16.00'));
+        $this->get($coursesUrl)->assertInertia(fn (Assert $page) => $page
+            ->where('course_credits.planned', 900)->where('course_credits.earned', 500)->where('course_credits.remaining', 0));
+        $this->get($studentUrl.'&semester=2')->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected_semester', 2)->where('official_results.selected', null));
+        $this->get('/app/dashboard/student/results/official/'.$result->reference.'/transcript?academic='.$entry->id)->assertNotFound();
+    }
+
     public function test_catalog_codes_are_unique_and_archive_preserves_published_references(): void
     {
         [$admin, $student, $entry, , $course, , $item] = $ctx = $this->context();
         $offer = $this->offer($ctx);
         LevelDetail::create(['level_id' => $entry->level_id, 'credit_required' => 60]);
         $data = ['faculty_id' => $entry->level->faculty_id, 'level_id' => $entry->level_id, 'title' => 'Autre cours', 'code' => ' test-ec ', 'credits' => 2, 'semester' => 1];
-        $this->actingAs($admin)->post('/dashboard/admin/course-catalog', $data)->assertSessionHasErrors('code');
-        $this->put('/dashboard/admin/course-catalog/'.$course->id, ['title' => 'Nom courant', 'code' => 'NOUVEAU', 'credits' => 4, 'semester' => 1, 'reason' => self::REASON])->assertSessionHasNoErrors();
-        $this->post('/dashboard/admin/course-catalog/'.$course->id.'/status', ['status' => 'archived', 'reason' => self::REASON])->assertStatus(303);
-        $this->get('/dashboard/admin/course-catalog/'.$course->id)->assertInertia(fn (Assert $page) => $page->component('dashboard/courseCatalog/Show')->where('course.catalog_status', 'archived')->where('uses.data.0.title', 'EC historique'));
+        $this->actingAs($admin)->post('/app/dashboard/admin/course-catalog', $data)->assertSessionHasErrors('code');
+        $this->put('/app/dashboard/admin/course-catalog/'.$course->id, ['title' => 'Nom courant', 'code' => 'NOUVEAU', 'credits' => 4, 'semester' => 1, 'reason' => self::REASON])->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/course-catalog/'.$course->id.'/status', ['status' => 'archived', 'reason' => self::REASON])->assertStatus(303);
+        $this->get('/app/dashboard/admin/course-catalog/'.$course->id)->assertInertia(fn (Assert $page) => $page->component('dashboard/courseCatalog/Show')->where('course.catalog_status', 'archived')->where('uses.data.0.title', 'EC historique'));
         $this->invalid(fn () => $course->fresh()->delete(), 'course');
         app(CourseRegistrationService::class)->sync($offer, $admin, self::REASON);
-        $this->actingAs($student)->get('/dashboard/student/courses/'.$course->id.'?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student/courses/'.$course->id.'?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page
             ->where('course.title', 'EC historique')->where('course.curriculum_item_id', $item->id)->where('course.credits', 3)->where('registered', true));
     }
 
@@ -336,21 +465,21 @@ class AcademicTeachingTest extends TestCase
         $semester = AcademicSemester::create(['academic_year_id' => $entry->academic_year_id, 'number' => 2, 'start_date' => '2027-03-01', 'end_date' => '2027-09-30']);
         $group = $this->group($entry, $program, 'A');
         $base = ['academic_year_id' => $entry->academic_year_id, 'curriculum_item_id' => $item->id, 'class_id' => $group->id, 'academic_semester_id' => $semester->id, 'reason' => self::REASON];
-        $this->actingAs($admin)->post('/dashboard/admin/teaching', $base)->assertStatus(303);
+        $this->actingAs($admin)->post('/app/dashboard/admin/teaching', $base)->assertStatus(303);
         $offer = AcademicOffering::sole();
-        $this->post('/dashboard/admin/teaching', $base)->assertStatus(303);
+        $this->post('/app/dashboard/admin/teaching', $base)->assertStatus(303);
         $this->assertDatabaseCount('academic_offerings', 1);
         $this->assertSame($semester->id, $offer->academic_semester_id);
         $this->assertSame($group->id, $offer->class_id);
-        $this->get('/dashboard/admin/teaching?offering='.$offer->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Index')->where('selected.unit', 'UE principale')->where('selected.status', 'draft'));
-        $this->get('/dashboard/admin/teaching?year='.$entry->academic_year_id.'&program='.$program->id.'&version='.$version->id)
+        $this->get('/app/dashboard/admin/teaching?offering='.$offer->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Index')->where('selected.unit', 'UE principale')->where('selected.status', 'draft'));
+        $this->get('/app/dashboard/admin/teaching?year='.$entry->academic_year_id.'&program='.$program->id.'&version='.$version->id)
             ->assertInertia(fn (Assert $p) => $p->where('items.0.id', $item->id)->where('groups.0.id', $group->id)->where('semesters.0.id', $semester->id));
-        $this->post('/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])->assertSessionHasErrors('offering');
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])->assertSessionHasErrors('offering');
         $wrong = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft']);
-        $this->post('/dashboard/admin/teaching', array_replace($base, ['academic_year_id' => $wrong->id]))->assertSessionHasErrors('academic_semester_id');
+        $this->post('/app/dashboard/admin/teaching', array_replace($base, ['academic_year_id' => $wrong->id]))->assertSessionHasErrors('academic_semester_id');
         $this->invalid(fn () => $offer->update(['class_id' => null]), 'offering');
         $this->assign($offer, $admin, $this->teacher(), 'lead');
-        $this->post('/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])->assertStatus(303);
         $this->assertTrue($offer->fresh()->is_published);
     }
 
@@ -361,13 +490,13 @@ class AcademicTeachingTest extends TestCase
         Storage::fake('local');
         Storage::disk('local')->put('academic-resources/teaching-test.pdf', 'private course bytes');
         $resource = $offer->resources()->create(['kind' => 'material', 'title' => 'Support privé', 'path' => 'academic-resources/teaching-test.pdf', 'filename' => 'teaching-test.pdf', 'is_published' => true]);
-        $courseUrl = '/dashboard/student/courses/'.$course->id.'?academic='.$entry->id;
-        $download = '/dashboard/student/resources/'.$resource->id.'/download?academic='.$entry->id;
+        $courseUrl = '/app/dashboard/student/courses/'.$course->id.'?academic='.$entry->id;
+        $download = '/app/dashboard/student/resources/'.$resource->id.'/download?academic='.$entry->id;
         $this->actingAs($student)->get($courseUrl)->assertNotFound();
         $this->get($download)->assertNotFound();
-        $this->post('/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertForbidden();
-        $this->actingAs($admin)->post('/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
-        $this->post('/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertForbidden();
+        $this->actingAs($admin)->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
         $this->assertDatabaseCount('academic_course_registrations', 1);
         $this->actingAs($student)->get($courseUrl)->assertOk();
         $this->get($download)->assertForbidden();
@@ -375,12 +504,12 @@ class AcademicTeachingTest extends TestCase
         $this->get($download)->assertDownload('teaching-test.pdf');
         AccessRule::create(['academic_year_id' => $entry->academic_year_id, 'feature' => 'assignments_submit', 'mode' => 'open', 'is_active' => true]);
         $assignment = $offer->resources()->create(['kind' => 'assignment', 'title' => 'Travail privé', 'is_published' => true]);
-        $submit = '/dashboard/student/resources/'.$assignment->id.'/submit?academic='.$entry->id;
+        $submit = '/app/dashboard/student/resources/'.$assignment->id.'/submit?academic='.$entry->id;
         $this->post($submit, ['body' => 'Première version privée.'])->assertSessionHasNoErrors();
         $this->post($submit, ['body' => 'Version suivante privée.'])->assertSessionHasNoErrors();
         $registration = CourseRegistration::sole();
-        $this->actingAs($admin)->post('/dashboard/admin/teaching/registrations/'.$registration->id.'/withdraw', ['reason' => self::REASON])->assertStatus(303);
-        $this->post('/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
+        $this->actingAs($admin)->post('/app/dashboard/admin/teaching/registrations/'.$registration->id.'/withdraw', ['reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
         $this->assertDatabaseCount('academic_course_registrations', 1);
         $this->assertNotNull($registration->fresh()->withdrawn_at);
         $this->actingAs($student)->get($download)->assertNotFound();
@@ -393,7 +522,7 @@ class AcademicTeachingTest extends TestCase
     {
         [$admin, $student, $entry, $program, $course] = $context = $this->context();
         $offer = $this->offer($context);
-        $library = '/dashboard/admin/teaching/resources';
+        $library = '/app/dashboard/admin/teaching/resources';
         $this->actingAs($admin)->post($library.'/offerings/'.$offer->id, [
             'operation_key' => (string) Str::uuid(), 'title' => 'Lien de la maquette', 'kind' => 'online', 'url' => 'https://example.test/lecture',
         ])->assertStatus(303);
@@ -409,7 +538,7 @@ class AcademicTeachingTest extends TestCase
         $this->actingAs($outside)->get($library.'?program='.$program->id)->assertInertia(fn (Assert $page) => $page->has('resources.data', 0));
         $this->get($library.'?resource='.$resource->id)->assertForbidden();
 
-        $courseUrl = '/dashboard/student/courses/'.$course->id.'/online';
+        $courseUrl = '/app/dashboard/student/courses/'.$course->id.'/online';
         $this->actingAs($student)->get($courseUrl)->assertNotFound();
         app(CourseRegistrationService::class)->sync($offer, $admin, self::REASON);
         $this->get($courseUrl)->assertInertia(fn (Assert $page) => $page
@@ -433,7 +562,7 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame($repeat->id, $service->register($offer, $entry, $admin, 'repeat', self::REASON)->id);
         $this->assertDatabaseCount('academic_unit_results', 1);
         $this->assertDatabaseCount('academic_course_registrations', 2);
-        $this->actingAs($student)->get('/dashboard/student/courses/'.$course->id)->assertOk();
+        $this->actingAs($student)->get('/app/dashboard/student/courses/'.$course->id)->assertOk();
     }
 
     public function test_other_version_of_same_course_does_not_grant_access_or_inherit_registration(): void
@@ -448,7 +577,7 @@ class AcademicTeachingTest extends TestCase
         $newOffer = $this->offer($ctx, ['curriculum_item_id' => $newItem->id]);
         $this->invalid(fn () => $service->register($newOffer, $entry, $admin, 'mandatory', self::REASON), 'academic_enrollment_id');
         $this->assertSame([$old->id], app(AcademicAccessService::class)->offerings($entry->fresh())->pluck('id')->all());
-        $this->actingAs($student)->get('/dashboard/student/courses/'.$course->id)->assertInertia(fn (Assert $page) => $page->where('course.title', 'EC historique')->where('organization.0.id', $old->id));
+        $this->actingAs($student)->get('/app/dashboard/student/courses/'.$course->id)->assertInertia(fn (Assert $page) => $page->where('course.title', 'EC historique')->where('organization.0.id', $old->id));
     }
 
     public function test_group_change_closes_old_registration_and_keeps_past_session_history(): void
@@ -513,16 +642,18 @@ class AcademicTeachingTest extends TestCase
         $helper->givePermissionTo(['manage courses', 'manage students']);
         $assistant = $this->teacher();
         $this->assign($a, $admin, $assistant, 'assistant');
-        $this->actingAs($admin)->post('/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertForbidden();
+        $this->actingAs($admin)->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertForbidden();
         $admin->givePermissionTo(Permission::findOrCreate('manage users', 'web'));
-        $this->post('/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertStatus(303);
-        $this->post('/dashboard/admin/professors/'.$assistant->id.'/account', ['email' => $helper->email, 'reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertStatus(303);
+        $this->post('/app/dashboard/admin/professors/'.$assistant->id.'/account', ['email' => $helper->email, 'reason' => self::REASON])->assertStatus(303);
         Professor::whereKey([$a->professor_id, $assistant->id])->update(['photo' => 'professors/test-portrait.png']);
-        $this->actingAs($lead)->get('/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Teacher')->has('offerings.data', 1)->where('selected.id', $a->id)->where('canPublish', true)->has('students'));
-        $this->get('/dashboard/teacher?offering='.$b->id)->assertNotFound();
-        $this->post('/dashboard/teacher/'.$a->id.'/links', ['title' => 'Support validé', 'url' => 'https://example.test/support'])->assertStatus(303);
-        $this->actingAs($helper)->get('/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->where('students', null)->where('canPublish', false));
-        $this->post('/dashboard/teacher/'.$a->id.'/links', ['title' => 'Interdit', 'url' => 'https://example.test/interdit'])->assertForbidden();
+        $this->actingAs($lead)->get('/app/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Teacher')
+            ->has('offerings.data', 1)->where('courseTab', 'overview')->where('selected.id', $a->id)->where('canPublish', true)
+            ->where('offerings.data.0.credits', '3.00')->where('students', null));
+        $this->get('/app/dashboard/teacher?offering='.$b->id)->assertNotFound();
+        $this->post('/app/dashboard/teacher/'.$a->id.'/links', ['title' => 'Support validé', 'url' => 'https://example.test/support'])->assertStatus(303);
+        $this->actingAs($helper)->get('/app/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->where('students', null)->where('canPublish', false));
+        $this->post('/app/dashboard/teacher/'.$a->id.'/links', ['title' => 'Interdit', 'url' => 'https://example.test/interdit'])->assertForbidden();
         $this->assertDatabaseCount('academic_resources', 1);
     }
 
@@ -536,9 +667,9 @@ class AcademicTeachingTest extends TestCase
         $outsider->assignRole('admin');
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'AUTRE']);
         $outsider->academicFaculties()->attach($faculty);
-        $this->actingAs($outsider)->post('/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'archive', 'reason' => self::REASON])->assertForbidden();
-        $this->get('/dashboard/admin/teaching?offering='.$offer->id)->assertNotFound();
-        $this->actingAs($admin)->post('/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'archive', 'reason' => self::REASON])->assertStatus(303);
+        $this->actingAs($outsider)->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'archive', 'reason' => self::REASON])->assertForbidden();
+        $this->get('/app/dashboard/admin/teaching?offering='.$offer->id)->assertNotFound();
+        $this->actingAs($admin)->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'archive', 'reason' => self::REASON])->assertStatus(303);
         $this->assertNotNull($offer->fresh()->archived_at);
         $this->assertDatabaseCount('academic_resources', 1);
         $this->assertDatabaseCount('academic_course_registrations', 1);

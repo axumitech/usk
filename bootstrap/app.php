@@ -10,6 +10,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Spatie\Permission\Middleware\PermissionMiddleware;
@@ -24,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->redirectGuestsTo(fn () => route('login.show'));
+        $middleware->redirectUsersTo(fn () => route('dashboard.index'));
         $middleware->prepend([ObserveHttp::class, EnsureApplicationKey::class]);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'usk_audience']);
         $middleware->alias([
@@ -37,13 +40,18 @@ return Application::configure(basePath: dirname(__DIR__))
             SeoResponse::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,
-            AddLinkHeadersForPreloadedAssets::class,
+            AddLinkHeadersForPreloadedAssets::using(24),
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->respond(function (Response $response) {
+        $exceptions->dontFlash('email_current_password');
+        $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
             if ($response->getStatusCode() >= 400) {
                 $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+            }
+
+            if ($request->is('app', 'app/*')) {
+                $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
             }
 
             return $response;

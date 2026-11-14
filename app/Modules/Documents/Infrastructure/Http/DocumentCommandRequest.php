@@ -3,6 +3,8 @@
 namespace App\Modules\Documents\Infrastructure\Http;
 
 use App\Models\Student\OfficialDocumentType;
+use App\Modules\Documents\Application\DocumentQueries;
+use App\Modules\Documents\Application\StudentDocumentLibrary;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +13,32 @@ final class DocumentCommandRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user() !== null;
+    }
+
+    public function libraryUrl(?int $actionAcademic = null): ?string
+    {
+        if (! $this->routeIs('dashboard.student.official-documents.submit', 'dashboard.student.official-documents.transition')
+            || ! $this->query->has('library_academic')) {
+            return null;
+        }
+        $profile = $this->user()?->studentProfile;
+        $display = filter_var($this->query('library_academic'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $academic = $display && $profile?->enrollments()
+            ->whereHas('application', fn ($q) => $q->where('student_id', $profile->user_id))
+            ->whereKey($display)->exists() ? $display : $actionAcademic;
+
+        $view = $this->query('request');
+        $view = in_array($view, DocumentQueries::REQUEST_VIEWS, true) ? $view : null;
+
+        return route('dashboard.student.index', [
+            'section' => 'documents', 'academic' => $academic, 'category' => StudentDocumentLibrary::filter($this->query('category')),
+            'request' => $view,
+        ]).($view ? '#student-document-services' : '');
+    }
+
+    protected function getRedirectUrl()
+    {
+        return $this->libraryUrl() ?? parent::getRedirectUrl();
     }
 
     public function rules(): array

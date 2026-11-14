@@ -7,7 +7,7 @@ use Brick\Math\RoundingMode;
 
 final class ResultCalculator
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     /**
      * Grades and credits enter as integer hundredths. Internal averages stay rational.
@@ -22,6 +22,7 @@ final class ResultCalculator
         $credits = ['planned' => 0, 'registered' => 0, 'earned' => 0, 'compensated' => 0, 'recognized' => 0, 'remaining' => 0];
         foreach ($units as $unit) {
             $period = $unit['period_code'];
+            $isComposite = $unit['is_composite'] ?? count($unit['items']) > 1;
             $unitItems = [];
             $rawGrades = [];
             $itemWeight = 0;
@@ -84,15 +85,17 @@ final class ResultCalculator
             $planned ??= 0;
             $enrolled = $unit['credit_rule'] === 'independent' ? ($registeredCredits > 0 || collect($unitItems)->contains(fn ($item) => isset($registered[$item['id']])) ? $planned : 0) : $registeredCredits;
             $raw = $hasMissing ? null : $this->average($rawGrades);
-            $canCompensate = $rules['compensation'] !== 'none' && $raw && ! $hasEliminatory
+            $canCompensate = ! $isComposite && $rules['compensation'] !== 'none' && $raw && ! $hasEliminatory
                 && collect($unitItems)->every(fn ($item) => $item['raw'] === null || BigRational::of($item['raw'])->isGreaterThanOrEqualTo($rules['compensation_floor']));
             $recognized = $recognitions === count($unitItems);
             $passes = $recognized || ($credited && $raw && $raw->isGreaterThanOrEqualTo($rules['ue_pass']));
+            $ordinaryAcquisitionPreserved = $isComposite && $this->preservesOrdinaryCompensation($unitItems, $ordinary);
             $status = match (true) {
                 $hasMissing => 'incomplete',
                 $hasEliminatory => 'eliminatory',
                 $recognized => 'recognized',
                 (bool) $passes => 'passed',
+                $ordinaryAcquisitionPreserved => 'compensated',
                 $canCompensate && $raw->isGreaterThanOrEqualTo($rules['ue_pass']) => 'compensated',
                 default => 'failed',
             };
@@ -108,10 +111,11 @@ final class ResultCalculator
             $eliminatory = $eliminatory || $hasEliminatory;
             $output[$unit['id']] = [
                 'id' => $unit['id'], 'name' => $unit['name'], 'code' => $unit['code'], 'period_code' => $period, 'items' => $unitItems,
+                'is_composite' => $isComposite,
                 'credits' => $planned, 'registered_credits' => $enrolled, 'raw' => $raw ? (string) $raw->simplified() : null,
                 'grade' => $this->format($raw, $rules), 'status' => $status,
                 'recognized_credits' => $unit['credit_rule'] === 'independent' ? ($recognized ? $planned : 0) : $recognizedCredits, 'compensable' => (bool) $canCompensate,
-            ];
+            ] + ($ordinaryAcquisitionPreserved && $status === 'compensated' ? ['ordinary_acquisition_preserved' => true] : []);
         }
         if ($output === []) {
             $anomalies[] = 'Aucune UE attendue dans ce dossier.';
@@ -154,6 +158,26 @@ final class ResultCalculator
             'annual' => $this->format($anomalies === [] ? $this->average($annual) : null, $rules),
             'anomalies' => $anomalies, 'eliminatory' => $eliminatory,
         ];
+    }
+
+    private function preservesOrdinaryCompensation(array $items, array $ordinary): bool
+    {
+        if ($ordinary === []) {
+            return false;
+        }
+
+        // Carry over an official compensation only when the whole original UE is reused unchanged.
+        $ids = array_column($items, 'id');
+        foreach ($items as $item) {
+            $previous = $ordinary[$item['id']] ?? [];
+            $previousIds = $previous['unit_item_ids'] ?? [];
+            if (($item['selected'] ?? null) !== 'ordinary' || ($previous['unit_status'] ?? null) !== 'compensated'
+                || count($previousIds) !== count($ids) || array_diff($previousIds, $ids) !== []) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function item(array $rules, int $id, array $grades, ?array $ordinary): array

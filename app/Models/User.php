@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Student\StudentProfile;
 use App\Modules\Blog\Infrastructure\Persistence\Eloquent\Models\PostModel;
+use App\Modules\Identity\Domain\Nationality;
 use Illuminate\Auth\MustVerifyEmail; // le trait ajoute hasVerifiedEmail(), markEmailAsVerified()...
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -24,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         'first_name',
         'post_name',
         'gender',
+        'nationality_code',
         'email',
         'password',
     ];
@@ -67,6 +69,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function studentProfile()
     {
         return $this->hasOne(StudentProfile::class);
+    }
+
+    public function feeCategoryFromNationality(): ?string
+    {
+        return Nationality::feeCategory($this->nationality_code);
     }
 
     public function enrollments()

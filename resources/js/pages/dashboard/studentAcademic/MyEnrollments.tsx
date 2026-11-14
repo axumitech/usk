@@ -1,11 +1,13 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import type { StudentChromeData } from '@/components/student/StudentChrome';
 import { labels } from '@/components/student/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, ArrowUpRight, BookOpen, CalendarDays, ClipboardList, GraduationCap, History, Info } from 'lucide-react';
 import '../../../../css/dashboard/my-enrollments.css';
 import '../../../../css/student-portal.css';
 type Props = {
+    studentChrome?: StudentChromeData | null;
     entries: {
         data: {
             id: number;
@@ -26,13 +28,13 @@ type Props = {
 };
 const date = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' });
 
-export default function MyEnrollments({ entries, changes }: Props) {
+export default function MyEnrollments({ entries, changes, studentChrome }: Props) {
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Mes inscriptions académiques" />
             <div className="student-portal my-enrollments">
                 <header className="my-enrollments-heading">
-                    <Link className="me-link" href={route('dashboard.student.index')}>
+                    <Link className="me-link" href={route('dashboard.student.index', { academic: studentChrome?.academic_id ?? undefined })}>
                         <ArrowLeft size={16} aria-hidden="true" /> Mon espace étudiant
                     </Link>
                     <h1>Mes inscriptions académiques</h1>

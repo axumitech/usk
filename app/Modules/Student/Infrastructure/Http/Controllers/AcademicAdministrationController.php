@@ -3,8 +3,12 @@
 namespace App\Modules\Student\Infrastructure\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TransactionalEmail;
+use App\Models\AcademicStructure\AcademicDepartment;
+use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\Student\AcademicAudit;
 use App\Models\Student\AcademicEnrollment;
+use App\Models\Student\AcademicLifecycleCase;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\AcademicProgression;
 use App\Models\Student\AcademicResource;
@@ -14,19 +18,31 @@ use App\Models\Student\AccessRule;
 use App\Models\Student\CourseException;
 use App\Models\Student\FinancialAdjustment;
 use App\Models\Student\ServiceRequest;
+use App\Models\Student\StudentObligation;
 use App\Models\Student\StudentPayment;
 use App\Modules\Assessment\Application\AssessmentCopies;
+use App\Modules\Documents\Application\DocumentAccess;
+use App\Modules\Documents\Application\DocumentQueries;
+use App\Modules\Identity\Domain\Nationality;
+use App\Modules\Progression\Application\AcademicLifecycle;
+use App\Modules\Results\Application\ResultInputs;
+use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\AcademicProgressionService;
 use App\Modules\Student\Application\Services\AcademicRuleService;
+use App\Modules\Student\Application\Services\AcademicStaffScope;
 use App\Modules\Student\Application\Services\Audit;
-use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Student\Application\Services\StudentDossierService;
+use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentRequestService;
+use App\Modules\Teaching\Application\Services\CourseAudience;
 use App\Modules\Teaching\Application\Services\LearningContent;
 use App\Modules\Teaching\Application\Services\TeachingScope;
+use App\Support\DocumentUploadLimit;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -34,7 +50,7 @@ class AcademicAdministrationController extends Controller
 {
     private const SUBMISSION_ROUTES = 'dashboard.admin.student-academic.submissions.';
 
-    public function __construct(private StudentFinanceService $finance) {}
+    public function __construct(private StudentFinanceService $finance, private StudentRequestService $studentRequests) {}
 
     private function authorizeStaff(Request $r, string $permission): void
     {
@@ -51,7 +67,11 @@ class AcademicAdministrationController extends Controller
             'view' => 'nullable|in:table,grid', 'tab' => 'nullable|in:students,finance,rules,teaching,requests',
             'history' => 'nullable|in:1', 'year' => 'nullable|integer|exists:academic_years,id',
             'program' => 'nullable|integer|exists:academic_programs,id',
-            'enrollment_status' => ['nullable', Rule::in(array_keys(\App\Modules\Student\Application\Services\AcademicEnrollmentService::TRANSITIONS))],
+            'request_category' => ['nullable', Rule::in(array_keys(StudentRequestService::staffCategories()))],
+            'request_status' => 'nullable|in:open,resolved,cancelled',
+            'requests_page' => 'nullable|integer|min:1',
+            'ticket' => 'nullable|integer|min:1',
+            'enrollment_status' => ['nullable', Rule::in(array_keys(AcademicEnrollmentService::TRANSITIONS))],
         ]);
         $tabPermission = match ($filters['tab'] ?? 'students') {
             'finance' => 'manage academic finance',
@@ -117,7 +137,7 @@ class AcademicAdministrationController extends Controller
 
         $allowedEntries = \App\Modules\Student\Application\Services\AcademicStaffScope::apply(AcademicEnrollment::query(), $r->user());
         $scoped = $r->user()->academicFaculties()->exists();
-        $teachingScope = \App\Modules\Teaching\Application\Services\TeachingScope::offerings($r->user());
+        $teachingScope = TeachingScope::offerings($r->user());
         $auditQuery = AcademicAudit::with('actor:id,first_name,last_name');
         if (!$finance) $auditQuery->whereNotIn('action', ['fees_assessed', 'additional_fee_created', 'payment_recorded', 'payment_confirmed', 'payment_cancelled', 'payment_refunded', 'financial_adjustment_approved', 'financial_adjustment_revoked']);
         if ($scoped) $auditQuery->where('entity_type', 'academic_enrollments')->whereIn('entity_id', (clone $allowedEntries)->select('academic_enrollments.id'));
@@ -126,12 +146,45 @@ class AcademicAdministrationController extends Controller
             $auditQuery->whereIn('action', ['fees_assessed', 'additional_fee_created', 'payment_recorded', 'payment_confirmed', 'payment_cancelled', 'payment_refunded', 'financial_adjustment_approved', 'financial_adjustment_revoked', 'academic_enrollment_confirmed']);
         }
 
+        $requests = null;
+        if ($access && ($filters['tab'] ?? null) === 'requests') {
+            $requestContext = array_filter([
+                'academic' => $filters['academic'] ?? null, 'request_category' => $filters['request_category'] ?? null,
+                'request_status' => $filters['request_status'] ?? null, 'requests_page' => $filters['requests_page'] ?? null,
+                'queue_ticket' => $filters['ticket'] ?? null,
+            ]);
+            $requests = ServiceRequest::with(['enrollment.profile.user', 'appointmentReservation'])
+                ->whereNull('academic_official_result_id')->whereNull('official_document_type_id')
+                ->whereIn('academic_enrollment_id', (clone $allowedEntries)->select('academic_enrollments.id'))
+                ->when($entry, fn ($query) => $query->where('academic_enrollment_id', $entry->id))
+                ->when($filters['request_category'] ?? null, fn ($query, $category) => $query->where('category', $category))
+                ->when($filters['request_status'] ?? null, fn ($query, $status) => $query->where('status', $status));
+            if (isset($filters['ticket'])) {
+                $requests->whereKey($filters['ticket']);
+            }
+            $requests = $requests->latest('id')->paginate(25, ['*'], 'requests_page')->withQueryString()
+                ->through(fn (ServiceRequest $ticket) => $this->studentRequests->staffRow($ticket, $r->user(), $requestContext) + [
+                    'student_name' => TransactionalEmail::recipientName($ticket->enrollment->profile->user),
+                ]);
+        }
+
         return Inertia::render('dashboard/studentAcademic/Index', [
-            'programs' => \App\Models\AcademicStructure\AcademicProgram::orderBy('name')->get(['id', 'name']),
-            'departments' => \App\Models\AcademicStructure\AcademicDepartment::with('faculty:id,name')->orderBy('name')->get(['id', 'name', 'faculty_id']),
-            'students' => $students, 'filters' => $filters, 'selected' => $entry ? ['id' => $entry->id, 'profile_id' => $entry->student_profile_id, 'name' => trim($entry->profile->user->first_name.' '.$entry->profile->user->last_name), 'matricule' => $entry->matricule, 'level_id' => $entry->level_id, 'year_id' => $entry->academic_year_id, 'class_id' => $entry->class_id, 'status' => $entry->enrollment_status, 'student_status' => $entry->profile->student_status, 'category' => $entry->fee_category] : null,
+            'programs' => AcademicProgram::orderBy('name')->get(['id', 'name']),
+            'departments' => AcademicDepartment::with('faculty:id,name')->orderBy('name')->get(['id', 'name', 'faculty_id']),
+            'students' => $students, 'filters' => $filters,
+            'selected' => $entry ? [
+                'id' => $entry->id, 'profile_id' => $entry->student_profile_id,
+                'name' => trim($entry->profile->user->first_name.' '.$entry->profile->user->last_name),
+                'matricule' => $entry->matricule, 'level_id' => $entry->level_id, 'year_id' => $entry->academic_year_id,
+                'class_id' => $entry->class_id, 'status' => $entry->enrollment_status, 'student_status' => $entry->profile->student_status,
+                'category' => $entry->fee_category,
+                ...($finance && ($filters['tab'] ?? null) === 'finance' ? [
+                    'nationality' => Nationality::label($entry->profile->user->nationality_code),
+                    'declared_category' => $entry->profile->user->feeCategoryFromNationality(),
+                ] : []),
+            ] : null,
             'balance' => $entry && $finance ? $this->finance->balance($entry) : null, 'obligations' => $entry && $finance ? $entry->obligations()->get() : [],
-            'fee_kinds' => \App\Models\Student\StudentObligation::distinct()->pluck('kind')->push('tuition')->unique()->values(),
+            'fee_kinds' => StudentObligation::distinct()->pluck('kind')->push('tuition')->unique()->values(),
             'payments' => $entry && $finance ? $entry->payments()->latest()->get()->map(fn ($p) => $p->only(['id', 'reference', 'amount_cents', 'currency', 'status', 'method', 'confirmed_at'])) : [],
             'adjustments' => $entry && $finance ? $entry->adjustments()->latest()->get() : [],
             'rules' => $access ? AccessRule::where('is_active', true)->latest()->get() : [],
@@ -143,7 +196,8 @@ class AcademicAdministrationController extends Controller
             'offerings' => ($publish || $access) ? (clone $teachingScope)->with(['course', 'professor', 'department:id,name'])->latest()->limit(100)->get() : [],
             'resources' => $publish ? AcademicResource::whereIn('academic_offering_id', (clone $teachingScope)->select('id'))->select(['id', 'academic_offering_id', 'kind', 'title', 'is_published', 'student_profile_id'])->withExists('assessment')->latest()->limit(100)->get() : [],
             'sessions' => $publish ? AcademicSession::whereIn('academic_offering_id', (clone $teachingScope)->select('id'))->with(['offering.course', 'offering.department:id,name'])->orderByDesc('starts_at')->limit(50)->get() : [],
-            'requests' => $access ? ServiceRequest::with('enrollment.profile.user')->whereNull('academic_official_result_id')->whereNull('official_document_type_id')->whereIn('academic_enrollment_id', (clone $allowedEntries)->select('academic_enrollments.id'))->when($entry, fn ($q) => $q->where('academic_enrollment_id', $entry->id))->latest()->limit(50)->get()->map(fn ($ticket) => array_merge($ticket->only(['id', 'academic_enrollment_id', 'category', 'subject', 'body', 'status', 'response', 'created_at']), ['student_name' => \App\Mail\TransactionalEmail::recipientName($ticket->enrollment->profile->user)])) : [],
+            'requests' => $requests,
+            'request_categories' => StudentRequestService::staffCategories(),
             'submissions' => $entry && $publish && ($filters['tab'] ?? null) === 'teaching' ? AcademicSubmission::with('resource')
                 ->where('academic_enrollment_id', $entry->id)
                 ->whereHas('resource', fn ($q) => $q->whereIn('academic_offering_id', (clone $teachingScope)->select('id')))
@@ -185,7 +239,7 @@ class AcademicAdministrationController extends Controller
             'curriculum' => $entry->curriculumVersion?->only(['id', 'name', 'code', 'status']),
         ];
         $enrollmentRelations = ['level.faculty', 'department', 'academicYear', 'group.intake', 'group.promotion', 'curriculumVersion', 'promotion.program', 'admissionCohort.program'];
-        $enrollmentsPage = \App\Modules\Student\Application\Services\AcademicStaffScope::apply($profile->enrollments()->getQuery(), $r->user())
+        $enrollmentsPage = AcademicStaffScope::apply($profile->enrollments()->getQuery(), $r->user())
             ->with($enrollmentRelations)
             ->orderByDesc(\App\Models\AcademicYear::select('start_date')->whereColumn('academic_years.id', 'academic_enrollments.academic_year_id'))
             ->orderByDesc('id')->simplePaginate(20, ['*'], 'enrollments_page', $validated['enrollments_page'] ?? 1);
@@ -214,7 +268,7 @@ class AcademicAdministrationController extends Controller
                 ->whereIn('status', ['approved', 'refused'])->latest('decided_at')->latest('id')->limit(20)
                 ->get(['reference', 'academic_enrollment_id', 'kind', 'status', 'decided_at'])
             : [];
-        $documentAccess = app(\App\Modules\Documents\Application\DocumentAccess::class);
+        $documentAccess = app(DocumentAccess::class);
         $canSeeDocuments = $section === 'Documents' && $r->user()->canAny([$documentAccess::MANAGE, $documentAccess::APPROVE, $documentAccess::ISSUE])
             && \App\Modules\Student\Application\Services\AcademicStaffScope::apply(AcademicEnrollment::query(), $r->user())->whereKey($academic->id)->exists();
 
@@ -313,9 +367,11 @@ class AcademicAdministrationController extends Controller
     {
         $this->authorizeStaff($r, 'manage academic finance');
         $data = $r->validate(['category' => 'required|in:national,foreign', 'first_due' => 'nullable|date', 'second_due' => ['nullable', 'date', Rule::when($r->filled('first_due'), 'after_or_equal:first_due')], 'reason' => 'required|string|min:5|max:1000']);
-        $this->finance->assess(AcademicEnrollment::findOrFail($academic), $r->user(), $data['category'], [$data['first_due'] ?? null, $data['second_due'] ?? null], $data['reason']);
+        $assessed = $this->finance->assess(AcademicEnrollment::findOrFail($academic), $r->user(), $data['category'], [$data['first_due'] ?? null, $data['second_due'] ?? null], $data['reason']);
 
-        return back()->with('success', 'Les frais ont été établis à partir du barème du niveau.');
+        return back()->with('success', $assessed
+            ? 'Les frais ont été établis à partir du barème du niveau.'
+            : 'Catégorie confirmée. Le barème pourra être affecté dès son activation et son entrée en vigueur.');
     }
 
     public function obligation(Request $r, int $academic)
@@ -369,7 +425,7 @@ class AcademicAdministrationController extends Controller
     public function rule(Request $r, AcademicRuleService $service)
     {
         $this->authorizeStaff($r, 'manage academic access');
-        $data = $r->validate(['fee_kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'feature' => 'required|in:materials_download,assignments_submit,evaluations_participate,documents_request,results_view', 'academic_year_id' => 'nullable|integer|exists:academic_years,id', 'level_id' => 'nullable|integer|exists:levels,id', 'mode' => 'required|in:open,full,minimum,first_installment,exemption,hidden', 'minimum' => 'required_if:mode,minimum|nullable|numeric|gt:0', 'allow_plan' => 'boolean', 'allow_exemption' => 'boolean', 'regulation_reference' => 'nullable|string|max:2000', 'regulation_confirmed' => 'boolean', 'reason' => 'required|string|min:10|max:2000']);
+        $data = $r->validate(['fee_kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'feature' => 'required|in:materials_download,assignments_submit,evaluations_participate,documents_request,results_view', 'academic_year_id' => 'nullable|integer|exists:academic_years,id', 'level_id' => 'nullable|integer|exists:levels,id', 'mode' => 'required|in:open,full,minimum,first_installment,due_installments,exemption,hidden', 'minimum' => 'required_if:mode,minimum|nullable|numeric|gt:0', 'allow_plan' => 'boolean', 'allow_exemption' => 'boolean', 'regulation_reference' => 'nullable|string|max:2000', 'regulation_confirmed' => 'boolean', 'reason' => 'required|string|min:10|max:2000']);
         $service->save($r->user(), $data);
 
         return back()->with('success', 'Nouvelle règle enregistrée. Les droits sont recalculés à chaque accès.');
@@ -397,7 +453,7 @@ class AcademicAdministrationController extends Controller
             'class_id' => 'nullable|integer|exists:classes,id', 'reason' => 'required|string|min:10|max:1000',
             'operation_key' => 'nullable|uuid',
         ]);
-        $data['operation_key'] ??= (string) \Illuminate\Support\Str::uuid();
+        $data['operation_key'] ??= (string) Str::uuid();
         $service->transition(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
         return back(303)->with('success', 'Situation académique mise à jour et historisée.');
     }
@@ -422,7 +478,7 @@ class AcademicAdministrationController extends Controller
         };
         $entity = $model::findOrFail($id);
         $offering = $entity instanceof AcademicOffering ? $entity : $entity->offering;
-        \App\Modules\Teaching\Application\Services\TeachingScope::authorize($r->user(), (int) $offering->level->faculty_id);
+        TeachingScope::authorize($r->user(), (int) $offering->level->faculty_id);
         if ($entity instanceof AcademicOffering && $entity->curriculum_item_id) {
             throw \Illuminate\Validation\ValidationException::withMessages(['offering' => 'Utilisez la publication des offres versionnées.']);
         }
@@ -447,7 +503,11 @@ class AcademicAdministrationController extends Controller
 
             return back()->with('success', 'Publication mise à jour.');
         }
-        $entity->update(['is_published' => $data['is_published']]);
+        $publication = ['is_published' => $data['is_published']];
+        if ($entity instanceof AcademicResource && $entity->kind === 'announcement' && $data['is_published'] && ! $entity->is_published) {
+            $publication['published_at'] = now();
+        }
+        $entity->update($publication);
         Audit::record($r->user()->id, 'academic_publication_changed', $entity, $data['reason'], ['is_published' => $data['is_published']]);
 
         return back()->with('success', 'Publication mise à jour.');
@@ -465,7 +525,7 @@ class AcademicAdministrationController extends Controller
     public function resource(Request $r)
     {
         $this->authorizeStaff($r, 'publish academic content');
-        $data = $r->validate(['academic_offering_id' => 'required|integer|exists:academic_offerings,id', 'kind' => 'required|in:material,assignment,evaluation,result,announcement,document,online,video', 'student_profile_id' => 'required_if:kind,result,document|nullable|integer|exists:student_profiles,id', 'url' => 'required_if:kind,online,video|nullable|url:http,https|max:2000', 'title' => 'required|string|max:180', 'body' => 'nullable|string|max:30000', 'opens_at' => 'nullable|date', 'closes_at' => ['nullable', 'date', Rule::when($r->filled('opens_at'), 'after:opens_at')], 'is_published' => 'boolean', 'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,ppt,pptx,xls,xlsx|max:'.\App\Support\DocumentUploadLimit::kilobytes()]);
+        $data = $r->validate(['academic_offering_id' => 'required|integer|exists:academic_offerings,id', 'kind' => 'required|in:material,assignment,evaluation,result,announcement,document,online,video', 'student_profile_id' => 'required_if:kind,result,document|nullable|integer|exists:student_profiles,id', 'url' => 'required_if:kind,online,video|nullable|url:http,https|max:2000', 'title' => 'required|string|max:180', 'body' => 'nullable|string|max:30000', 'opens_at' => 'nullable|date', 'closes_at' => ['nullable', 'date', Rule::when($r->filled('opens_at'), 'after:opens_at')], 'is_published' => 'boolean', 'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,ppt,pptx,xls,xlsx|max:'.DocumentUploadLimit::kilobytes()]);
         $offering = AcademicOffering::findOrFail($data['academic_offering_id']);
         \App\Modules\Teaching\Application\Services\TeachingScope::authorize($r->user(), (int) $offering->level->faculty_id);
         abort_if($offering->archived_at || ($offering->curriculum_item_id && ! in_array($offering->academicYear->status, ['draft', 'open'], true)), 422, 'Une offre archivée ou dans une année clôturée ne peut plus recevoir de ressources.');
@@ -496,7 +556,14 @@ class AcademicAdministrationController extends Controller
                     $path = $r->file('file')->store('academic-resources', 'local');
                     abort_unless($path, 500);
                     $fields += ['path' => $path, 'filename' => $r->file('file')->getClientOriginalName(), 'mime' => $r->file('file')->getMimeType()];
-                }$entity = AcademicResource::create($fields);
+                    if ($fields['kind'] === 'announcement') {
+                        $fields['size_bytes'] = $r->file('file')->getSize();
+                    }
+                }
+                if ($fields['kind'] === 'announcement' && ($fields['is_published'] ?? false)) {
+                    $fields['published_at'] = now();
+                }
+                $entity = AcademicResource::create($fields);
                 Audit::record($r->user()->id, 'academic_resource_created', $entity);
             });
         } catch (\Throwable $e) {
@@ -561,14 +628,5 @@ class AcademicAdministrationController extends Controller
         TeachingScope::authorize($r->user(), (int) $work->resource->offering->level->faculty_id);
 
         return $work;
-    }
-
-    public function respond(Request $r, int $ticket)
-    {
-        $this->authorizeStaff($r, 'manage academic access');
-        $data = $r->validate(['response' => 'required|string|min:5|max:6000', 'status' => 'required|in:open,resolved']);
-        app(\App\Modules\Student\Application\Services\StudentRequestService::class)->respond(ServiceRequest::findOrFail($ticket), $r->user(), $data);
-
-        return back()->with('success', 'Réponse publiée dans l’espace de l’étudiant.');
     }
 }

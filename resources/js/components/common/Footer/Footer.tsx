@@ -40,7 +40,7 @@ export default function Footer() {
                         <h3>Votre parcours</h3>
                         <Link href="/admission">Admissions</Link>
                         <Link href="/admission#frais">Frais académiques</Link>
-                        <Link href="/login">Espace étudiant</Link>
+                        <a href="/app/">Espace étudiant</a>
                         <Link href="/plan-du-site">Plan du site</Link>
                     </div>
                     <div>

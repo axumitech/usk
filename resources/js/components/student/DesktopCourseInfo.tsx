@@ -8,7 +8,8 @@ type Course = {
     credits: number | null;
     coefficient?: number | null;
     unit?: string;
-    semester: number | null;
+    is_optional?: boolean;
+    semester: number | string | null;
     cmi_hours: number | null;
     td_hours: number | null;
     tp_hours: number | null;
@@ -22,7 +23,7 @@ type Organization = {
     group: string | null;
     delivery_mode: string;
 };
-function syllabus(course: Course) {
+function syllabus(course: Course, descriptionInSummary: boolean) {
     const headings: Record<string, string> = {
         'OBJECTIFS ET ACQUIS ATTENDUS': 'Objectifs et acquis attendus',
         'CONTENU DU COURS': 'Programme du cours',
@@ -32,7 +33,7 @@ function syllabus(course: Course) {
         RESSOURCES: 'Ressources et bibliographie',
     };
     const items: { title: string; content: string }[] = [];
-    if (course.description?.trim()) items.push({ title: 'Description du cours', content: course.description });
+    if (!descriptionInSummary && course.description?.trim()) items.push({ title: 'Description du cours', content: course.description });
     const content = course.pedagogical_content?.trim();
     if (content) {
         let title = 'Présentation pédagogique';
@@ -74,16 +75,20 @@ export default function DesktopCourseInfo({
     period,
     stats,
     attendanceHref,
+    descriptionInSummary = false,
 }: {
     course: Course;
     registered?: boolean;
     academic: { level: string; faculty: string; year: string; group: string | null };
     organization: Organization[];
-    period: { start_date: string; end_date: string } | null;
+    period: { start_date: string | null; end_date: string | null } | null;
     stats: Record<string, number>;
     attendanceHref: string | null;
+    descriptionInSummary?: boolean;
 }) {
-    const content = syllabus(course);
+    const content = syllabus(course, descriptionInSummary);
+    const semester = String(course.semester ?? '').trim();
+    const semesterLabel = semester === '1' ? 'Premier semestre' : semester === '2' ? 'Deuxième semestre' : semester || 'À préciser';
     const leaders = [...new Set(organization.map((person) => person.leader).filter(Boolean))];
     const modes = [
         ...new Set(
@@ -141,10 +146,12 @@ export default function DesktopCourseInfo({
                             <div>
                                 <dt>Période</dt>
                                 <dd>
-                                    <span className="desktop-course-semester">
-                                        {course.semester === 1 ? 'Premier semestre' : course.semester === 2 ? 'Deuxième semestre' : 'À préciser'}
-                                    </span>
-                                    <small>{period ? `${dateLabel(period.start_date)} — ${dateLabel(period.end_date)}` : academic.year}</small>
+                                    <span className="desktop-course-semester">{semesterLabel}</span>
+                                    <small>
+                                        {period?.start_date && period.end_date
+                                            ? `${dateLabel(period.start_date)} — ${dateLabel(period.end_date)}`
+                                            : academic.year}
+                                    </small>
                                 </dd>
                             </div>
                             <div>
@@ -170,7 +177,10 @@ export default function DesktopCourseInfo({
                             </div>
                         </dl>
                         <div className="desktop-course-workload">
-                            <p>Crédits et volume horaire{course.unit ? ` · UE ${course.unit}` : ''}</p>
+                            <p>
+                                Crédits et volume horaire
+                                {course.unit ? ` · UE ${course.unit} · ${course.is_optional ? 'EC optionnel' : 'EC obligatoire'}` : ''}
+                            </p>
                             <div>
                                 {[
                                     { label: registered ? 'Crédits inscrits' : 'Crédits prévus', value: course.credits, unit: '' },
@@ -194,20 +204,15 @@ export default function DesktopCourseInfo({
             </div>
             <section className="desktop-course-syllabus" aria-labelledby="desktop-course-syllabus-title">
                 <header>
-                    <div>
-                        <span>APPRENDRE AVEC MÉTHODE</span>
-                        <h2 id="desktop-course-syllabus-title">Contenu pédagogique</h2>
-                    </div>
-                    <p>Programme, objectifs et organisation des apprentissages.</p>
+                    <h2 id="desktop-course-syllabus-title">Contenu pédagogique</h2>
                 </header>
                 {content.length ? (
                     <div className="desktop-course-accordions">
                         {content.map((item, index) => (
                             <details key={`${index}-${item.title}`} open={index === 0}>
                                 <summary>
-                                    <span>{String(index + 1).padStart(2, '0')}</span>
                                     <strong>{item.title}</strong>
-                                    <ChevronDown size={17} />
+                                    <ChevronDown size={17} aria-hidden="true" />
                                 </summary>
                                 <div>{item.content}</div>
                             </details>

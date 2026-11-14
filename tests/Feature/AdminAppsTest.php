@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\LevelDetail;
 use App\Models\User;
+use App\Services\ImageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -28,25 +32,25 @@ class AdminAppsTest extends TestCase
         $other = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 2', 'code' => 'L2']);
         \App\Models\LevelDetail::create(['level_id' => $level, 'credit_required' => 60]);
         $admin = $this->user(true);
-        $admin->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('publish academic content', 'web'));
+        $admin->givePermissionTo(Permission::findOrCreate('publish academic content', 'web'));
 
-        $this->actingAs($admin)->from('/dashboard/admin/levels/details/'.$level)
-            ->post('/dashboard/admin/levels/details/'.$level.'/courses', [
+        $this->actingAs($admin)->from('/app/dashboard/admin/levels/details/'.$level)
+            ->post('/app/dashboard/admin/levels/details/'.$level.'/courses', [
                 'level_id' => $other, 'title' => 'Droit civil', 'code' => 'DR101', 'credits' => 3, 'semester' => 1,
-            ])->assertRedirect('/dashboard/admin/levels/details/'.$level)->assertSessionHasNoErrors();
+            ])->assertRedirect('/app/dashboard/admin/levels/details/'.$level)->assertSessionHasNoErrors();
         $this->assertDatabaseHas('courses', ['title' => 'Droit civil', 'level_id' => $level]);
-        $this->get('/dashboard/admin/levels/details/'.$other)->assertInertia(fn (Assert $page) => $page->has('courses', 0));
-        $this->get('/dashboard/admin/levels/details/'.$level)->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/admin/levels/details/'.$other)->assertInertia(fn (Assert $page) => $page->has('courses', 0));
+        $this->get('/app/dashboard/admin/levels/details/'.$level)->assertInertia(fn (Assert $page) => $page
             ->has('courses', 1)->where('courses.0.title', 'Droit civil')->where('courses.0.semester', 1));
         $courseId = DB::table('courses')->where('level_id', $level)->value('id');
-        $this->put('/dashboard/admin/levels/details/'.$other.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 2])->assertNotFound();
-        $this->put('/dashboard/admin/levels/details/'.$level.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 3])->assertSessionHasErrors('semester');
-        $this->put('/dashboard/admin/levels/details/'.$level.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 2])->assertSessionHasNoErrors();
+        $this->put('/app/dashboard/admin/levels/details/'.$other.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 2])->assertNotFound();
+        $this->put('/app/dashboard/admin/levels/details/'.$level.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 3])->assertSessionHasErrors('semester');
+        $this->put('/app/dashboard/admin/levels/details/'.$level.'/courses/'.$courseId, ['title' => 'Droit civil', 'credits' => 3, 'semester' => 2])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('courses', ['id' => $courseId, 'semester' => 2]);
-        $detailId = \App\Models\LevelDetail::where('level_id', $level)->value('id');
-        $this->put('/dashboard/admin/levels/details/'.$detailId, ['level_id' => $level, 'credit_required' => 2])->assertSessionHasErrors('credit_required');
-        $this->post('/dashboard/admin/levels/details/'.$level.'/courses', ['title' => 'Crédits en trop', 'credits' => 60, 'semester' => 1])->assertSessionHasErrors('credits');
-        $this->actingAs($this->user(false))->post('/dashboard/admin/levels/details/'.$level.'/courses', [
+        $detailId = LevelDetail::where('level_id', $level)->value('id');
+        $this->put('/app/dashboard/admin/levels/details/'.$detailId, ['level_id' => $level, 'credit_required' => 2])->assertSessionHasErrors('credit_required');
+        $this->post('/app/dashboard/admin/levels/details/'.$level.'/courses', ['title' => 'Crédits en trop', 'credits' => 60, 'semester' => 1])->assertSessionHasErrors('credits');
+        $this->actingAs($this->user(false))->post('/app/dashboard/admin/levels/details/'.$level.'/courses', [
             'title' => 'Interdit', 'credits' => 3,
         ])->assertForbidden();
     }
@@ -55,7 +59,7 @@ class AdminAppsTest extends TestCase
     {
         $this->actingAs($this->user(true));
         foreach (['academic-years' => 'academicYear', 'faculties' => 'faculties', 'levels' => 'levels', 'posts' => 'blog'] as $path => $page) {
-            $this->get('/dashboard/admin/' . $path)->assertOk()->assertInertia(fn (Assert $response) => $response->component('dashboard/' . $page . '/Index'));
+            $this->get('/app/dashboard/admin/'.$path)->assertOk()->assertInertia(fn (Assert $response) => $response->component('dashboard/'.$page.'/Index'));
         }
     }
 
@@ -64,7 +68,7 @@ class AdminAppsTest extends TestCase
         $first = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $second = DB::table('faculties')->insertGetId(['name' => 'Médecine', 'code' => 'MED']);
         DB::table('levels')->insert(['faculty_id' => $second, 'title' => 'Licence 1', 'code' => 'L1']);
-        $this->actingAs($this->user(true))->get('/dashboard/admin/levels')->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/levels')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('faculties.data', 2)
             ->where('faculties.data.0.id', $first)
             ->where('faculties.data.1.id', $second)
@@ -74,18 +78,19 @@ class AdminAppsTest extends TestCase
 
     public function test_student_cannot_access_apps(): void
     {
-        $this->actingAs($this->user(false))->get('/dashboard/admin/levels')->assertForbidden();
+        $this->actingAs($this->user(false))->get('/app/dashboard/admin/levels')->assertForbidden();
     }
+
     public function test_level_details_open_without_admission_conditions(): void
     {
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
 
-        $this->actingAs($this->user(true))->get('/dashboard/admin/levels/details/'.$level)
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/levels/details/'.$level)
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('dashboard/levels/Show')
-                ->where('levelDetail.level_id', $level)
-                ->has('admissionConditions', 0));
+            ->component('dashboard/levels/Show')
+            ->where('levelDetail.level_id', $level)
+            ->has('admissionConditions', 0));
     }
 
     public function test_direct_level_url_opens_the_complete_existing_screen_with_the_requested_tab(): void
@@ -107,7 +112,7 @@ class AdminAppsTest extends TestCase
         $this->get(route('dashboard.admin.levels.show', ['id' => $level, 'tab' => 'prof']))->assertRedirect($professors);
         $this->get($professors)->assertOk()->assertInertia(fn (Assert $page) => $page->where('initialTab', 'prof'));
         $this->get(route('dashboard.admin.levels.show', ['id' => $level + 1]))->assertNotFound();
-        $this->delete('/dashboard/admin/levels/details/'.$level)->assertMethodNotAllowed();
+        $this->delete('/app/dashboard/admin/levels/details/'.$level)->assertMethodNotAllowed();
         $this->assertDatabaseHas('level_details', ['level_id' => $level]);
 
         $admin->academicFaculties()->attach($other);
@@ -127,13 +132,13 @@ class AdminAppsTest extends TestCase
             ['faculty_id' => $otherFaculty, 'level_id' => $level, 'title' => 'Autre faculté', 'section' => 'academic_info', 'is_required' => false],
         ]);
 
-        $this->actingAs($this->user(true))->get('/dashboard/admin/levels/details/'.$level)
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/levels/details/'.$level)
             ->assertOk()->assertInertia(fn (Assert $page) => $page
-                ->component('dashboard/levels/Show')
-                ->has('admissionConditions', 2)
-                ->where('admissionConditions.0.title', 'Identité')
-                ->where('admissionConditions.1.title', 'Diplôme')
-                ->where('admissionConditions.1.is_required', true));
+            ->component('dashboard/levels/Show')
+            ->has('admissionConditions', 2)
+            ->where('admissionConditions.0.title', 'Identité')
+            ->where('admissionConditions.1.title', 'Diplôme')
+            ->where('admissionConditions.1.is_required', true));
     }
 
     public function test_failed_program_illustration_replacement_keeps_the_existing_image(): void
@@ -161,13 +166,13 @@ class AdminAppsTest extends TestCase
             $mock->shouldReceive('resizeAndStore')->once()->andReturn('levels/nouvelle-couverture.webp');
         });
 
-        $this->actingAs($this->user(true))->post('/dashboard/admin/levels/'.$level, [
+        $this->actingAs($this->user(true))->post('/app/dashboard/admin/levels/'.$level, [
             '_method' => 'PUT', 'faculty_id' => $faculty, 'title' => 'Licence en droit',
             'code' => 'L1', 'tag' => 'Cycle de licence', 'description' => 'Présentation mise à jour',
             'is_active' => true, 'image' => \Illuminate\Http\UploadedFile::fake()->image('couverture.jpg'),
         ])->assertSessionHasNoErrors()->assertRedirect();
 
-        $this->get('/dashboard/admin/levels/details/'.$level)->assertOk()
+        $this->get('/app/dashboard/admin/levels/details/'.$level)->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('level.id', $level)
                 ->where('level.title', 'Licence en droit')
@@ -183,10 +188,10 @@ class AdminAppsTest extends TestCase
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
         DB::table('admission_conditions')->insert(['faculty_id' => $faculty, 'level_id' => $level, 'title' => 'Diplôme', 'section' => 'academic_info']);
-        $this->actingAs($this->user(true))->get('/dashboard/admin/levels/details/'.$level)->assertOk();
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/levels/details/'.$level)->assertOk();
 
-        $this->delete('/dashboard/admin/levels/'.$level)->assertSessionHasNoErrors()
-            ->assertRedirect('/dashboard/admin/levels')->assertSessionHas('success');
+        $this->delete('/app/dashboard/admin/levels/'.$level)->assertSessionHasNoErrors()
+            ->assertRedirect('/app/dashboard/admin/levels')->assertSessionHas('success');
         $this->assertDatabaseMissing('levels', ['id' => $level]);
         $this->assertDatabaseMissing('level_details', ['level_id' => $level]);
         $this->assertDatabaseMissing('admission_conditions', ['level_id' => $level]);
@@ -198,11 +203,11 @@ class AdminAppsTest extends TestCase
         $user = $this->user(true);
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
-        DB::table('enrollments')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'student_id' => $user->id, 'level_id' => $level]);
+        DB::table('enrollments')->insert(['uuid' => (string) Str::uuid(), 'student_id' => $user->id, 'level_id' => $level]);
 
-        $this->actingAs($user)->from('/dashboard/admin/levels/details/'.$level)
-            ->delete('/dashboard/admin/levels/'.$level)
-            ->assertRedirect('/dashboard/admin/levels/details/'.$level)->assertSessionHasErrors('general');
+        $this->actingAs($user)->from('/app/dashboard/admin/levels/details/'.$level)
+            ->delete('/app/dashboard/admin/levels/'.$level)
+            ->assertRedirect('/app/dashboard/admin/levels/details/'.$level)->assertSessionHasErrors('general');
         $this->assertDatabaseHas('levels', ['id' => $level]);
         $this->assertDatabaseHas('enrollments', ['level_id' => $level]);
     }
@@ -223,15 +228,15 @@ class AdminAppsTest extends TestCase
     {
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
-        $this->actingAs($this->user(false))->delete('/dashboard/admin/levels/'.$level)->assertForbidden();
+        $this->actingAs($this->user(false))->delete('/app/dashboard/admin/levels/'.$level)->assertForbidden();
         $this->assertDatabaseHas('levels', ['id' => $level]);
     }
 
     public function test_empty_faculty_can_be_deleted(): void
     {
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
-        $this->actingAs($this->user(true))->delete('/dashboard/admin/faculties/'.$faculty)
-            ->assertRedirect('/dashboard/admin/faculties')->assertSessionHasNoErrors();
+        $this->actingAs($this->user(true))->delete('/app/dashboard/admin/faculties/'.$faculty)
+            ->assertRedirect('/app/dashboard/admin/faculties')->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('faculties', ['id' => $faculty]);
     }
 
@@ -239,9 +244,9 @@ class AdminAppsTest extends TestCase
     {
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
-        $this->actingAs($this->user(true))->from('/dashboard/admin/faculties')
-            ->delete('/dashboard/admin/faculties/'.$faculty)
-            ->assertRedirect('/dashboard/admin/faculties')
+        $this->actingAs($this->user(true))->from('/app/dashboard/admin/faculties')
+            ->delete('/app/dashboard/admin/faculties/'.$faculty)
+            ->assertRedirect('/app/dashboard/admin/faculties')
             ->assertSessionHasErrors(['general' => 'Suppression impossible : cette faculté contient 1 niveau(x) de formation. Supprimez ou réaffectez ces niveaux avant de supprimer la faculté.']);
         $this->assertDatabaseHas('faculties', ['id' => $faculty]);
         $this->assertDatabaseHas('levels', ['id' => $level]);
@@ -252,10 +257,10 @@ class AdminAppsTest extends TestCase
         $admin = $this->user(true);
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
-        DB::table('enrollments')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level]);
-        $this->actingAs($admin)->from('/dashboard/admin/faculties')
-            ->delete('/dashboard/admin/faculties/'.$faculty)
-            ->assertRedirect('/dashboard/admin/faculties')
+        DB::table('enrollments')->insert(['uuid' => (string) Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level]);
+        $this->actingAs($admin)->from('/app/dashboard/admin/faculties')
+            ->delete('/app/dashboard/admin/faculties/'.$faculty)
+            ->assertRedirect('/app/dashboard/admin/faculties')
             ->assertSessionHasErrors(['general' => 'Suppression impossible : cette faculté possède des niveaux liés à 1 inscription(s). Les niveaux et les inscriptions doivent être conservés.']);
         $this->assertDatabaseHas('faculties', ['id' => $faculty]);
         $this->assertDatabaseHas('levels', ['id' => $level]);
@@ -270,7 +275,7 @@ class AdminAppsTest extends TestCase
         $second = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence droit 2', 'code' => 'L2', 'is_active' => false]);
         DB::table('levels')->insert(['faculty_id' => $other, 'title' => 'Médecine uniquement', 'code' => 'L1']);
 
-        $this->actingAs($this->user(true))->get('/dashboard/admin/faculties/'.$faculty)->assertOk()
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/faculties/'.$faculty)->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('dashboard/faculties/Show')
                 ->where('faculty.id', $faculty)
                 ->where('faculty.name', 'Droit')
@@ -282,7 +287,7 @@ class AdminAppsTest extends TestCase
 
     public function test_missing_faculty_returns_not_found(): void
     {
-        $this->actingAs($this->user(true))->get('/dashboard/admin/faculties/99999')->assertNotFound();
+        $this->actingAs($this->user(true))->get('/app/dashboard/admin/faculties/99999')->assertNotFound();
     }
 
     public function test_year_details_scope_enrollment_counts_and_list_to_selected_year(): void
@@ -293,9 +298,9 @@ class AdminAppsTest extends TestCase
         $year = DB::table('academic_years')->insertGetId(['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'open']);
         $other = DB::table('academic_years')->insertGetId(['title' => '2025-2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed']);
         foreach ([[$year, 'validated', null], [$year, 'submitted', null], [$year, 'pending', null], [$year, 'draft', null], [$year, 'validated', now()], [$other, 'validated', null]] as [$yearId, $status, $deleted]) {
-            DB::table('enrollments')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level, 'academic_year_id' => $yearId, 'status' => $status, 'deleted_at' => $deleted]);
+            DB::table('enrollments')->insert(['uuid' => (string) Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level, 'academic_year_id' => $yearId, 'status' => $status, 'deleted_at' => $deleted]);
         }
-        $this->actingAs($admin)->get('/dashboard/admin/academic-years/'.$year)->assertOk()
+        $this->actingAs($admin)->get('/app/dashboard/admin/academic-years/'.$year)->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('dashboard/academicYear/Show')
                 ->where('academicYear.data.id', $year)
                 ->where('enrollmentStats.total', 4)
@@ -313,8 +318,8 @@ class AdminAppsTest extends TestCase
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Droit', 'code' => 'DR']);
         $level = DB::table('levels')->insertGetId(['faculty_id' => $faculty, 'title' => 'Licence 1', 'code' => 'L1']);
         $year = DB::table('academic_years')->insertGetId(['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'open']);
-        DB::table('enrollments')->insert(['uuid' => (string) \Illuminate\Support\Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level, 'academic_year_id' => $year, 'status' => 'validated']);
-        $url = '/dashboard/admin/academic-years/'.$year;
+        DB::table('enrollments')->insert(['uuid' => (string) Str::uuid(), 'student_id' => $admin->id, 'level_id' => $level, 'academic_year_id' => $year, 'status' => 'validated']);
+        $url = '/app/dashboard/admin/academic-years/'.$year;
         $this->actingAs($admin)->from($url)->put($url, ['title' => 'Année 2026-2027', 'start_date' => '2026-10-15', 'end_date' => '2027-09-30'])->assertSessionHasNoErrors()->assertRedirect($url);
         $this->from($url)->patch($url.'/close')->assertSessionHasNoErrors()->assertRedirect($url);
         $this->assertDatabaseHas('academic_years', ['id' => $year, 'title' => 'Année 2026-2027', 'status' => 'closed']);

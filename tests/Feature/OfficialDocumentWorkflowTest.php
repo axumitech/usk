@@ -40,19 +40,35 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $type = $this->catalog($entry, $university, $manager, $signer);
         $data = ['type_id' => $type->id, 'action' => 'initial', 'reason' => 'Attestation pour mon dossier.', 'operation_key' => (string) Str::uuid()];
         $submit = route(self::STUDENT.'submit', ['academic' => $entry->id]);
+        $library = route('dashboard.student.index', ['section' => 'documents', 'academic' => $entry->id, 'category' => 'official']);
+        $catalog = $library.'&request=enrollment#student-document-services';
+        $submitFromLibrary = route(self::STUDENT.'submit', ['academic' => $entry->id, 'library_academic' => $entry->id, 'category' => 'official']);
         $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'documents', 'academic' => $entry->id]))
-            ->assertInertia(fn (Assert $page) => $page->where('document_center.types.0.id', $type->id));
+            ->assertInertia(fn (Assert $page) => $page->where('document_center.types.0.id', $type->id)
+                ->where('document_center.types.0.unavailable_reason', null)->has('document_center.duplicate_options', 0));
+        $this->get(route('dashboard.student.index', ['section' => 'services', 'academic' => $entry->id, 'procedure' => 'enrollment-certificate']))
+            ->assertInertia(fn (Assert $page) => $page->where('scolarite.categories.0.procedures.0.mode', 'link')
+                ->where('scolarite.categories.0.procedures.0.href', route('dashboard.student.index', [
+                    'section' => 'documents', 'academic' => $entry->id, 'request' => 'enrollment',
+                ], false).'#student-document-services'));
+        $this->post($submitFromLibrary.'&request=enrollment', $data)->assertStatus(303)->assertRedirect($catalog);
         $this->post($submit, $data)->assertStatus(303);
-        $this->post($submit, $data)->assertStatus(303);
+        $this->post($submitFromLibrary, [])->assertRedirect($library)->assertSessionHasErrors('type_id');
+        $this->post($submitFromLibrary, array_replace($data, ['operation_key' => (string) Str::uuid()]))->assertRedirect($library)->assertSessionHasErrors('type');
         $this->postJson($submit, array_replace($data, ['operation_key' => (string) Str::uuid()]))->assertUnprocessable();
         $ticket = ServiceRequest::sole();
+        $this->get(route('dashboard.student.index', ['section' => 'requests', 'academic' => $entry->id, 'request' => $ticket->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('scolarite.selected_request.workflow', 'document')
+                ->where('scolarite.selected_request.status', 'open'));
         $transition = route(self::ADMIN.'transition', $ticket);
         $issue = route(self::ADMIN.'issue', $ticket);
         $this->actingAs($issuer)->postJson($issue, ['revision' => 1])->assertUnprocessable();
         $this->actingAs($manager)->post($transition, ['action' => 'correct', 'revision' => 1, 'reason' => 'Précisez le motif.'])->assertStatus(303);
-        $this->actingAs($student)->post(route(self::STUDENT.'transition', ['ticket' => $ticket->id, 'academic' => $entry->id]), [
+        $this->actingAs($student)->post(route(self::STUDENT.'transition', [
+            'ticket' => $ticket->id, 'academic' => $entry->id, 'library_academic' => $entry->id, 'category' => 'official',
+        ]), [
             'action' => 'resubmit', 'revision' => 2, 'reason' => 'Attestation requise pour mon stage.',
-        ])->assertStatus(303);
+        ])->assertStatus(303)->assertRedirect($library);
         $this->actingAs($manager)->post($transition, ['action' => 'review', 'revision' => 3, 'reason' => 'Dossier contrôlé.'])->assertStatus(303);
         $approval = ['action' => 'approve', 'revision' => 4, 'reason' => 'Approbation de la version.'];
         $this->post($transition, $approval)->assertForbidden();
@@ -68,6 +84,13 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->assertSame(hash('sha256', $bytes), $document->sha256);
         $download = route(self::STUDENT.'download', ['academic' => $entry->id, 'document' => $document->reference]);
         $this->actingAs($student)->get($download)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->get($library)->assertInertia(fn (Assert $page) => $page->has('document_center.available_types', 0)
+            ->where('document_center.requests.data.0.year', $entry->academicYear->title)
+            ->where('document_center.duplicate_options.0.id', $document->id)
+            ->where('document_center.duplicate_options.0.pending', false)
+            ->where('document_library.items.data.0.reference', $document->number)
+            ->where('document_library.items.data.0.official.duplicate', true)
+            ->where('document_library.items.data.0.download_url', route(self::STUDENT.'download', ['document' => $document->reference, 'academic' => $entry->id], false)));
         $other = User::factory()->create()->assignRole('student');
         $this->actingAs($other)->get($download)->assertForbidden();
         $public = route('official-documents.verify', $document->reference);
@@ -82,6 +105,7 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->post($submit, array_replace($data, [
             'action' => 'duplicate', 'previous_id' => $document->id, 'operation_key' => (string) Str::uuid(),
         ]))->assertStatus(303);
+        $this->get($library)->assertInertia(fn (Assert $page) => $page->where('document_center.duplicate_options.0.pending', true));
         $this->approveAndIssue(ServiceRequest::latest('id')->firstOrFail(), $manager, $signer, $issuer);
         $copy = OfficialDocument::latest('id')->firstOrFail();
         $this->assertSame($document->id, $copy->previous_id);
@@ -101,6 +125,8 @@ final class OfficialDocumentWorkflowTest extends TestCase
     {
         [$student, $entry, $university, $manager, $signer, $issuer] = $this->context();
         $type = $this->catalog($entry, $university, $manager, $signer, 'success');
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'documents', 'academic' => $entry->id, 'request' => 'success']))
+            ->assertInertia(fn (Assert $page) => $page->where('document_center.types.0.unavailable_reason', 'Aucun résultat officiel ne remplit les conditions de ce document.'));
         $this->actingAs($student)->postJson(route(self::STUDENT.'submit', ['academic' => $entry->id]), [
             'type_id' => $type->id, 'action' => 'initial', 'reason' => 'Dossier académique incomplet.', 'operation_key' => (string) Str::uuid(),
         ])->assertUnprocessable()->assertJsonValidationErrors('result');
@@ -139,10 +165,15 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->assertNotNull($card->expires_at);
         $this->get($public)->assertSee('En attente de remise');
         $lifecycle = route(self::ADMIN.'lifecycle', $card);
+        $library = route('dashboard.student.index', ['section' => 'documents', 'academic' => $entry->id, 'category' => 'official']);
+        $this->actingAs($student)->get($library)->assertInertia(fn (Assert $page) => $page->has('document_library.items.data', 0));
+        $this->actingAs($issuer);
         $this->postJson($lifecycle, ['action' => 'deliver', 'reason' => 'Remise au titulaire.'])->assertUnprocessable();
         $this->post($lifecycle, ['action' => 'print', 'reason' => 'Impression recto verso.'])->assertStatus(303);
         $this->post($lifecycle, ['action' => 'deliver', 'reason' => 'Remise au titulaire.'])->assertStatus(303);
         $this->get($public)->assertSee('Valide');
+        $this->actingAs($student)->get($library)->assertInertia(fn (Assert $page) => $page
+            ->where('document_library.items.data.0.kind', 'card')->where('document_library.items.data.0.official.copies', false));
         $this->actingAs($student)->postJson($submit, array_replace($data, [
             'action' => 'duplicate', 'previous_id' => $card->id, 'operation_key' => (string) Str::uuid(),
         ]))->assertUnprocessable();

@@ -50,7 +50,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
         <div className="student-enrollments student-enrollment-detail">
             <Head title={`Dossier ${enrollment.reference}`} />
             <div className="student-detail-toolbar">
-                <Link href="/dashboard/enrollments" className="student-text-button">
+                <Link href="/app/dashboard/enrollments" className="student-text-button">
                     <ArrowLeft size={16} />
                     Mes inscriptions
                 </Link>
@@ -62,7 +62,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                         </Link>
                     )}
                     {enrollment.status === 'draft' && (
-                        <Link className="student-primary" href={`/dashboard/enrollments/${enrollment.uuid}/edit`}>
+                        <Link className="student-primary" href={`/app/dashboard/enrollments/${enrollment.uuid}/edit`}>
                             <FilePenLine size={16} />
                             Reprendre le brouillon
                         </Link>
@@ -74,7 +74,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                             onClick={() => {
                                 if (!window.confirm('Retirer cette candidature ? Son traitement prendra fin.')) return;
                                 setWithdrawing(true);
-                                router.post(`/dashboard/enrollments/${enrollment.uuid}/withdraw`, {}, { onFinish: () => setWithdrawing(false) });
+                                router.post(`/app/dashboard/enrollments/${enrollment.uuid}/withdraw`, {}, { onFinish: () => setWithdrawing(false) });
                             }}
                         >
                             Retirer la candidature
@@ -381,7 +381,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                         </h2>
                         <p>{nextStep(enrollment)}</p>
                         {enrollment.status === 'draft' ? (
-                            <Link className="student-primary" href={`/dashboard/enrollments/${enrollment.uuid}/edit`}>
+                            <Link className="student-primary" href={`/app/dashboard/enrollments/${enrollment.uuid}/edit`}>
                                 Continuer mon inscription
                                 <ArrowLeft className="student-arrow-forward" size={16} />
                             </Link>

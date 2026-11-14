@@ -14,9 +14,9 @@ class PasswordUpdateTest extends TestCase
     public function test_student_password_can_be_updated(): void
     {
         $user = $this->studentContext();
-        $this->actingAs($user)->from('/dashboard/student/profile')
-            ->post('/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
-            ->assertSessionHasNoErrors()->assertRedirect('/dashboard/student/profile');
+        $this->actingAs($user)->from('/app/dashboard/student/profile')
+            ->post('/app/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
+            ->assertSessionHasNoErrors()->assertRedirect('/app/dashboard/student/profile');
         $this->assertTrue(Hash::check('New-password-123', $user->fresh()->password));
         $this->assertNotNull($user->fresh()->remember_token);
     }
@@ -25,8 +25,8 @@ class PasswordUpdateTest extends TestCase
     {
         $user = $this->studentContext();
         $before = $user->password;
-        $this->actingAs($user)->from('/dashboard/student/profile')
-            ->post('/dashboard/student/profile/password', ['current_password' => 'wrong', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
+        $this->actingAs($user)->from('/app/dashboard/student/profile')
+            ->post('/app/dashboard/student/profile/password', ['current_password' => 'wrong', 'password' => 'New-password-123', 'password_confirmation' => 'New-password-123'])
             ->assertSessionHasErrorsIn('studentPassword', 'current_password');
         $this->assertSame($before, $user->fresh()->password);
     }

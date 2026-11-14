@@ -5,7 +5,7 @@ import { ArrowRight, ClipboardCheck, FileCheck2, FilePlus2, Inbox } from 'lucide
 import '../../../../css/admin-enrollments.css';
 import { applicantName, type Applicant } from './types';
 
-const admissions = '/dashboard/admin/enrollments';
+const admissions = '/app/dashboard/admin/enrollments';
 const queues = [
     { key: 'new', title: 'Nouvelles candidatures', detail: 'Dossiers reçus, analyse à démarrer', href: '?queue=new', icon: Inbox },
     { key: 'review', title: 'Dossiers à vérifier', detail: 'Dossiers en cours d’analyse', href: '?queue=review', icon: ClipboardCheck },

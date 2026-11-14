@@ -2,13 +2,21 @@ import Pagination from '@/components/admin/Pagination';
 import { Link } from '@inertiajs/react';
 import { dateTime, states, type Offering, type Page, type Resource, type Session, type Student } from './types';
 
-export function Context({ offer }: { offer: Offering }) {
+export function Context({ offer, showIdentity = true }: { offer: Offering; showIdentity?: boolean }) {
     return (
         <>
-            <h2>{offer.title}</h2>
-            <p>
-                {offer.faculty} · {offer.level} · {offer.year} · {states[offer.status]}
-            </p>
+            {showIdentity ? (
+                <>
+                    <h2>{offer.title}</h2>
+                    <p>
+                        {offer.faculty} · {offer.level} · {offer.year} · {states[offer.status]}
+                    </p>
+                </>
+            ) : (
+                <p>
+                    {offer.year} · {states[offer.status]}
+                </p>
+            )}
             <p>
                 {offer.program
                     ? `${offer.program} · ${offer.version} · UE ${offer.unit} · EC ${offer.code || offer.title}`

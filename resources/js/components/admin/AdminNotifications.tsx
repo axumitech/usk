@@ -1,38 +1,33 @@
+import { presentNotice, type Notices } from '@/components/notifications/noticePresentation';
 import { Link, usePage, usePoll } from '@inertiajs/react';
-import { Bell, CheckCheck, CheckCircle2, FilePenLine, FileUp, GraduationCap, Wallet, X, XCircle } from 'lucide-react';
+import { Bell, CheckCheck, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import '../../../css/dashboard/admin-notifications.css';
-type Notices = {
-    unread_count: number;
-    items: {
-        id: string;
-        reference: string;
-        student_name?: string;
-        filename: string;
-        version: number | null;
-        status?: string;
-        kind?: 'admission' | 'document' | 'enrollment' | 'finance' | 'schedule' | 'learning' | 'assessment' | 'results' | 'official_document';
-        verdict?: string;
-        comment?: string | null;
-        created_at: string;
-        read_at: string | null;
-        open_url: string;
-    }[];
-};
-export default function AdminNotifications({ audience = 'admin' }: { audience?: 'admin' | 'student' }) {
-    const propName = audience === 'admin' ? 'adminNotifications' : 'studentNotifications';
-    const props = usePage<{ adminNotifications: Notices | null; studentNotifications: Notices | null }>().props;
-    const notices = props[propName];
+
+export default function AdminNotifications({ audience = 'admin' }: { audience?: 'admin' | 'student' | 'teacher' }) {
+    const propName = { admin: 'adminNotifications', student: 'studentNotifications', teacher: 'teacherNotifications' } as const;
+    const props = usePage<{ adminNotifications: Notices | null; studentNotifications: Notices | null; teacherNotifications: Notices | null }>().props;
+    const notices = props[propName[audience]];
     const panelId = `${audience}-notifications-panel`;
-    const verdicts: Record<string, { title: string; icon: typeof FileUp }> = {
-        accepted: { title: 'Votre pièce a été acceptée', icon: CheckCircle2 },
-        rejected: { title: 'Votre pièce a été refusée', icon: XCircle },
-        correction_requested: { title: 'Une pièce est à corriger', icon: FilePenLine },
-    };
+    const description = {
+        admin: 'Les nouvelles pièces de vos candidats.',
+        student: 'Vos inscriptions, démarches et opérations financières.',
+        teacher: 'Le suivi de vos séances et de vos enseignements.',
+    }[audience];
+    const emptyDescription = {
+        admin: 'Le remplacement d’un justificatif apparaîtra ici.',
+        student: 'Les mises à jour de votre dossier apparaîtront ici.',
+        teacher: 'Les mises à jour de vos enseignements apparaîtront ici.',
+    }[audience];
+    const readAllUrl = {
+        admin: '/app/dashboard/admin/notifications/read-all',
+        student: '/app/dashboard/notifications/read-all',
+        teacher: '/app/dashboard/notifications/read-all?audience=teacher',
+    }[audience];
     const [open, setOpen] = useState(false);
     const panel = useRef<HTMLDivElement>(null);
     const toggle = useRef<HTMLButtonElement>(null);
-    usePoll(30000, { only: [propName] });
+    usePoll(30000, { only: [propName[audience]] });
     useEffect(() => {
         if (!open) return;
         const close = (event: PointerEvent) => {
@@ -63,19 +58,25 @@ export default function AdminNotifications({ audience = 'admin' }: { audience?: 
                 aria-controls={panelId}
                 onClick={() => setOpen(!open)}
             >
-                <Bell size={20} />
-                {notices.unread_count > 0 && <span>{notices.unread_count > 99 ? '99+' : notices.unread_count}</span>}
+                <Bell size={20} aria-hidden="true" />
+                {notices.unread_count > 0 && <span aria-hidden="true">{notices.unread_count > 99 ? '99+' : notices.unread_count}</span>}
             </button>
             {open && (
-                <section id={panelId} className="admin-notifications-panel" aria-label="Notifications des inscriptions">
+                <section
+                    id={panelId}
+                    className="admin-notifications-panel"
+                    aria-label={
+                        audience === 'teacher'
+                            ? 'Notifications enseignantes'
+                            : audience === 'admin'
+                              ? 'Notifications des inscriptions'
+                              : 'Notifications étudiantes'
+                    }
+                >
                     <header>
                         <div>
                             <h2>Notifications</h2>
-                            <p>
-                                {audience === 'admin'
-                                    ? 'Les nouvelles pièces de vos candidats.'
-                                    : 'Vos inscriptions, justificatifs et opérations financières.'}
-                            </p>
+                            <p>{description}</p>
                         </div>
                         <button
                             type="button"
@@ -89,13 +90,7 @@ export default function AdminNotifications({ audience = 'admin' }: { audience?: 
                         </button>
                     </header>
                     {notices.unread_count > 0 && (
-                        <Link
-                            href={audience === 'admin' ? '/dashboard/admin/notifications/read-all' : '/dashboard/notifications/read-all'}
-                            method="post"
-                            as="button"
-                            preserveScroll
-                            className="admin-notifications-read-all"
-                        >
+                        <Link href={readAllUrl} method="post" as="button" preserveScroll className="admin-notifications-read-all">
                             <CheckCheck size={15} />
                             Tout marquer comme lu
                         </Link>
@@ -103,87 +98,23 @@ export default function AdminNotifications({ audience = 'admin' }: { audience?: 
                     {notices.items.length ? (
                         <ul>
                             {notices.items.map((notice) => {
-                                const verdict = verdicts[notice.verdict || ''];
-                                const Icon =
-                                    notice.kind === 'finance'
-                                        ? Wallet
-                                        : notice.kind === 'admission'
-                                          ? GraduationCap
-                                          : audience === 'student' && verdict
-                                            ? verdict.icon
-                                            : FileUp;
+                                const { title, icon: Icon, action, showFile } = presentNotice(notice, audience === 'admin' ? 'admin' : 'student');
                                 return (
                                     <li key={notice.id} className={notice.read_at ? '' : 'is-unread'}>
                                         <span className="admin-notification-icon">
                                             <Icon size={18} />
                                         </span>
                                         <div>
-                                            <strong>
-                                                {notice.kind === 'official_document'
-                                                    ? ({
-                                                          received: 'Demande documentaire reçue',
-                                                          correction: 'Demande documentaire à compléter',
-                                                          refused: 'Demande documentaire refusée',
-                                                          approved: 'Demande documentaire approuvée',
-                                                          issued: 'Document émis',
-                                                          deliver: 'Remise confirmée',
-                                                          revoke: 'Document révoqué',
-                                                      }[notice.status ?? ''] ?? 'Suivi documentaire')
-                                                    : notice.kind === 'results'
-                                                      ? notice.status === 'appeal_decided'
-                                                          ? 'Votre recours a reçu une décision'
-                                                          : 'Résultats officiels publiés'
-                                                      : notice.kind === 'assessment'
-                                                        ? ({
-                                                              published: 'Évaluation publiée',
-                                                              received: 'Travail reçu',
-                                                              cancelled: 'Évaluation annulée',
-                                                              feedback: 'Correction disponible',
-                                                          }[notice.status ?? ''] ?? 'Suivi d’évaluation')
-                                                        : notice.kind === 'learning'
-                                                          ? 'Nouvelle ressource pédagogique'
-                                                          : notice.kind === 'schedule'
-                                                            ? ({
-                                                                  published: 'Nouvelle séance publiée',
-                                                                  changed: 'Séance modifiée',
-                                                                  cancelled: 'Séance annulée',
-                                                                  rescheduled: 'Séance reportée',
-                                                                  absence_submitted: 'Justification reçue',
-                                                                  absence_accepted: 'Justification acceptée',
-                                                                  absence_refused: 'Justification refusée',
-                                                                  absence_correction: 'Justification à compléter',
-                                                                  absence_in_review: 'Justification en examen',
-                                                              }[notice.status ?? ''] ?? 'Planification mise à jour')
-                                                            : audience === 'student'
-                                                              ? notice.kind === 'finance'
-                                                                  ? ({
-                                                                        confirmed: 'Votre versement a été confirmé',
-                                                                        cancelled: 'Une écriture de paiement a été annulée',
-                                                                        refund_executed: 'Un remboursement a été enregistré comme exécuté',
-                                                                    }[notice.status ?? ''] ?? 'Votre situation financière a été mise à jour')
-                                                                  : notice.kind === 'enrollment'
-                                                                    ? 'Votre situation administrative a été mise à jour'
-                                                                    : notice.kind === 'admission'
-                                                                      ? 'Bienvenue dans votre espace étudiant'
-                                                                      : verdict?.title || 'Votre justificatif a été examiné'
-                                                              : 'Une pièce à réexaminer'}
-                                            </strong>
+                                            <strong>{title}</strong>
                                             <p>
                                                 {audience === 'admin' && notice.student_name ? `${notice.student_name} · ` : ''}
                                                 {notice.reference}
                                             </p>
-                                            {notice.kind !== 'admission' &&
-                                                notice.kind !== 'enrollment' &&
-                                                notice.kind !== 'finance' &&
-                                                notice.kind !== 'schedule' &&
-                                                notice.kind !== 'learning' &&
-                                                notice.kind !== 'assessment' &&
-                                                notice.kind !== 'results' &&
-                                                notice.kind !== 'official_document' && (
-                                                    <p className="admin-notification-file">
-                                                        {notice.filename} · Version {notice.version}
-                                                    </p>
-                                                )}
+                                            {showFile && (
+                                                <p className="admin-notification-file">
+                                                    {notice.filename} · Version {notice.version}
+                                                </p>
+                                            )}
                                             {notice.comment && <p className="notification-review-comment">{notice.comment}</p>}
                                             <small>
                                                 {new Date(notice.created_at).toLocaleString('fr-FR', {
@@ -202,23 +133,7 @@ export default function AdminNotifications({ audience = 'admin' }: { audience?: 
                                                 onSuccess={() => setOpen(false)}
                                                 className="admin-notification-open"
                                             >
-                                                {notice.kind === 'official_document'
-                                                    ? 'Ouvrir mes documents'
-                                                    : notice.kind === 'results'
-                                                      ? 'Consulter mes résultats'
-                                                      : notice.kind === 'assessment'
-                                                        ? 'Consulter mes activités'
-                                                        : notice.kind === 'learning'
-                                                          ? 'Consulter les ressources'
-                                                          : notice.kind === 'schedule'
-                                                            ? 'Ouvrir le suivi'
-                                                            : notice.kind === 'finance'
-                                                              ? 'Consulter mes transactions'
-                                                              : notice.kind === 'enrollment'
-                                                                ? 'Consulter mes inscriptions'
-                                                                : notice.kind === 'admission'
-                                                                  ? 'Accéder à mon espace étudiant'
-                                                                  : 'Ouvrir le justificatif'}
+                                                {action}
                                             </Link>
                                         </div>
                                         {!notice.read_at && <span className="admin-notification-dot" aria-label="Non lue" />}
@@ -230,11 +145,7 @@ export default function AdminNotifications({ audience = 'admin' }: { audience?: 
                         <div className="admin-notifications-empty">
                             <Bell size={27} strokeWidth={1.4} />
                             <strong>Vous êtes à jour.</strong>
-                            <p>
-                                {audience === 'admin'
-                                    ? 'Le remplacement d’un justificatif apparaîtra ici.'
-                                    : 'Les décisions sur vos pièces apparaîtront ici.'}
-                            </p>
+                            <p>{emptyDescription}</p>
                         </div>
                     )}
                 </section>

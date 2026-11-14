@@ -66,7 +66,7 @@ class ProfessionalEmailsTest extends TestCase
         $this->assertStringContainsString('Alice Mukendi', $email->getHtmlBody());
         $this->assertStringContainsString('Licence en droit', $email->getHtmlBody());
         $this->assertStringContainsString('2026-2027', $email->getHtmlBody());
-        $this->assertStringContainsString('/dashboard/enrollments/'.$enrollment->uuid, $email->getHtmlBody());
+        $this->assertStringContainsString('/app/dashboard/enrollments/'.$enrollment->uuid, $email->getHtmlBody());
         $this->assertStringContainsString('ne vaut pas confirmation d’admission', $email->getTextBody());
         $this->assertStringContainsString('Kinshasa', $email->getTextBody());
     }

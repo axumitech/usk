@@ -1,4 +1,5 @@
 import AdminModal from '@/components/admin/AdminModal';
+import FeedbackToast from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { labels, money, type Balance } from '@/components/student/types';
@@ -26,12 +27,9 @@ type Tariff = {
     id: number;
     title: string;
     version: number;
-    scope_key: string;
     currency: string;
     category: string;
-    kind: string;
     status: string;
-    schedule: { amount_cents: number; due_at: string }[];
 };
 type Entry = { id: number; name: string; matricule: string | null; year: string; faculty: string; level: string; program: string | null };
 type Refund = {
@@ -73,7 +71,6 @@ type Props = {
     faculties: { id: number; name: string }[];
     programs: { id: number; name: string; faculty_id: number }[];
     levels: { id: number; title: string; faculty_id: number; faculty: { name: string } }[];
-    cycles: { id: number; name: string }[];
     currencies: string[];
     methods: string[];
     dualControl: boolean;
@@ -83,6 +80,7 @@ type Props = {
     } | null;
 };
 const reason: Field = { name: 'reason', label: 'Justification', required: true, type: 'textarea' };
+const tariffCategory = (category: string) => ({ national: 'Étudiants nationaux', foreign: 'Étudiants étrangers' })[category] ?? category;
 const statusLabel = (value: string) =>
     labels[value] ||
     ({
@@ -100,6 +98,7 @@ const statusLabel = (value: string) =>
 export default function Finance(props: Props) {
     const [spec, setSpec] = useState<FormSpec | null>(null);
     const [allocating, setAllocating] = useState<Payment | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
     const search = useForm({
         q: props.filters.q ?? '',
         year: String(props.filters.year ?? ''),
@@ -114,7 +113,12 @@ export default function Finance(props: Props) {
     const programs = props.programs.filter((item) => !search.data.faculty || String(item.faculty_id) === search.data.faculty);
     const levels = props.levels.filter((item) => !search.data.faculty || String(item.faculty_id) === search.data.faculty);
     const base = route('dashboard.admin.finance.index');
-    const staffBase = '/dashboard/admin/student-academic';
+    const tariffsUrl = route('dashboard.admin.finance.tariffs.index', {
+        year: props.filters.year,
+        faculty: props.filters.faculty,
+        level: props.filters.level,
+    });
+    const staffBase = '/app/dashboard/admin/student-academic';
     const show = (
         title: string,
         action: string,
@@ -148,7 +152,17 @@ export default function Finance(props: Props) {
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Gestion financière universitaire" />
-            {spec && <AcademicForm spec={spec} onClose={() => setSpec(null)} onSuccess={() => setSpec(null)} />}
+            {notice && <FeedbackToast feedback={{ id: 0, message: notice, tone: 'success' }} onDismiss={() => setNotice(null)} />}
+            {spec && (
+                <AcademicForm
+                    spec={spec}
+                    onClose={() => setSpec(null)}
+                    onSuccess={(message) => {
+                        setSpec(null);
+                        setNotice(message);
+                    }}
+                />
+            )}
             {allocating && <Allocation payment={allocating} obligations={props.obligations} close={() => setAllocating(null)} />}
             <div className="student-portal academic-administration finance-workspace">
                 <header className="finance-hero">
@@ -188,7 +202,7 @@ export default function Finance(props: Props) {
                     {props.totals.length > 0 && <a href="#finance-faculties">Recouvrement par faculté</a>}
                     <a href="#comptes">Comptes étudiants</a>
                     {props.selected && <a href="#compte">Compte ouvert</a>}
-                    <a href="#tariffs">Barèmes</a>
+                    <Link href={tariffsUrl}>Barèmes des frais</Link>
                     <a href="#reconciliation">Rapprochement</a>
                 </nav>
                 <form
@@ -382,7 +396,10 @@ export default function Finance(props: Props) {
                                             required: true,
                                             options: props.tariffs.data
                                                 .filter((v) => v.status === 'active')
-                                                .map((v) => ({ value: v.id, label: `${v.title} · V${v.version} · ${v.category} · ${v.currency}` })),
+                                                .map((v) => ({
+                                                    value: v.id,
+                                                    label: `${v.title} · V${v.version} · ${tariffCategory(v.category)} · ${v.currency}`,
+                                                })),
                                         },
                                         reason,
                                     ])
@@ -663,103 +680,10 @@ export default function Finance(props: Props) {
                     </section>
                 )}
                 <section className="portal-panel finance-operational-panel" id="tariffs">
-                    <h2>Barèmes versionnés</h2>
-                    <button
-                        className="admin-secondary"
-                        onClick={() =>
-                            show('Nouvelle version de barème', route('dashboard.admin.finance.tariffs'), [
-                                { name: 'title', label: 'Libellé', required: true },
-                                {
-                                    name: 'academic_year_id',
-                                    label: 'Année',
-                                    type: 'select',
-                                    required: true,
-                                    options: props.years.map((v) => ({ value: v.id, label: v.title })),
-                                },
-                                {
-                                    name: 'academic_program_id',
-                                    label: 'Programme (vide : tous)',
-                                    type: 'select',
-                                    options: props.programs.map((v) => ({ value: v.id, label: v.name })),
-                                },
-                                {
-                                    name: 'level_id',
-                                    label: 'Niveau (vide : tous)',
-                                    type: 'select',
-                                    options: props.levels.map((v) => ({ value: v.id, label: `${v.faculty.name} · ${v.title}` })),
-                                },
-                                {
-                                    name: 'academic_cycle_id',
-                                    label: 'Cycle (vide : tous)',
-                                    type: 'select',
-                                    options: props.cycles.map((v) => ({ value: v.id, label: v.name })),
-                                },
-                                { name: 'category', label: 'Catégorie configurée (national, foreign…)', required: true },
-                                { name: 'kind', label: 'Catégorie de frais (tuition ou autre code)', required: true },
-                                {
-                                    name: 'currency',
-                                    label: 'Devise',
-                                    type: 'select',
-                                    required: true,
-                                    options: props.currencies.map((v) => ({ value: v, label: v })),
-                                },
-                                { name: 'valid_from', label: 'Début de validité', type: 'date', required: true },
-                                { name: 'valid_until', label: 'Fin de validité', type: 'date' },
-                                { name: 'schedule', label: 'Échéances du barème', type: 'schedule', required: true },
-                                reason,
-                            ])
-                        }
-                    >
-                        Créer une version
-                    </button>
-                    <div className="academic-table-scroll">
-                        <table className="academic-table">
-                            <thead>
-                                <tr>
-                                    <th>Barème</th>
-                                    <th>Périmètre</th>
-                                    <th>État</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody data-dashboard-panel="tariffs_page">
-                                {props.tariffs.data.map((t) => (
-                                    <tr key={t.id}>
-                                        <td>
-                                            {t.title} · V{t.version}
-                                        </td>
-                                        <td>
-                                            {t.category} · {t.kind} · {t.currency}
-                                        </td>
-                                        <td>{statusLabel(t.status)}</td>
-                                        <td>
-                                            {t.status === 'draft' && (
-                                                <button
-                                                    className="academic-link-button"
-                                                    onClick={() =>
-                                                        show('Activer cette version', route('dashboard.admin.finance.tariffs.activate', t.id), [
-                                                            {
-                                                                name: 'replace_id',
-                                                                label: 'Version active à remplacer si chevauchement',
-                                                                type: 'select',
-                                                                options: props.tariffs.data
-                                                                    .filter((v) => v.scope_key === t.scope_key && v.status === 'active')
-                                                                    .map((v) => ({ value: v.id, label: `${v.title} · V${v.version}` })),
-                                                            },
-                                                            reason,
-                                                        ])
-                                                    }
-                                                >
-                                                    Activer après contrôle
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    <Pagination value={props.tariffs} preserveScroll preserveState />
+                    <h2>Barèmes des frais</h2>
+                    <Link href={tariffsUrl} className="finance-account-link">
+                        Gérer les barèmes par année <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
                 </section>
                 <Reconciliation preview={props.preview} />
                 <section className="portal-panel finance-operational-panel" id="settings">

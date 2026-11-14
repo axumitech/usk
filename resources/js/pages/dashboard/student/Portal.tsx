@@ -1,32 +1,30 @@
 import FeedbackToast, { type ToastFeedback } from '@/components/admin/FeedbackToast';
-import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import DesktopOverviewHeader from '@/components/student/DesktopOverviewHeader';
 import ModuleLanding from '@/components/student/ModuleLanding';
 import { studentHref, studentModules, studentSectionAccess, studentSectionLabels } from '@/components/student/navigation';
 import OfficialDocumentCenter from '@/components/student/OfficialDocumentCenter';
 import OfficialResults from '@/components/student/OfficialResults';
-import {
-    AcademicSummary,
-    CourseCard,
-    EmptyState,
-    FinancialStatusBanner,
-    PaymentOverview,
-    StudentIdentityCard,
-} from '@/components/student/PortalCards';
-import ProfilePageHeading from '@/components/student/ProfilePageHeading';
+import { AcademicSummary, EmptyState, FinancialStatusBanner, StudentIdentityCard } from '@/components/student/PortalCards';
+import ProfilePageHeading, { ProfileSettings, ProfileSubpageHeading, studentProfileHref } from '@/components/student/ProfilePageHeading';
+import StudentAlertBubble from '@/components/student/StudentAlertBubble';
+import StudentAssignments from '@/components/student/StudentAssignments';
+import { studentChromeHref } from '@/components/student/StudentChrome';
+import CoursesBySemester from '@/components/student/StudentCourseCards';
+import StudentDocumentsLibrary from '@/components/student/StudentDocumentsLibrary';
+import StudentFinance from '@/components/student/StudentFinance';
 import StudentOverview from '@/components/student/StudentOverview';
 import StudentProfileForm, { StudentPasswordModal } from '@/components/student/StudentProfileForm';
 import StudentSchedule from '@/components/student/StudentSchedule';
+import StudentSchoolServices from '@/components/student/StudentSchoolServices';
+import StudentShortcuts from '@/components/student/StudentShortcuts';
 import StudentWelcome from '@/components/student/StudentWelcome';
-import { labels, money, type AssessmentActivity, type PortalProps, type Resource } from '@/components/student/types';
+import { labels, type AssessmentActivity, type PortalProps, type Resource } from '@/components/student/types';
 import { formatDate } from '@/lib/studentEnrollment';
-import { Head, Link, router, useForm, usePoll } from '@inertiajs/react';
-import { ArrowUpRight, BookOpen, CreditCard, Download, LayoutDashboard, LockKeyhole, MessageSquare, Send } from 'lucide-react';
+import { Head, Link, useForm, usePage, usePoll } from '@inertiajs/react';
+import { BookOpen, Download, LockKeyhole, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import '../../../../css/student-overview-desktop.css';
 import '../../../../css/student-portal.css';
-import '../../../../css/student-profile-desktop.css';
 function DepartmentChoice({
     academic,
     department,
@@ -165,58 +163,6 @@ function Renewal({ decision, academic }: { decision: NonNullable<PortalProps['pr
     );
 }
 
-function CoursesBySemester({ courses }: { courses: PortalProps['courses'] }) {
-    const groups = new Map<string, PortalProps['courses']>();
-    for (const course of courses) {
-        const semester = course.semester?.trim() || 'Semestre à préciser';
-        const label = semester === '1' ? '1er semestre' : semester === '2' ? '2e semestre' : semester;
-        groups.set(label, [...(groups.get(label) ?? []), course]);
-    }
-    const rank = (label: string) => (label === '1er semestre' ? 0 : label === '2e semestre' ? 1 : label === 'Semestre à préciser' ? 3 : 2);
-    return (
-        <div className="portal-semester-groups">
-            {[...groups.entries()]
-                .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b, 'fr'))
-                .map(([semester, items]) => (
-                    <section className="portal-semester-group" key={semester} aria-label={semester}>
-                        <header className="portal-semester-heading">
-                            <div>
-                                <h2>{semester}</h2>
-                                <p>{items.length} cours</p>
-                            </div>
-                            <span>
-                                {items.filter((course) => course.registered).reduce((total, course) => total + Number(course.credits ?? 0), 0)}{' '}
-                                crédits inscrits · crédits acquis selon décisions officielles
-                            </span>
-                        </header>
-                        <div className="portal-course-grid">
-                            {items.map((course) => (
-                                <CourseCard key={course.id} course={course} />
-                            ))}
-                        </div>
-                    </section>
-                ))}
-        </div>
-    );
-}
-
-const activityFilters: Record<string, string> = {
-    available: 'À faire',
-    upcoming: 'À venir',
-    submitted: 'Soumis',
-    grading: 'En correction',
-    corrected: 'Corrigés',
-};
-const activityStates: Record<string, string> = {
-    available: 'Ouverte',
-    upcoming: 'À venir',
-    submitted: 'Travail remis',
-    grading: 'En correction',
-    corrected: 'Correction disponible',
-    ended: 'Échéance passée',
-    cancelled: 'Séance annulée',
-    unassigned: 'Groupe à confirmer',
-};
 const participationLabels: Record<string, string> = {
     submitted: 'Remis',
     late_submission: 'Remis en retard',
@@ -264,35 +210,16 @@ function AssessmentReview({ url, onFeedback }: { url: string; onFeedback: (messa
 
 function AssessmentInfo({
     activity,
-    opens,
     onFeedback,
+    assignmentAction,
 }: {
     activity: AssessmentActivity;
-    opens: string | null;
     onFeedback: (message: string) => void;
+    assignmentAction?: string;
 }) {
     const feedback = activity.feedback;
     return (
         <div>
-            <p>
-                <strong>{activityStates[activity.status]}</strong> · {activity.category} · {activity.session_code}
-                {activity.teacher && ` · ${activity.teacher}`} {activity.group && ` · ${activity.group}`}
-            </p>
-            {activity.objectives && <p>{activity.objectives}</p>}
-            {activity.maximum_points !== null && <p>Barème sur {assessmentPoints(activity.maximum_points)}</p>}
-            {activity.modality === 'in_person' ? (
-                <p>
-                    Épreuve en présentiel
-                    {activity.session &&
-                        ` · ${activity.session.room} · ${formatDate(activity.session.starts_at, true)} – ${formatDate(activity.session.ends_at, true)}`}
-                </p>
-            ) : (
-                <p>
-                    {opens && `Ouverture le ${formatDate(opens, true)} · `}
-                    {activity.attempt_limit} remise(s) maximum
-                    {activity.late_deadline && ` · Dernière réception possible le ${formatDate(activity.late_deadline, true)}`}
-                </p>
-            )}
             {activity.participation && participationLabels[activity.participation] && <p>{participationLabels[activity.participation]}</p>}
             {feedback && (
                 <section aria-label="Correction pédagogique">
@@ -314,17 +241,29 @@ function AssessmentInfo({
                         </ul>
                     )}
                     {feedback.file_url && <a href={feedback.file_url}>Télécharger ma correction</a>}
-                    {feedback.review_url && <AssessmentReview url={feedback.review_url} onFeedback={onFeedback} />}
+                    {feedback.review_url && <AssessmentReview url={`${feedback.review_url}${assignmentAction ?? ''}`} onFeedback={onFeedback} />}
                 </section>
             )}
         </div>
     );
 }
 
-function WorkForm({ resource, academic, onFeedback }: { resource: Resource; academic: number; onFeedback: (message: string) => void }) {
+function WorkForm({
+    resource,
+    academic,
+    onFeedback,
+    assignmentAction,
+}: {
+    resource: Resource;
+    academic: number;
+    onFeedback: (message: string) => void;
+    assignmentAction?: string;
+}) {
     const input = useRef<HTMLInputElement>(null);
     const operation = useRef<string | null>(null);
     const form = useForm<{ body: string; file: File | null }>({ body: resource.submission?.body || '', file: null });
+    const formats = resource.assessment?.submission_formats ?? ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+    const maximum = resource.assessment?.submission_max_kb;
     return (
         <form
             className="portal-form"
@@ -339,7 +278,7 @@ function WorkForm({ resource, academic, onFeedback }: { resource: Resource; acad
                     expected_version: resource.submission?.version ?? 0,
                 }));
 
-                form.post(`/dashboard/student/resources/${resource.id}/submit?academic=${academic}`, {
+                form.post(`/app/dashboard/student/resources/${resource.id}/submit?academic=${academic}${assignmentAction ?? ''}`, {
                     forceFormData: true,
                     preserveScroll: true,
                     errorBag: `work-${resource.id}`,
@@ -360,14 +299,19 @@ function WorkForm({ resource, academic, onFeedback }: { resource: Resource; acad
                 rows={5}
                 maxLength={20000}
             />
-            <label htmlFor={`work-file-${resource.id}`}>Joindre un fichier (PDF ou image)</label>
+            <label htmlFor={`work-file-${resource.id}`}>Joindre un fichier</label>
             <input
                 id={`work-file-${resource.id}`}
+                aria-describedby={`work-file-rules-${resource.id}`}
                 ref={input}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                accept={formats.map((extension) => `.${extension}`).join(',')}
                 onChange={(event) => form.setData('file', event.target.files?.[0] || null)}
             />
+            <small id={`work-file-rules-${resource.id}`}>
+                {formats.map((extension) => extension.toUpperCase()).join(', ')}
+                {maximum != null && ` · ${new Intl.NumberFormat('fr-FR').format(maximum)} Kio maximum`}
+            </small>
             {Object.values(form.errors).map((error, index) => (
                 <p role="alert" className="portal-error" key={index}>
                     {error}
@@ -375,78 +319,23 @@ function WorkForm({ resource, academic, onFeedback }: { resource: Resource; acad
             ))}
             <button className="portal-primary" disabled={form.processing}>
                 <Send size={16} />
-                {form.processing ? 'Envoi…' : resource.submission ? 'Actualiser mon dépôt' : 'Transmettre mon travail'}
+                {form.processing
+                    ? 'Envoi…'
+                    : resource.submission
+                      ? 'Actualiser mon dépôt'
+                      : assignmentAction
+                        ? 'Soumettre mon travail'
+                        : 'Transmettre mon travail'}
             </button>
-        </form>
-    );
-}
-function RequestForm({
-    academic,
-    documentsAllowed,
-    onFeedback,
-}: {
-    academic: number;
-    documentsAllowed: boolean;
-    onFeedback: (message: string) => void;
-}) {
-    const form = useForm({ category: 'support', subject: '', body: '' });
-    return (
-        <form
-            className="portal-form"
-            onSubmit={(event) => {
-                event.preventDefault();
-                form.post(`/dashboard/student/requests?academic=${academic}`, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        form.reset();
-                        onFeedback('Votre demande a été transmise.');
-                    },
-                });
-            }}
-        >
-            <label htmlFor="request-category">Objet de votre démarche</label>
-            <select id="request-category" value={form.data.category} onChange={(event) => form.setData('category', event.target.value)}>
-                <option value="support">Assistance administrative</option>
-                <option value="appeal">Recours / réclamation</option>
-                <option value="finance">Question financière</option>
-                <option value="document" disabled={!documentsAllowed}>
-                    Demande de document réglementée
-                </option>
-            </select>
-            <label htmlFor="request-subject">Sujet</label>
-            <input
-                id="request-subject"
-                value={form.data.subject}
-                maxLength={180}
-                required
-                onChange={(event) => form.setData('subject', event.target.value)}
-            />
-            <label htmlFor="request-body">Votre message</label>
-            <textarea
-                id="request-body"
-                value={form.data.body}
-                minLength={10}
-                maxLength={6000}
-                required
-                rows={5}
-                onChange={(event) => form.setData('body', event.target.value)}
-            />
-            {Object.values(form.errors).map((error, index) => (
-                <p key={index} role="alert" className="portal-error">
-                    {error}
-                </p>
-            ))}
-            <button className="portal-primary" disabled={form.processing}>
-                <Send size={16} />
-                {form.processing ? 'Envoi…' : 'Transmettre ma demande'}
-            </button>
-            <p className="portal-muted">L’assistance, les questions financières et les recours restent accessibles sans condition de paiement.</p>
         </form>
     );
 }
 export default function Portal(props: PortalProps) {
+    const { url } = usePage();
     const { academic, section, permissions, balance, resources } = props;
     const isAcademicLanding = section === 'academics';
+    const isCourseList = section === 'courses';
+    const isResults = section === 'results';
     const [guideRequest, setGuideRequest] = useState(0);
     const [passwordOpen, setPasswordOpen] = useState(false);
     const [toast, setToast] = useState<ToastFeedback | null>(props.success ? { id: 0, message: props.success, tone: 'success' } : null);
@@ -472,21 +361,22 @@ export default function Portal(props: PortalProps) {
         previousAccess.current = { academic: academic.id, permissions };
     }, [permissions, academic.id]);
     const sectionPollProps: Record<string, string[]> = {
-        overview: ['overview', 'resources', 'progression', 'sessions', 'upcoming_sessions', 'schedule_week'],
+        overview: ['overview', 'courses', 'calendar_events', 'resources', 'progression', 'sessions', 'upcoming_sessions', 'schedule_week'],
         academics: ['progression'],
-        schedule: ['sessions', 'schedule_week', 'calendar_events'],
+        schedule: ['sessions', 'schedule_week', 'schedule_day', 'schedule_view', 'calendar_events'],
+        courses: ['courses', 'course_credits'],
         materials: ['resources'],
-        assignments: ['resources', 'work_pagination'],
-        evaluations: ['resources', 'work_pagination'],
-        announcements: ['resources'],
+        assignments: ['resources', 'work_pagination', 'assignment_counts'],
+        evaluations: ['resources', 'work_pagination', 'evaluation_counts', 'evaluation_view'],
         results: ['resources', 'official_results'],
-        documents: ['resources', 'document_center'],
-        fees: ['progression', 'finance_schedule', 'obligations', 'adjustments'],
-        transactions: ['payments', 'payments_pagination'],
-        requests: ['requests'],
+        documents: ['document_library', 'document_center'],
+        fees: ['progression', 'finance_details', 'finance_schedule', 'adjustments'],
+        transactions: ['finance_view', 'payments', 'payments_pagination'],
+        services: ['scolarite'],
+        requests: ['scolarite'],
         card: ['card_eligibility', 'document_center'],
     };
-    usePoll(30000, { only: ['permissions', 'balance', 'academic', ...(sectionPollProps[section] ?? [])] });
+    usePoll(30000, { only: ['studentChrome', 'permissions', 'balance', 'academic', ...(sectionPollProps[section] ?? [])] });
     const href = (section = 'overview') => studentHref(section, academic.id);
     const canOpen = (key: string) => {
         const access = studentSectionAccess(key, permissions);
@@ -497,92 +387,217 @@ export default function Portal(props: PortalProps) {
         assignments: 'assignment',
         evaluations: 'evaluation',
         results: 'result',
-        announcements: 'announcement',
-        documents: 'document',
     };
     const activeModule = studentModules.find((module) => module.sections.includes(section)) || studentModules[0];
     const activeSections = activeModule.sections.filter(canOpen);
     const displayed = resources.filter((resource) => resource.kind === resourceKind[section]);
+    if (section === 'assignments' || section === 'evaluations') {
+        const evaluationView = section === 'evaluations' ? (props.evaluation_view ?? 'upcoming') : undefined;
+        const assignmentQuery = new URLSearchParams({ [evaluationView ? 'evaluation_detail' : 'assignment_detail']: '1' });
+        const page = new URLSearchParams(url.split('?')[1]?.split('#')[0]).get('work_page');
+        if (evaluationView && !props.activity_filter) assignmentQuery.set('view', evaluationView);
+        if (props.activity_filter) assignmentQuery.set('activity', props.activity_filter);
+        if (page) assignmentQuery.set('work_page', page);
+        const assignmentAction = `&${assignmentQuery}`;
+        return (
+            <Dashboard>
+                <Head title={props.work_id && displayed[0] ? displayed[0].title : evaluationView ? 'Évaluations' : 'Devoirs et travaux'} />
+                {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
+                <StudentAssignments
+                    academic={academic}
+                    chrome={props.studentChrome}
+                    resources={displayed}
+                    workId={props.work_id}
+                    filter={props.activity_filter}
+                    counts={evaluationView ? props.evaluation_counts : props.assignment_counts}
+                    evaluationView={evaluationView}
+                    pagination={props.work_pagination}
+                    renderSubmission={(resource) => (
+                        <WorkForm
+                            key={resource.id}
+                            resource={resource}
+                            academic={academic.id}
+                            onFeedback={notify}
+                            assignmentAction={assignmentAction}
+                        />
+                    )}
+                    renderCorrection={(resource) =>
+                        resource.assessment && (
+                            <AssessmentInfo activity={resource.assessment} onFeedback={notify} assignmentAction={assignmentAction} />
+                        )
+                    }
+                />
+            </Dashboard>
+        );
+    }
+    if ((section === 'services' || section === 'requests') && props.scolarite) {
+        const page = new URLSearchParams(url.split('?')[1]?.split('#')[0]).get('requests_page');
+        return (
+            <Dashboard>
+                <Head title={section === 'services' ? 'Scolarité' : 'Mes demandes'} />
+                {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
+                <StudentSchoolServices
+                    academic={academic}
+                    chrome={props.studentChrome}
+                    data={props.scolarite}
+                    section={section}
+                    page={page && /^[1-9]\d*$/.test(page) ? page : undefined}
+                />
+            </Dashboard>
+        );
+    }
+    if (section === 'documents') {
+        return (
+            <Dashboard>
+                <Head title="Mes documents" />
+                <StudentDocumentsLibrary academic={academic} library={props.document_library} center={props.document_center} />
+            </Dashboard>
+        );
+    }
+    if (section === 'profile') {
+        const view = props.profile_view ?? 'overview';
+        const title = view === 'settings' ? 'Paramètres du compte' : view === 'overview' ? 'Mon profil' : 'Informations personnelles';
+        const yearCount = new Set(props.studentChrome?.options.map((option) => option.year_id)).size || 1;
+        return (
+            <Dashboard>
+                <Head title={title} />
+                {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
+                {passwordOpen && <StudentPasswordModal academic={academic.id} onClose={() => setPasswordOpen(false)} onFeedback={notify} />}
+                <StudentWelcome academic={academic} pending={false} openRequest={guideRequest} />
+                <div className="sp-page">
+                    {view === 'overview' ? (
+                        <ProfilePageHeading academic={academic} yearCount={yearCount} context={props.studentChrome} />
+                    ) : (
+                        <>
+                            <ProfileSubpageHeading academic={academic.id} title={title} />
+                            {view === 'settings' ? (
+                                <ProfileSettings
+                                    academic={academic.id}
+                                    onPassword={() => setPasswordOpen(true)}
+                                    onGuide={() => setGuideRequest((value) => value + 1)}
+                                />
+                            ) : (
+                                props.profile_form && (
+                                    <StudentProfileForm
+                                        key={`${academic.id}-${view}`}
+                                        academic={academic}
+                                        profile={props.profile_form}
+                                        onFeedback={notify}
+                                        initialEditSection={view === 'photo' ? 'photo' : undefined}
+                                    />
+                                )
+                            )}
+                        </>
+                    )}
+                </div>
+            </Dashboard>
+        );
+    }
+    if (section === 'fees' || section === 'transactions') {
+        return (
+            <Dashboard>
+                <Head
+                    title={section === 'fees' ? 'Finances' : props.finance_view === 'receipts' ? 'Reçus et attestations' : 'Historique des paiements'}
+                />
+                {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
+                <StudentFinance key={`${academic.id}-${section}`} {...props} />
+                {props.progression && <Renewal key={props.progression.id} decision={props.progression} academic={academic.id} />}
+            </Dashboard>
+        );
+    }
     if (section === 'schedule') {
         return (
             <Dashboard>
-                <Head title={`Horaire · ${academic.level}`} />
-                <div className="student-portal is-schedule">
-                    <Link className="portal-secondary" href={route('dashboard.student.absences')}>
-                        Consulter et justifier mes absences
-                    </Link>
-                    {props.contexts.length > 1 && (
-                        <label className="student-schedule-context">
-                            Promotion affichée
-                            <select
-                                aria-label="Promotion affichée"
-                                value={academic.id}
-                                onChange={(event) =>
-                                    router.get('/dashboard/student/schedule', { academic: event.target.value, week: props.schedule_week })
-                                }
-                            >
-                                {props.contexts.map((context) => (
-                                    <option value={context.id} key={context.id}>
-                                        {context.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    )}
-                    <StudentSchedule
-                        sessions={props.sessions}
-                        week={props.schedule_week}
-                        academic={academic.id}
-                        promotion={academic}
-                        calendarEvents={props.calendar_events}
-                    />
-                </div>
+                <Head title={`Emploi du temps · ${academic.level}`} />
+                <StudentSchedule
+                    key={academic.id}
+                    sessions={props.sessions}
+                    week={props.schedule_week}
+                    academic={academic.id}
+                    promotion={academic}
+                    calendarEvents={props.calendar_events}
+                    selectedDay={props.schedule_day ?? undefined}
+                    selectedView={props.schedule_view}
+                    absencesHref={studentChromeHref('absences', academic.id)}
+                    canOpenCourse={canOpen('courses')}
+                    yearContext={props.studentChrome}
+                />
             </Dashboard>
         );
     }
 
     return (
         <Dashboard>
-            <Head title={section === 'profile' ? 'Mon profil étudiant' : 'Mon espace étudiant'} />
-            {passwordOpen && <StudentPasswordModal academic={academic.id} onClose={() => setPasswordOpen(false)} onFeedback={notify} />}
+            <Head title={isResults ? 'Mes résultats' : isCourseList ? 'Mes cours' : 'Mon espace étudiant'} />
             {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
             <div
-                className={`student-portal ${section === 'overview' ? 'is-overview' : section === 'profile' ? 'is-profile' : ''}`}
+                className={`student-portal ${section === 'overview' ? 'is-overview' : isCourseList ? 'is-course-list' : ''}`}
                 data-dashboard-arrival-grid
             >
-                {props.curriculum && section !== 'academics' && (
+                {props.curriculum && !isAcademicLanding && !isCourseList && !isResults && (
                     <p className="portal-muted" role="note">
                         {props.curriculum.program} · {props.curriculum.cycle} · Maquette {props.curriculum.code}
                         {props.curriculum.promotion && ` · ${props.curriculum.promotion}`}
                         {props.curriculum.cohort && ` · ${props.curriculum.cohort}`}
                     </p>
                 )}
-                <div className="portal-toolbar">
-                    <span>
-                        <LayoutDashboard size={16} />
-                        ESPACE ÉTUDIANT
-                    </span>
-                    <select
-                        aria-label="Inscription académique affichée"
-                        value={academic.id}
-                        onChange={(event) => router.get('/dashboard/student', { academic: event.target.value })}
-                    >
-                        {props.contexts.map((context) => (
-                            <option value={context.id} key={context.id}>
-                                {context.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <Link href={route('dashboard.student.enrollments')}>Mes inscriptions académiques et leur historique</Link>
                 <StudentWelcome
                     academic={academic}
                     pending={props.welcome_pending && section === 'overview'}
                     openRequest={guideRequest}
-                    desktopInline={section === 'overview' || section === 'profile'}
+                    desktopInline={section === 'overview'}
                 />
                 {section === 'overview' && (
-                    <DesktopOverviewHeader academic={academic} overview={props.overview} onGuide={() => setGuideRequest((value) => value + 1)} />
+                    <>
+                        <div className="student-home-intro">
+                            <div>
+                                <p>
+                                    {academic.level} · {academic.faculty}
+                                </p>
+                                <h1>Bonjour, {academic.name.trim().split(/\s+/)[0]}</h1>
+                            </div>
+                            <StudentAlertBubble
+                                academic={academic}
+                                alerts={props.overview?.alerts ?? []}
+                                announcements={props.overview?.announcements ?? []}
+                                permissions={permissions}
+                            />
+                        </div>
+                        <StudentShortcuts academic={academic.id} permissions={permissions} onGuide={() => setGuideRequest((value) => value + 1)} />
+                    </>
+                )}
+                {isCourseList && (
+                    <>
+                        <header className="student-courses-intro">
+                            <p>
+                                {academic.level} · {academic.year}
+                            </p>
+                            <h1>Mes cours</h1>
+                        </header>
+                        <dl className="student-course-credits" aria-label="Récapitulatif des crédits">
+                            {[
+                                { label: 'Crédits acquis', value: props.course_credits?.earned, tone: 'mint' },
+                                { label: 'Crédits à valider', value: props.course_credits?.remaining, tone: 'sand' },
+                                { label: 'Total des crédits', value: props.course_credits?.planned, tone: 'sky' },
+                            ].map(({ label, value, tone }) => (
+                                <div key={label} data-tone={tone}>
+                                    <dt>{label}</dt>
+                                    <dd>{value == null ? '—' : (value / 100).toLocaleString('fr-CD')}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                        <p className="student-course-credits-note">
+                            {props.course_credits?.earned == null
+                                ? 'Les crédits acquis et ceux qui restent à valider s’affichent avec les résultats officiels.'
+                                : 'Les crédits acquis et ceux à valider correspondent aux résultats publiés.'}
+                        </p>
+                        {props.course_credits?.compensated != null && props.course_credits.compensated > 0 && (
+                            <p className="student-course-credits-note">
+                                Dont {(props.course_credits.compensated / 100).toLocaleString('fr-CD')}{' '}
+                                {props.course_credits.compensated === 100 ? 'crédit acquis' : 'crédits acquis'} par compensation.
+                            </p>
+                        )}
+                    </>
                 )}
                 {props.progression && <Renewal key={props.progression.id} decision={props.progression} academic={academic.id} />}
                 {(section === 'overview' || section === 'academics' || section === 'courses') && (
@@ -594,78 +609,49 @@ export default function Portal(props: PortalProps) {
                         onFeedback={notify}
                     />
                 )}
-                {section === 'profile' && (
-                    <ProfilePageHeading
-                        academic={academic.id}
-                        onPassword={() => setPasswordOpen(true)}
-                        onGuide={() => setGuideRequest((value) => value + 1)}
-                    />
-                )}
                 <div className="portal-content-layout">
-                    {!isAcademicLanding && (
+                    {!isAcademicLanding && !isCourseList && !isResults && section !== 'overview' && (
                         <StudentIdentityCard
                             academic={academic}
-                            onChangePassword={section === 'profile' ? () => setPasswordOpen(true) : undefined}
                             courseCount={permissions.courses_view.allowed ? (props.overview?.course_count ?? props.courses.length) : null}
                         />
                     )}
-                    {!['overview', 'profile', 'academics'].includes(section) && (
+                    {!['overview', 'academics', 'courses', 'results'].includes(section) && (
                         <>
                             <AcademicSummary academic={academic} />
                             <FinancialStatusBanner balance={balance} href={href('fees')} />
                         </>
                     )}
-                    {(academic.enrollment_status !== 'confirmed' || academic.student_status !== 'active') && (
+                    {section !== 'overview' && (academic.enrollment_status !== 'confirmed' || academic.student_status !== 'active') && (
                         <p className="portal-alert">
                             Votre profil est {labels[academic.student_status]?.toLowerCase() || academic.student_status} et votre inscription est{' '}
                             {labels[academic.enrollment_status]?.toLowerCase() || academic.enrollment_status}. Votre identité, vos frais et
                             l’assistance restent consultables.
                         </p>
                     )}
-                    {!['overview', 'profile', 'academics'].includes(section) && (
-                        <>
-                            <nav className="portal-modules" aria-label="Rubriques de l’espace étudiant">
-                                {studentModules.map((module) => {
-                                    const destination = module.sections.find(canOpen);
-                                    if (!destination) return null;
-                                    return (
-                                        <Link
-                                            key={module.id}
-                                            href={href(destination)}
-                                            aria-current={activeModule.id === module.id ? 'page' : undefined}
-                                        >
-                                            <module.icon size={19} />
-                                            <span>
-                                                {module.title}
-                                                <small>{module.description}</small>
-                                            </span>
-                                        </Link>
-                                    );
-                                })}
-                            </nav>
-                            {activeSections.length > 1 && (
-                                <nav className="portal-tabs" aria-label={`Navigation : ${activeModule.title}`}>
-                                    {activeSections.map((key) => (
-                                        <Link key={key} href={href(key)} aria-current={section === key ? 'page' : undefined}>
-                                            {studentSectionLabels[key]}
-                                        </Link>
-                                    ))}
-                                </nav>
-                            )}
-                        </>
+                    {!['overview', 'academics', 'courses', 'results'].includes(section) && activeSections.length > 1 && (
+                        <nav className="portal-tabs" aria-label={`Navigation : ${activeModule.title}`}>
+                            {activeSections.map((key) => (
+                                <Link key={key} href={href(key)} aria-current={section === key ? 'page' : undefined}>
+                                    {studentSectionLabels[key]}
+                                </Link>
+                            ))}
+                        </nav>
                     )}
                     <div className="portal-body">
-                        <div className="portal-section-heading">
-                            <div>
-                                <span>{isAcademicLanding ? `${academic.level} · ${academic.year}` : academic.year}</span>
-                                <h2>{studentSectionLabels[section] || 'Mon espace'}</h2>
+                        {!isCourseList && !isResults && (
+                            <div className="portal-section-heading">
+                                <div>
+                                    <span>{isAcademicLanding ? `${academic.level} · ${academic.year}` : academic.year}</span>
+                                    <h2>{studentSectionLabels[section] || 'Mon espace'}</h2>
+                                </div>
+                                {!isAcademicLanding && (
+                                    <span className={`portal-status is-${balance.financial_clearance_status}`}>
+                                        {labels[balance.financial_clearance_status] || balance.financial_clearance_status}
+                                    </span>
+                                )}
                             </div>
-                            {!isAcademicLanding && (
-                                <span className={`portal-status is-${balance.financial_clearance_status}`}>
-                                    {labels[balance.financial_clearance_status] || balance.financial_clearance_status}
-                                </span>
-                            )}
-                        </div>
+                        )}
                         {section === 'academics' && props.curriculum && (
                             <section className="portal-curriculum-card" aria-label="Maquette de votre programme">
                                 <BookOpen size={21} aria-hidden="true" />
@@ -704,10 +690,7 @@ export default function Portal(props: PortalProps) {
                                 </Link>
                             </section>
                         )}
-                        {section !== 'profile' && <ModuleLanding section={section} academic={academic.id} permissions={permissions} />}
-                        {section === 'profile' && props.profile_form && (
-                            <StudentProfileForm key={academic.id} academic={academic} profile={props.profile_form} onFeedback={notify} />
-                        )}
+                        {!isResults && <ModuleLanding section={section} academic={academic.id} permissions={permissions} />}
                         {props.document_center && <OfficialDocumentCenter data={props.document_center} academic={academic.id} />}
                         {section === 'card' && props.card_eligibility && (
                             <section className="portal-panel">
@@ -731,7 +714,7 @@ export default function Portal(props: PortalProps) {
                                     </p>
                                 )}
                                 {props.card_eligibility.decision_note && <p>Note de l’administration : {props.card_eligibility.decision_note}</p>}
-                                <Link className="portal-primary" href={href('profile')}>
+                                <Link className="portal-primary" href={studentProfileHref(academic.id, 'photo')}>
                                     Gérer ma photo de profil
                                 </Link>
                             </section>
@@ -755,64 +738,14 @@ export default function Portal(props: PortalProps) {
                                     reste effective.
                                 </EmptyState>
                             ))}
-                        {section === 'results' && props.official_results && <OfficialResults data={props.official_results} academic={academic.id} />}
-                        {['materials', 'assignments', 'evaluations', 'results', 'announcements', 'documents'].includes(section) && (
+                        {isResults && props.official_results && (
+                            <OfficialResults key={academic.id} data={props.official_results} academic={academic} />
+                        )}
+                        {['materials', 'results'].includes(section) && (
                             <>
-                                {['assignments', 'evaluations'].includes(section) && (
-                                    <nav className="student-dossier-links" aria-label="Filtrer les activités">
-                                        <Link href={href(section)} aria-current={!props.activity_filter ? 'page' : undefined}>
-                                            Toutes
-                                        </Link>
-                                        {Object.entries(activityFilters).map(([value, label]) => (
-                                            <Link
-                                                key={value}
-                                                href={`${href(section)}&activity=${value}`}
-                                                aria-current={props.activity_filter === value ? 'page' : undefined}
-                                            >
-                                                {label}
-                                            </Link>
-                                        ))}
-                                    </nav>
-                                )}
-                                {section === 'documents' && (
-                                    <section className="portal-panel">
-                                        <h2>Votre dossier d’inscription</h2>
-                                        <p className="portal-muted">
-                                            Les justificatifs de votre candidature restent consultables dans leur espace sécurisé.
-                                        </p>
-                                        <Link className="portal-secondary" href={`/dashboard/enrollments/${academic.application_uuid}`}>
-                                            Consulter mon dossier
-                                            <ArrowUpRight size={16} />
-                                        </Link>
-                                    </section>
-                                )}
-                                {section === 'documents' && props.work_archive.length > 0 && (
-                                    <section className="portal-panel">
-                                        <h2>Mes travaux transmis</h2>
-                                        {props.work_archive.map((work) => (
-                                            <article className="portal-ticket" key={work.id}>
-                                                <h3>{work.title}</h3>
-                                                <small>
-                                                    {formatDate(work.submitted_at, true)} · Version {work.version}
-                                                </small>
-                                                {work.body && (
-                                                    <details>
-                                                        <summary>Lire mon travail</summary>
-                                                        <p>{work.body}</p>
-                                                    </details>
-                                                )}
-                                                {work.download_url && (
-                                                    <a className="portal-secondary" href={work.download_url}>
-                                                        <Download size={16} />
-                                                        {work.filename}
-                                                    </a>
-                                                )}
-                                            </article>
-                                        ))}
-                                    </section>
-                                )}
                                 {displayed.length ? (
                                     <div className="portal-resource-list">
+                                        {isResults && <h2>Publications complémentaires</h2>}
                                         {displayed.map((resource) => (
                                             <article id={`resource-${resource.id}`} className="portal-panel portal-resource" key={resource.id}>
                                                 <header>
@@ -839,254 +772,16 @@ export default function Portal(props: PortalProps) {
                                                 {resource.closes_at && (
                                                     <p className="portal-muted">Date limite : {formatDate(resource.closes_at, true)}</p>
                                                 )}
-                                                {resource.assessment && (
-                                                    <AssessmentInfo activity={resource.assessment} opens={resource.opens_at} onFeedback={notify} />
-                                                )}
-                                                {resource.submission && (
-                                                    <p className="portal-submission-notice">
-                                                        Travail transmis le {formatDate(resource.submission.submitted_at, true)} · Version{' '}
-                                                        {resource.submission.version}
-                                                        {resource.submission.download_url && (
-                                                            <a href={resource.submission.download_url}>Télécharger mon dépôt</a>
-                                                        )}
-                                                        {resource.submission.id && (
-                                                            <Link
-                                                                href={route('dashboard.student.submissions.version', {
-                                                                    submission: resource.submission.id,
-                                                                    version: resource.submission.version,
-                                                                    academic: academic.id,
-                                                                })}
-                                                            >
-                                                                {' '}
-                                                                Consulter mes versions
-                                                            </Link>
-                                                        )}
-                                                    </p>
-                                                )}
-                                                {['assignment', 'evaluation'].includes(resource.kind) &&
-                                                    (permissions[resource.kind === 'assignment' ? 'assignments_submit' : 'evaluations_participate']
-                                                        .allowed ? (
-                                                        <>
-                                                            {Boolean(resource.supports?.length) && (
-                                                                <ul aria-label="Supports associés">
-                                                                    {resource.supports?.map((item) => (
-                                                                        <li key={item.id}>
-                                                                            <Link href={item.url}>{item.title}</Link>
-                                                                            {item.download_url && <a href={item.download_url}> Télécharger</a>}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            )}
-                                                            {(!resource.assessment || resource.assessment.can_submit) && (
-                                                                <WorkForm resource={resource} academic={academic.id} onFeedback={notify} />
-                                                            )}
-                                                        </>
-                                                    ) : null)}
                                             </article>
                                         ))}
                                     </div>
-                                ) : section === 'results' && props.official_results?.selected ? null : (
+                                ) : isResults ? null : (
                                     <EmptyState title="Aucune publication disponible pour le moment.">
                                         Les éléments publiés pour votre formation apparaîtront ici. Aucune donnée provisoire n’est présentée comme un
                                         résultat officiel.
                                     </EmptyState>
                                 )}
                             </>
-                        )}
-                        {['assignments', 'evaluations'].includes(section) && <Pagination value={props.work_pagination} />}
-                        {section === 'fees' && (
-                            <>
-                                <PaymentOverview balance={balance} />
-                                <section className="portal-panel">
-                                    <h2>Les frais de votre formation</h2>
-                                    {balance.assessed ? (
-                                        <>
-                                            <p className="portal-muted">
-                                                Catégorie tarifaire :{' '}
-                                                {academic.fee_category === 'foreign'
-                                                    ? 'Étrangers'
-                                                    : academic.fee_category === 'national'
-                                                      ? 'Nationaux'
-                                                      : 'À confirmer'}
-                                                . Les montants ci-dessous constituent vos obligations enregistrées.
-                                            </p>
-                                            <div className="portal-fee-lines">
-                                                {props.obligations.map((obligation) => (
-                                                    <div key={obligation.id}>
-                                                        <strong>{obligation.title}</strong>
-                                                        <span>{money(obligation.amount_cents, balance.currency)}</span>
-                                                        <small>
-                                                            {obligation.due_at ? `Échéance : ${formatDate(obligation.due_at)}` : 'Échéance non fixée'}
-                                                        </small>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p className="portal-muted">
-                                                Votre catégorie n’est pas encore confirmée. Le service financier établira votre compte à partir du
-                                                barème du niveau ; aucun montant n’est considéré comme exigible avant cette affectation.
-                                            </p>
-                                            <div className="portal-tariffs">
-                                                {Object.entries(props.tariffs).map(([category, values]) => (
-                                                    <article key={category}>
-                                                        <h3>{category === 'foreign' ? 'Étrangers' : 'Nationaux'}</h3>
-                                                        {values.map((value, index) => (
-                                                            <p key={index}>
-                                                                Tranche {index + 1}{' '}
-                                                                <strong>
-                                                                    {value !== null ? money(Number(value), balance.currency) : 'Non renseignée'}
-                                                                </strong>
-                                                            </p>
-                                                        ))}
-                                                    </article>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                    {props.finance_schedule && (
-                                        <section aria-label="Échéancier applicable">
-                                            <h3>Échéancier applicable</h3>
-                                            {props.finance_schedule.map((line) => (
-                                                <p key={line.id}>
-                                                    {line.title} · {line.due_at ? formatDate(line.due_at) : 'Sans date'} · Reste :{' '}
-                                                    {money(line.remaining_cents, balance.currency)} ·{' '}
-                                                    {line.status === 'overdue'
-                                                        ? 'En retard'
-                                                        : line.status === 'paid'
-                                                          ? 'Réglée'
-                                                          : line.status === 'partial'
-                                                            ? 'Partiellement réglée'
-                                                            : 'À venir'}
-                                                </p>
-                                            ))}
-                                        </section>
-                                    )}
-                                    {balance.pending_cents > 0 && (
-                                        <p className="portal-alert">
-                                            {money(balance.pending_cents, balance.currency)} en attente de confirmation : ce montant n’ouvre pas
-                                            encore de nouveaux accès.
-                                        </p>
-                                    )}
-                                    {balance.credit_cents > 0 && (
-                                        <p className="portal-muted">
-                                            Crédit non affecté aux autres types de frais : {money(balance.credit_cents, balance.currency)}. Contactez
-                                            le service financier pour son affectation.
-                                        </p>
-                                    )}
-                                    <p className="portal-muted">
-                                        Pour effectuer un versement, contactez le service financier. Vos paiements sont pris en compte après
-                                        confirmation comptable.
-                                    </p>
-                                    <Link className="portal-secondary" href={href('requests')}>
-                                        Contacter le service financier
-                                        <MessageSquare size={16} />
-                                    </Link>
-                                </section>
-                                {props.adjustments.length > 0 && (
-                                    <section className="portal-panel">
-                                        <h2>Vos autorisations financières actives</h2>
-                                        {props.adjustments.map((adjustment) => (
-                                            <div className="portal-adjustment" key={adjustment.id}>
-                                                <strong>{labels[adjustment.type] || adjustment.type}</strong>
-                                                {adjustment.funding_source === 'third_party' && (
-                                                    <p>Financement attendu d’un tiers — ne vaut pas règlement.</p>
-                                                )}
-                                                {adjustment.amount_cents !== null && <span>{money(adjustment.amount_cents, balance.currency)}</span>}
-                                                {adjustment.expires_at && <small>Valable jusqu’au {formatDate(adjustment.expires_at)}</small>}
-                                                {adjustment.schedule?.map((line, index) => (
-                                                    <p key={index}>
-                                                        {formatDate(line.due_at)} : {money(line.amount_cents, balance.currency)}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        ))}
-                                    </section>
-                                )}
-                            </>
-                        )}
-                        {section === 'transactions' && (
-                            <section className="portal-panel">
-                                <h2>Vos versements et reçus</h2>
-                                <Pagination value={props.payments_pagination} />
-                                {props.payments.length ? (
-                                    <div className="portal-payment-list">
-                                        {props.payments.map((payment) => (
-                                            <article key={payment.id}>
-                                                <div>
-                                                    <strong>{payment.reference}</strong>
-                                                    <p>
-                                                        {formatDate(payment.created_at)} ·{' '}
-                                                        {payment.method === 'cash'
-                                                            ? 'Espèces'
-                                                            : payment.method === 'bank_transfer'
-                                                              ? 'Virement'
-                                                              : 'Autre mode'}
-                                                    </p>
-                                                    <span className={`portal-status is-${payment.status}`}>
-                                                        {labels[payment.status] || payment.status}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <strong>{money(payment.amount_cents, payment.currency ?? balance.currency)}</strong>
-                                                    {(payment.refunded_cents ?? 0) > 0 && (
-                                                        <p>
-                                                            Remboursement exécuté :{' '}
-                                                            {money(payment.refunded_cents!, payment.currency ?? balance.currency)}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                {payment.receipt_url && (
-                                                    <a href={payment.receipt_url} target="_blank" rel="noopener noreferrer">
-                                                        <Download size={16} />
-                                                        Reçu
-                                                    </a>
-                                                )}
-                                            </article>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <EmptyState title="Aucun versement enregistré." icon={CreditCard}>
-                                        Les versements saisis par la comptabilité et leurs confirmations apparaîtront ici.
-                                    </EmptyState>
-                                )}
-                            </section>
-                        )}
-                        {section === 'requests' && (
-                            <div className="portal-request-layout">
-                                <section className="portal-panel">
-                                    <h2>Comment pouvons-nous vous aider ?</h2>
-                                    <RequestForm
-                                        academic={academic.id}
-                                        documentsAllowed={permissions.documents_request.allowed}
-                                        onFeedback={notify}
-                                    />
-                                </section>
-                                <section className="portal-panel">
-                                    <h2>Le suivi de vos demandes</h2>
-                                    {props.requests.length ? (
-                                        props.requests.map((ticket) => (
-                                            <article className="portal-ticket" key={ticket.id}>
-                                                <span className={`portal-status is-${ticket.status}`}>{labels[ticket.status]}</span>
-                                                <h3>{ticket.subject}</h3>
-                                                <small>{formatDate(ticket.created_at)}</small>
-                                                <p>{ticket.body}</p>
-                                                {ticket.response && (
-                                                    <div>
-                                                        <strong>Réponse de l’administration</strong>
-                                                        <p>{ticket.response}</p>
-                                                    </div>
-                                                )}
-                                            </article>
-                                        ))
-                                    ) : (
-                                        <EmptyState title="Aucune demande en cours." icon={MessageSquare}>
-                                            Vos échanges avec l’administration seront conservés ici.
-                                        </EmptyState>
-                                    )}
-                                </section>
-                            </div>
                         )}
                     </div>
                 </div>

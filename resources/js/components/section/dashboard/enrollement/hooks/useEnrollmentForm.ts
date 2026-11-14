@@ -72,7 +72,7 @@ export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?
         body.append('key', key);
         body.append('file', file);
         try {
-            const { data } = await axios.post('/dashboard/enrollments/documents/upload', body);
+            const { data } = await axios.post('/app/dashboard/enrollments/documents/upload', body);
             const document: DocumentMeta | undefined = data.temp
                 ? {
                       temp: { token: data.temp.token, path: data.temp.path },
@@ -103,7 +103,7 @@ export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?
         setSaveStatus('saving');
         setSaveError('');
         try {
-            const { data } = await axios.post('/dashboard/enrollments/save-progress', {
+            const { data } = await axios.post('/app/dashboard/enrollments/save-progress', {
                 uuid,
                 last_step: step,
                 form_snapshot: {

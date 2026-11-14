@@ -69,7 +69,7 @@ class EnrollmentManagementFollowupTest extends TestCase
     {
         [$admin,, $entry] = $this->context();
         $group = $this->group($entry, 'Groupe cible');
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
         $initial = $this->decision($entry);
         $this->actingAs($admin)->post($url, $initial)->assertSessionHasNoErrors();
         $this->post($url, $initial)->assertSessionHasNoErrors();
@@ -89,7 +89,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $other->academic_year_id = AcademicYear::create(['title' => 'Autre année', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft'])->id;
         $other->save();
         $foreignTicket = ServiceRequest::create(['academic_enrollment_id' => $other->id, 'category' => 'appeal', 'subject' => 'Autre contexte', 'body' => 'Demande historique.']);
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
         $bad = $this->decision($entry, ['enrollment_status' => 'on_leave', 'service_request_id' => $foreignTicket->id, 'student_response' => 'Votre demande a été examinée.']);
         $this->actingAs($admin)->post($url, $bad)->assertNotFound();
         $this->assertSame('confirmed', $entry->fresh()->enrollment_status);
@@ -102,7 +102,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $this->assertDatabaseHas('student_service_requests', ['id' => $foreignTicket->id, 'status' => 'open']);
         $this->assertDatabaseCount('academic_enrollment_changes', 1);
         $this->assertDatabaseCount('notifications', 1);
-        $this->actingAs($student)->get('/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2)->missing('changes.data.0.reason')->missing('changes.data.0.actor'));
+        $this->actingAs($student)->get('/app/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2)->missing('changes.data.0.reason')->missing('changes.data.0.actor'));
     }
 
     public function test_old_and_new_schedule_memberships_are_date_bounded_without_restoring_old_resources(): void
@@ -126,13 +126,13 @@ class EnrollmentManagementFollowupTest extends TestCase
             }
         }
         AcademicAttendance::create(['academic_enrollment_id' => $entry->id, 'academic_session_id' => $sessions['old_past']->id, 'status' => 'present', 'recorded_by' => $admin->id]);
-        $this->actingAs($admin)->post('/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->decision($entry, ['class_id' => $b->id, 'academic_department_id' => $departmentB->id]))->assertSessionHasNoErrors();
-        $this->actingAs($student)->get('/dashboard/student/schedule?week=2026-11-02')->assertInertia(fn (Assert $page) => $page->has('sessions', 2)
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/'.$entry->id.'/transition', $this->decision($entry, ['class_id' => $b->id, 'academic_department_id' => $departmentB->id]))->assertSessionHasNoErrors();
+        $this->actingAs($student)->get('/app/dashboard/student/schedule?week=2026-11-02')->assertInertia(fn (Assert $page) => $page->has('sessions', 2)
             ->where('sessions.0.id', $sessions['old_past']->id)->where('sessions.1.id', $sessions['new_future']->id));
-        $this->get('/dashboard/student/overview?week=2026-11-02')->assertInertia(fn (Assert $page) => $page->where('overview.week_count', 2));
-        $this->get('/dashboard/student/courses/'.$course->id.'/attendance')->assertInertia(fn (Assert $page) => $page->has('attendance.data', 1)->where('attendance.data.0.status', 'present'));
+        $this->get('/app/dashboard/student/overview?week=2026-11-02')->assertInertia(fn (Assert $page) => $page->where('overview.week_count', 2));
+        $this->get('/app/dashboard/student/courses/'.$course->id.'/attendance')->assertInertia(fn (Assert $page) => $page->has('attendance.data', 1)->where('attendance.data.0.status', 'present'));
         $resource = AcademicResource::create(['academic_offering_id' => $offeringA->id, 'kind' => 'announcement', 'title' => 'Ressource ancien groupe', 'is_published' => true]);
-        $this->get('/dashboard/student/resources/'.$resource->id.'/download')->assertNotFound();
+        $this->get('/app/dashboard/student/resources/'.$resource->id.'/download')->assertNotFound();
         $this->assertDatabaseCount('academic_sessions', 4);
         $this->assertDatabaseCount('academic_attendances', 1);
     }
@@ -144,14 +144,14 @@ class EnrollmentManagementFollowupTest extends TestCase
         $entry->update(['matricule' => 'PERMANENT-001', 'enrollment_status' => 'completed']);
         $year = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'open']);
         $decision = AcademicProgression::create(['source_enrollment_id' => $entry->id, 'level_id' => $entry->level_id, 'academic_year_id' => $year->id, 'decided_by' => $admin->id, 'reason' => 'Poursuite autorisée dans le même niveau.']);
-        $this->actingAs($student)->get('/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->where('entries.data.0.renewal.id', $decision->id)->where('entries.data.0.renewal.can_start', true));
-        $url = '/dashboard/student/renewals/'.$decision->id.'?academic='.$entry->id;
+        $this->actingAs($student)->get('/app/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->where('entries.data.0.renewal.id', $decision->id)->where('entries.data.0.renewal.can_start', true));
+        $url = '/app/dashboard/student/renewals/'.$decision->id.'?academic='.$entry->id;
         $this->post($url)->assertSessionHasNoErrors();
         $this->post($url)->assertSessionHasNoErrors();
         $this->assertDatabaseCount('student_profiles', 1);
         $this->assertDatabaseCount('academic_enrollments', 2);
         $this->assertSame('PERMANENT-001', $decision->fresh()->target->matricule);
-        $this->get('/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->where('entries.data.1.renewal.target_id', $decision->fresh()->target_enrollment_id));
+        $this->get('/app/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->where('entries.data.1.renewal.target_id', $decision->fresh()->target_enrollment_id));
     }
 
     public function test_annual_filters_include_promotions_and_private_decisions_are_not_shared_with_finance_only(): void
@@ -166,7 +166,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $group->forceFill(['academic_promotion_id' => $promotion->id])->save();
         $version = DB::table('curriculum_versions')->insertGetId(['academic_program_id' => $program->id, 'academic_year_id' => $entry->academic_year_id, 'code' => 'V', 'name' => 'Version', 'weighting_mode' => 'credits', 'program_snapshot' => json_encode(['name' => 'Programme historique']), 'periods' => '[]']);
         $entry->forceFill(['curriculum_version_id' => $version, 'class_id' => $group->id])->save();
-        $base = '/dashboard/admin/student-academic/administration';
+        $base = '/app/dashboard/admin/student-academic/administration';
         $filters = ['faculty' => $entry->level->faculty_id, 'program' => $program->id, 'level' => $entry->level_id, 'promotion' => $promotion->id, 'group' => $group->id, 'status' => 'confirmed', 'year' => $entry->academic_year_id];
         $this->actingAs($admin)->get($base.'?'.http_build_query($filters))->assertInertia(fn (Assert $page) => $page->has('entries.data', 1)->where('entries.data.0.promotion', 'Promotion annuelle')->where('entries.data.0.program', 'Programme historique'));
         $this->get($base.'?'.http_build_query(array_replace($filters, ['status' => 'on_leave'])))->assertInertia(fn (Assert $page) => $page->has('entries.data', 0));
@@ -203,7 +203,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $before = $entry->fresh()->only(['student_profile_id', 'application_id', 'level_id', 'academic_year_id', 'matricule', 'curriculum_version_id', 'created_at']);
         $data = $this->decision($entry->fresh()) + ['level_id' => $entry->level_id, 'curriculum_version_id' => $targetVersion];
         unset($data['enrollment_status']);
-        $url = '/dashboard/admin/student-academic/'.$entry->id.'/transfer';
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transfer';
         $this->actingAs($admin)->post($url, $data)->assertSessionHasNoErrors();
         $this->post($url, $data)->assertSessionHasNoErrors();
         $target = AcademicEnrollment::whereKeyNot($entry->id)->firstOrFail();
@@ -221,7 +221,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $this->assertSame(0, $target->payments()->count());
         $segments = app(EnrollmentMembershipHistory::class)->segments($target);
         $this->assertNotNull($segments[0]['from']);
-        $this->actingAs($student)->get('/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2)->where('entries.data.0.program', 'Programme TARGET')->where('entries.data.1.program', 'Programme SOURCE'));
+        $this->actingAs($student)->get('/app/dashboard/student/enrollments')->assertInertia(fn (Assert $page) => $page->has('entries.data', 2)->where('entries.data.0.program', 'Programme TARGET')->where('entries.data.1.program', 'Programme SOURCE'));
         try {
             DB::transaction(fn () => $target->replicate()->save());
             $this->fail('A reserved context must remain unique.');
@@ -254,7 +254,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $otherYear = AcademicYear::create(['title' => 'Année incompatible', 'start_date' => '2028-10-01', 'end_date' => '2029-09-30', 'status' => 'draft']);
         DB::table('curriculum_versions')->where('id', $badVersion)->update(['academic_year_id' => $otherYear->id]);
         $data = $this->decision($entry->fresh()) + ['level_id' => $entry->level_id, 'curriculum_version_id' => $badVersion];
-        $this->actingAs($admin)->post('/dashboard/admin/student-academic/'.$entry->id.'/transfer', $data)->assertSessionHasErrors('academic_year_id');
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/'.$entry->id.'/transfer', $data)->assertSessionHasErrors('academic_year_id');
         $this->assertDatabaseCount('academic_enrollments', 1);
         $this->assertSame('confirmed', $entry->fresh()->enrollment_status);
         $this->assertSame(1, $entry->fresh()->context_slot);
@@ -266,7 +266,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         [$admin, $student, $entry] = $this->context();
         $group = $this->group($entry, 'Groupe occupé');
         $entry->update(['class_id' => $group->id]);
-        $url = '/dashboard/admin/student-academic/groups/'.$group->id.'/capacity';
+        $url = '/app/dashboard/admin/student-academic/groups/'.$group->id.'/capacity';
         $this->actingAs($student)->post($url, ['capacity' => 1, 'reason' => 'Tentative sans habilitation.'])->assertForbidden();
         $this->actingAs($admin)->post($url, ['capacity' => 0, 'reason' => 'Réduction de capacité du groupe.'])->assertSessionHasErrors('capacity');
         $this->assertNull($group->fresh()->capacity);
@@ -278,7 +278,7 @@ class EnrollmentManagementFollowupTest extends TestCase
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'OTHER']);
         $admin->academicFaculties()->attach($faculty);
         $this->post($url, ['capacity' => 2, 'reason' => 'Tentative hors périmètre.'])->assertForbidden();
-        $this->get('/dashboard/admin/student-academic/administration')->assertInertia(fn (Assert $page) => $page->has('entries.data', 0)->has('filterOptions.faculties', 1)->where('filterOptions.faculties.0.id', $faculty));
+        $this->get('/app/dashboard/admin/student-academic/administration')->assertInertia(fn (Assert $page) => $page->has('entries.data', 0)->has('filterOptions.faculties', 1)->where('filterOptions.faculties.0.id', $faculty));
     }
 
     public function test_migration_recognizes_preexisting_audited_transfers_without_rewriting_business_data(): void

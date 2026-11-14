@@ -123,7 +123,7 @@ export default function Admissionpage() {
                                 étape par étape.
                             </p>
                             <div className="adm-hero-actions">
-                                <Link href="/register" className="usk-button usk-button-gold">
+                                <Link href="/app/register" className="usk-button usk-button-gold">
                                     Commencer ma candidature <ArrowUpRight size={18} />
                                 </Link>
                                 <a href="#simulateur" className="adm-light-link">
@@ -662,7 +662,7 @@ export default function Admissionpage() {
                             <em>Donnons-lui un départ.</em>
                         </h2>
                         <div>
-                            <Link href="/register" className="usk-button usk-button-gold">
+                            <Link href="/app/register" className="usk-button usk-button-gold">
                                 Créer mon espace candidat <ArrowUpRight size={18} />
                             </Link>
                             <a href="#orientation" className="adm-light-link">

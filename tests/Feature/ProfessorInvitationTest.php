@@ -33,8 +33,8 @@ class ProfessorInvitationTest extends TestCase
 
         $message = Mail::getSymfonyTransport()->messages()->sole()->getOriginalMessage();
         $this->assertSame($email, $message->getTo()[0]->getAddress());
-        $this->assertMatchesRegularExpression('~https?://\S+/invitation-enseignant/\d+/[A-Za-z0-9]{64}~', $message->getTextBody());
-        preg_match('~https?://\S+/invitation-enseignant/\d+/[A-Za-z0-9]{64}~', $message->getTextBody(), $matches);
+        $this->assertMatchesRegularExpression('~https?://\S+/app/invitation-enseignant/\d+/[A-Za-z0-9]{64}~', $message->getTextBody());
+        preg_match('~https?://\S+/app/invitation-enseignant/\d+/[A-Za-z0-9]{64}~', $message->getTextBody(), $matches);
         $url = $matches[0];
         $this->assertSame(hash('sha256', basename($url)), $professor->invitation_hash);
 
@@ -55,8 +55,8 @@ class ProfessorInvitationTest extends TestCase
         $workspace = route('dashboard.teaching.index');
         $upload = route('dashboard.teaching.profile.photo');
         $this->get($workspace)->assertRedirect($profile);
-        $this->get('/dashboard/teacher/resources')->assertRedirect($profile);
-        $this->get('/dashboard/teacher/assessments')->assertRedirect($profile);
+        $this->get('/app/dashboard/teacher/resources')->assertRedirect($profile);
+        $this->get('/app/dashboard/teacher/assessments')->assertRedirect($profile);
         $this->get($profile)->assertInertia(fn (Assert $page) => $page->component('dashboard/teaching/Profile')->where('photoUrl', null));
 
         Storage::fake('local');

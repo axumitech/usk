@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>{{ ['minutes' => 'Procès-verbal de délibération', 'report' => 'Bulletin officiel', 'transcript' => 'Relevé annuel officiel'][$kind] }}</title>
+<title>{{ ['minutes' => 'Procès-verbal de délibération', 'report' => isset($run->context['period_code']) ? 'Bulletin de période officiel' : 'Bulletin officiel', 'transcript' => 'Relevé annuel officiel'][$kind] }}</title>
 <style>
 @page { margin: 38pt 38pt 48pt; }
 body { font-family: DejaVu Sans, sans-serif; color: #17263a; font-size: 9pt; }
@@ -20,13 +20,15 @@ th { text-align: left; background-color: #e8eff5; }
 </head>
 <body>
 @php($context = $run->context)
-@php($titles = ['minutes' => 'Procès-verbal de délibération', 'report' => 'Bulletin officiel', 'transcript' => 'Relevé annuel officiel'])
+@php($periodCode = $context['period_code'] ?? null)
+@php($titles = ['minutes' => 'Procès-verbal de délibération', 'report' => $periodCode ? 'Bulletin de période officiel' : 'Bulletin officiel', 'transcript' => 'Relevé annuel officiel'])
 @php($labels = ['passed' => 'Validé', 'recognized' => 'Reconnu', 'compensated' => 'Compensé', 'failed' => 'Non validé', 'incomplete' => 'Incomplet', 'eliminatory' => 'Éliminatoire'])
 @php($credits = static fn ($number) => number_format($number / 100, 2, ',', ' '))
 <div class="meta">{{ $context['university'] }} · {{ $context['faculty'] }}</div>
 <h1>{{ $titles[$kind] }}</h1>
 @if($draft)<div class="stamp">PROVISOIRE · dossier de travail</div>@endif
 <p class="meta">{{ $context['program'] }} · {{ $context['level'] }} · {{ $context['year'] }} · session {{ $context['session'] }}</p>
+@if($periodCode)<p class="meta">{{ $context['period_name'] }}</p>@endif
 <p class="meta">Édition {{ $run->edition }}@if($volumes > 1) · Volume {{ $volume }} sur {{ $volumes }}@endif · Maquette {{ $context['curriculum'] }} · Règlement {{ $context['regulation_version'] }}</p>
 <p class="meta small">Référence {{ $reference }} · {{ $context['regulation'] }}</p>
 @if($run->approved_at)<p class="meta">Approuvé le {{ $run->approved_at->copy()->timezone('Africa/Kinshasa')->format('d/m/Y H:i') }}</p>@endif
@@ -36,13 +38,13 @@ th { text-align: left; background-color: #e8eff5; }
 <p>Présents {{ collect($run->attendance ?? [])->map(fn ($id) => $run->jury['members'][$id])->implode(', ') ?: 'Appel en attente' }}</p>
 <table><thead><tr><th style="width:32%">Étudiant</th><th style="width:17%">Matricule</th><th style="width:13%">Moyenne</th><th style="width:13%">Crédits</th><th>Décision</th></tr></thead><tbody>
 @foreach($rows as $row)
-<tr><td>{{ $row->snapshot['student'] }}</td><td>{{ $row->snapshot['matricule'] ?: '—' }}</td><td>{{ $row->snapshot['annual'] ?? '—' }}</td><td>{{ $credits($row->snapshot['credits']['earned']) }}</td><td>{{ $context['decisions'][$row->decision]['label'] ?? 'En attente' }}</td></tr>
+<tr><td>{{ $row->snapshot['student'] }}</td><td>{{ $row->snapshot['matricule'] ?: '—' }}</td><td>{{ ($periodCode ? ($row->snapshot['periods'][$periodCode]['grade'] ?? null) : $row->snapshot['annual']) ?? '—' }}</td><td>{{ $credits($row->snapshot['credits']['earned']) }}</td><td>{{ $context['decisions'][$row->decision]['label'] ?? 'En attente' }}</td></tr>
 @endforeach
 </tbody></table>
 @else
 @foreach($rows as $row)
 <h2>{{ $row->snapshot['student'] }} · {{ $row->snapshot['matricule'] ?: 'Matricule indisponible' }}</h2>
-<p>Décision {{ $context['decisions'][$row->decision]['label'] }} · Moyenne annuelle {{ $row->snapshot['annual'] ?? '—' }} / {{ $credits($context['scale']) }}</p>
+<p>Décision {{ $context['decisions'][$row->decision]['label'] }} · {{ $periodCode ? 'Moyenne de la période' : 'Moyenne annuelle' }} {{ ($periodCode ? ($row->snapshot['periods'][$periodCode]['grade'] ?? null) : $row->snapshot['annual']) ?? '—' }} / {{ $credits($context['scale']) }}</p>
 <p>Crédits acquis {{ $credits($row->snapshot['credits']['earned']) }} / {{ $credits($row->snapshot['credits']['planned']) }} {{ $context['credit_label'] }} · Crédits compensés {{ $credits($row->snapshot['credits']['compensated']) }}</p>
 @foreach($row->snapshot['periods'] as $period)
 <h2>{{ $period['name'] }} · Moyenne {{ $period['grade'] ?? '—' }}</h2>

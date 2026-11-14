@@ -23,35 +23,40 @@ final class ResultInputs
             ->whereIn('enrollment_status', ['confirmed', 'completed'])->whereHas('application', fn ($application) => $application->where('status', 'validated'));
     }
 
-    public function units(AcademicResultRule $rule): array
+    public function units(AcademicResultRule $rule, ?string $period = null): array
     {
-        return $rule->version->units()->where('level_id', $rule->level_id)->with('items')->get()->map(fn ($unit) => [
-            'id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code,
-            'period_code' => $unit->period_code, 'period_name' => $unit->period_name,
-            'credits' => $this->scaled($unit->expected_credits, 100), 'credit_rule' => $unit->credit_rule,
-            'items' => $unit->items->map(fn ($item) => [
-                'id' => $item->id, 'name' => $item->name, 'code' => $item->code,
-                'credits' => $this->scaled($item->credits, 100), 'coefficient' => $this->scaled($item->coefficient, 1000),
-                'is_optional' => $item->is_optional,
-            ])->all(),
-        ])->all();
+        return $rule->version->units()->where('level_id', $rule->level_id)
+            ->when($period !== null, fn ($units) => $units->where('period_code', $period))->with('items')->get()->map(fn ($unit) => [
+                'id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code,
+                'period_code' => $unit->period_code, 'period_name' => $unit->period_name,
+                'credits' => $this->scaled($unit->expected_credits, 100), 'credit_rule' => $unit->credit_rule,
+                'is_composite' => $unit->isComposite($unit->items->count()),
+                'items' => $unit->items->map(fn ($item) => [
+                    'id' => $item->id, 'name' => $item->name, 'code' => $item->code,
+                    'credits' => $this->scaled($item->credits, 100), 'coefficient' => $this->scaled($item->coefficient, 1000),
+                    'is_optional' => $item->is_optional,
+                ])->all(),
+            ])->all();
     }
 
-    public function calculate(AcademicResultRule $rule, array $units, Collection $entries, array $equivalences): array
+    public function calculate(AcademicResultRule $rule, array $units, Collection $entries, array $equivalences, ?string $period = null): array
     {
         $configuration = $rule->configuration;
         $ids = $entries->modelKeys();
+        $itemIds = collect($units)->flatMap(fn ($unit) => $unit['items'])->pluck('id')->all();
         $registrations = CourseRegistration::whereIn('academic_enrollment_id', $ids)->whereNull('withdrawn_at')
             ->whereHas('offering', fn ($offer) => $offer->where('academic_year_id', $rule->version->academic_year_id)
+                ->when($period !== null, fn ($query) => $query->whereIn('curriculum_item_id', $itemIds))
                 ->whereHas('curriculumItem', fn ($item) => $item->where('curriculum_version_id', $rule->curriculum_version_id)))
             ->with('offering:id,curriculum_item_id')->get()->groupBy('academic_enrollment_id');
-        $assessmentIds = collect($configuration['items'])->flatMap(fn ($weights) => array_keys($weights))->all();
+        $assessmentIds = collect($configuration['items'])->only($itemIds)->flatMap(fn ($weights) => array_keys($weights))->all();
         $handoffs = AssessmentHandoff::whereHas('record', fn ($record) => $record->whereIn('academic_enrollment_id', $ids)
             ->whereIn('academic_assessment_id', $assessmentIds)->where('correction_state', 'validated')
             ->whereColumn('academic_assessment_records.revision', 'academic_assessment_handoffs.revision'))
             ->with('record:id,academic_enrollment_id,academic_assessment_id')->orderBy('id')->get()->groupBy('record.academic_enrollment_id');
         $baseRule = $configuration['base_rule_id'] ?? null;
-        $ordinaryRun = $baseRule ? AcademicDeliberation::where('academic_result_rule_id', $baseRule)->where('state', 'published')->latest('edition')->first() : null;
+        $ordinaryRun = $baseRule ? AcademicDeliberation::where('academic_result_rule_id', $baseRule)->whereNull('context->period_code')
+            ->where('state', 'published')->latest('edition')->first() : null;
         if ($baseRule) {
             ResultRules::check($ordinaryRun !== null, 'rule', 'Publiez la session ordinaire avant le rattrapage.');
         }
@@ -81,10 +86,19 @@ final class ResultInputs
                 ];
             }
             $prior = $ordinary->get($entry->id);
-            $baseItems = $prior ? collect($prior->snapshot['units'])->flatMap(fn ($unit) => collect($unit['items'])->map(fn ($item) => $item + [
-                'unit_acquired' => in_array($unit['status'], ['passed', 'compensated', 'recognized'], true),
-            ]))->keyBy('id')->all() : [];
+            $baseItems = $prior ? collect($prior->snapshot['units'])->flatMap(function ($unit) {
+                $itemIds = array_column($unit['items'], 'id');
+
+                return collect($unit['items'])->map(fn ($item) => $item + [
+                    'unit_acquired' => in_array($unit['status'], ['passed', 'compensated', 'recognized'], true),
+                    'unit_status' => $unit['status'],
+                    'unit_item_ids' => $itemIds,
+                ]);
+            })->keyBy('id')->all() : [];
             $result = $this->calculator->calculate($configuration, $units, $grades, $registered, $equivalences[$entry->id] ?? [], $baseItems);
+            if ($period !== null) {
+                $result['annual'] = null;
+            }
             if ($baseRule && ! $prior) {
                 $result['anomalies'][] = 'Dossier ordinaire officiel absent.';
             }
@@ -103,6 +117,7 @@ final class ResultInputs
     {
         return AcademicOfficialResult::published()->where('academic_enrollment_id', $entry->id)
             ->join('academic_deliberations', 'academic_deliberations.id', '=', 'academic_official_results.academic_deliberation_id')
+            ->whereNull('academic_deliberations.context->period_code')
             ->orderByDesc('academic_deliberations.published_at')->orderByDesc('academic_deliberations.id')
             ->select('academic_official_results.*')->with('run.rule')->first();
     }

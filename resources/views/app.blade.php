@@ -1,9 +1,11 @@
+@php $pwa = request()->is('app/*'); @endphp
 <!DOCTYPE html>
-<html lang="{{ isset($seo) ? $seo['lang'] : str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ $pwa ? 'fr' : (isset($seo) ? $seo['lang'] : str_replace('_', '-', app()->getLocale())) }}">
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1{{ $pwa ? ', viewport-fit=cover' : '' }}">
+    @if($pwa) @include('pwa-head') @endif
     <link rel="icon" type="image/png" href="/assets/usk/logo.png">
     <meta name="theme-color" content="#073e32">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -13,19 +15,6 @@
     @else
         <title inertia>Université Simon Kimbangu</title>
         <meta name="robots" content="noindex, nofollow, noarchive" inertia="robots">
-    @endif
-
-    @if(!isset($seo) && str_starts_with($page['component'] ?? '', 'dashboard/') && !str_starts_with($page['component'] ?? '', 'dashboard/auth/') && data_get($page, 'props.auth.user'))
-        <style>html[data-usk-theme-loading] body:has(#app:empty) { background: #0d151d; }</style>
-        <script>
-            (() => {
-                let theme = 'system';
-                try { theme = localStorage.getItem('usk-dashboard-theme') || 'system'; } catch {}
-                if (theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.setAttribute('data-usk-theme-loading', '');
-                }
-            })();
-        </script>
     @endif
 
     @routes
@@ -45,7 +34,17 @@
     @if(!isset($seo)) @inertiaHead @endif
 </head>
 
-<body class="font-sans antialiased">
+<body class="font-sans antialiased" @if($pwa) data-usk-pwa @endif>
+    @if($pwa)
+        <div id="usk-launch" role="status">
+            <div>
+                <img src="/pwa/icon-192.png" width="88" height="88" alt="">
+                <strong>Université Simon Kimbangu</strong>
+                <small id="usk-launch-status">Ouverture de votre espace…</small>
+                <noscript><p>Activez JavaScript puis rechargez la page.</p></noscript>
+            </div>
+        </div>
+    @endif
     @if(isset($seo))
         @php($publicSsr = app(\Inertia\Ssr\Gateway::class)->dispatch($page))
         @if($publicSsr)

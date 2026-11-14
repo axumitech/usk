@@ -10,25 +10,36 @@ use App\Modules\Documents\Application\DocumentWorkflow;
 use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentPortalController;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 final class StudentDocumentController
 {
     public function submit(DocumentCommandRequest $request, StudentPortalController $portal, DocumentWorkflow $workflow)
     {
         $entry = $portal->context($request);
-        $workflow->submit($entry, OfficialDocumentType::findOrFail($request->validated('type_id')), $request->user(), $request->validated(), true);
+        $returnUrl = $request->libraryUrl($entry->id);
+        try {
+            $workflow->submit($entry, OfficialDocumentType::findOrFail($request->validated('type_id')), $request->user(), $request->validated(), true);
+        } catch (ValidationException $exception) {
+            throw $returnUrl ? $exception->redirectTo($returnUrl) : $exception;
+        }
 
-        return back(303)->with('success', 'Demande documentaire enregistrée.');
+        return ($returnUrl ? redirect()->to($returnUrl, 303) : back(303))->with('success', 'Demande documentaire enregistrée.');
     }
 
     public function transition(DocumentCommandRequest $request, ServiceRequest $ticket, StudentPortalController $portal, DocumentWorkflow $workflow)
     {
         $entry = $portal->context($request);
+        $returnUrl = $request->libraryUrl($entry->id);
         abort_unless($request->validated('action') === 'resubmit' && $ticket->academic_enrollment_id === $entry->id, 404);
         abort_unless($ticket->documentType?->policy['student_request'], 403);
-        $workflow->transition($ticket, $request->user(), $request->validated());
+        try {
+            $workflow->transition($ticket, $request->user(), $request->validated());
+        } catch (ValidationException $exception) {
+            throw $returnUrl ? $exception->redirectTo($returnUrl) : $exception;
+        }
 
-        return back(303);
+        return $returnUrl ? redirect()->to($returnUrl, 303) : back(303);
     }
 
     public function download(Request $request, OfficialDocument $document, StudentPortalController $portal, AcademicAccessService $access, DocumentArchives $archives)

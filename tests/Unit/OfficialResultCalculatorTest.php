@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 
 final class OfficialResultCalculatorTest extends TestCase
 {
-    public function test_exact_weighting_compensation_equivalence_and_period_totals(): void
+    public function test_exact_weighting_equivalence_and_period_totals(): void
     {
         $calculator = new ResultCalculator;
         $rules = $this->rules();
@@ -25,16 +25,69 @@ final class OfficialResultCalculatorTest extends TestCase
         $this->assertSame(300, $direct['credits']['earned']);
         $this->assertSame(500, $direct['credits']['remaining']);
 
-        $compensated = $calculator->calculate(array_replace($rules, ['compensation' => 'unit', 'compensation_floor' => 800]), $units, $grades, [1 => true, 2 => true, 3 => true]);
-        $this->assertSame('compensated', $compensated['units'][0]['status']);
-        $this->assertSame(500, $compensated['credits']['compensated']);
-        $this->assertSame(800, $compensated['credits']['earned']);
-
         $recognized = $calculator->calculate($rules, $units, $grades, [1 => true, 2 => true], [3 => 'EQ-2026-03']);
         $this->assertSame('recognized', $recognized['units'][1]['status']);
         $this->assertSame(300, $recognized['credits']['recognized']);
         $this->assertSame(500, $recognized['credits']['registered']);
         $this->assertSame('11.85', $recognized['annual']);
+    }
+
+    public function test_composed_unit_requires_every_counted_component_even_under_a_compensation_rule(): void
+    {
+        $calculator = new ResultCalculator;
+        $units = $this->units();
+        $units[1]['period_code'] = 'P1';
+        $rules = array_replace($this->rules(), ['compensation_floor' => 800, 'period_pass' => 1000]);
+        $grades = [
+            1 => [11 => $this->grade(14), 12 => $this->grade(12)],
+            2 => [21 => $this->grade(9)],
+            3 => [31 => $this->grade(9)],
+        ];
+
+        foreach (['unit', 'period'] as $mode) {
+            $result = $calculator->calculate(array_replace($rules, ['compensation' => $mode]), $units, $grades, [1 => true, 2 => true, 3 => true]);
+            $this->assertTrue($result['units'][0]['is_composite']);
+            $this->assertSame('11.85', $result['units'][0]['grade']);
+            $this->assertSame('failed', $result['units'][0]['status']);
+            $this->assertSame(0, $result['units'][0]['earned_credits']);
+            $this->assertSame($mode === 'period' ? 'compensated' : 'failed', $result['units'][1]['status']);
+            $this->assertSame($mode === 'period' ? 300 : 0, $result['credits']['compensated']);
+        }
+    }
+
+    public function test_required_components_include_enrolled_electives_and_recognize_equivalence(): void
+    {
+        $calculator = new ResultCalculator;
+        $units = $this->units();
+        $units[0]['items'][1]['is_optional'] = true;
+        $rules = array_replace($this->rules(), ['compensation' => 'unit', 'compensation_floor' => 800]);
+        $grades = [1 => [11 => $this->grade(14), 12 => $this->grade(12)], 2 => [21 => $this->grade(9)]];
+
+        $unselected = $calculator->calculate($rules, $units, $grades, [1 => true]);
+        $this->assertTrue($unselected['units'][0]['is_composite']);
+        $this->assertSame('passed', $unselected['units'][0]['status']);
+        $this->assertSame(375, $unselected['units'][0]['earned_credits']);
+        $this->assertCount(1, $unselected['units'][0]['items']);
+
+        $unselectedWithLowGrade = $calculator->calculate(array_replace($rules, ['ue_pass' => 800]), $units,
+            [1 => [11 => $this->grade(9), 12 => $this->grade(9)]], [1 => true]);
+        $this->assertSame('failed', $unselectedWithLowGrade['units'][0]['status']);
+        $this->assertSame(0, $unselectedWithLowGrade['units'][0]['earned_credits']);
+
+        $enrolled = $calculator->calculate($rules, $units, $grades, [1 => true, 2 => true]);
+        $this->assertSame('failed', $enrolled['units'][0]['status']);
+        $this->assertSame(0, $enrolled['units'][0]['earned_credits']);
+
+        $equivalence = $calculator->calculate($rules, $units, $grades, [1 => true], [2 => 'EQ-2026-02']);
+        $this->assertSame('recognized', $equivalence['units'][0]['items'][1]['status']);
+        $this->assertSame('passed', $equivalence['units'][0]['status']);
+        $this->assertSame(500, $equivalence['units'][0]['earned_credits']);
+        $this->assertSame(125, $equivalence['credits']['recognized']);
+
+        $units[0]['items'][1]['is_optional'] = false;
+        $missing = $calculator->calculate($rules, $units, $grades, [1 => true]);
+        $this->assertSame('incomplete', $missing['units'][0]['status']);
+        $this->assertSame(0, $missing['units'][0]['earned_credits']);
     }
 
     public function test_zero_absence_and_missing_sources_have_different_results(): void
@@ -70,6 +123,26 @@ final class OfficialResultCalculatorTest extends TestCase
             [2 => [50 => $this->grade(7)]], [2 => true], ordinary: $ordinary);
         $this->assertSame('9.00', $best['units'][0]['items'][1]['grade']);
         $this->assertSame(300, $best['credits']['earned']);
+    }
+
+    public function test_resit_preserves_existing_official_compensation_when_reusing_the_whole_unit(): void
+    {
+        $calculator = new ResultCalculator;
+        $rules = array_replace($this->rules(), ['base_rule_id' => 1, 'resit_policy' => 'replace', 'resit_eligibility' => 'failed_unit',
+            'missing_resit' => 'retain', 'items' => [1 => [], 2 => [50 => 10000], 3 => [31 => 10000]]]);
+        $ordinary = [
+            1 => ['raw' => '1400', 'status' => 'passed', 'unit_status' => 'compensated', 'unit_acquired' => true, 'unit_item_ids' => [1, 2]],
+            2 => ['raw' => '900', 'status' => 'failed', 'unit_status' => 'compensated', 'unit_acquired' => true, 'unit_item_ids' => [1, 2]],
+        ];
+        $grades = [2 => [50 => $this->grade(9)]];
+        $result = $calculator->calculate($rules, $this->units(), $grades, [2 => true], ordinary: $ordinary);
+        $this->assertSame('compensated', $result['units'][0]['status']);
+        $this->assertTrue($result['units'][0]['ordinary_acquisition_preserved']);
+        $this->assertSame(500, $result['units'][0]['earned_credits']);
+
+        $changed = $calculator->calculate(array_replace($rules, ['resit_eligibility' => 'all_registered']), $this->units(), $grades, [2 => true], ordinary: $ordinary);
+        $this->assertSame('failed', $changed['units'][0]['status']);
+        $this->assertArrayNotHasKey('ordinary_acquisition_preserved', $changed['units'][0]);
     }
 
     private function rules(): array

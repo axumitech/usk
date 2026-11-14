@@ -37,7 +37,7 @@ function submit(file, errors = {}) {
 test('Un fichier valide est envoyé en multipart avec un espace d’erreurs propre à la pièce', () => {
     const file = { name: 'corrige.pdf', size: 1200 };
     const [call] = submit(file);
-    assert.equal(call.url, '/dashboard/enrollments/documents/test-document/replace');
+    assert.equal(call.url, '/app/dashboard/enrollments/documents/test-document/replace');
     assert.equal(call.data.file, file);
     assert.equal(call.options.forceFormData, true);
     assert.equal(call.options.errorBag, 'replacement-test-document');

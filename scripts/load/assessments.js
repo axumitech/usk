@@ -35,10 +35,10 @@ export default function () {
     const resource = Number(session.resource_id);
     if (mode === 'assignments' || mode === 'exams' || mode === 'mixed') {
         const page = mode === 'exams' || (mode === 'mixed' && __ITER % 3 === 1) ? 'evaluations' : 'assignments';
-        const url = mode === 'mixed' && __ITER % 3 === 2 ? '/dashboard/student/courses' : `/dashboard/student/${page}`;
+        const url = mode === 'mixed' && __ITER % 3 === 2 ? '/app/dashboard/student/courses' : `/app/dashboard/student/${page}`;
         check(http.get(`${origin}${url}?academic=${academic}`, params), { 'page de l’étudiant autorisée': (r) => r.status === 200 });
     } else if (mode === 'copies') {
-        check(http.get(`${origin}/dashboard/student/submissions/${Number(session.submission_id)}/download?academic=${academic}`, params), {
+        check(http.get(`${origin}/app/dashboard/student/submissions/${Number(session.submission_id)}/download?academic=${academic}`, params), {
             'copie privée servie': (r) => r.status === 200 && Boolean(r.headers['Content-Disposition']),
         });
     } else {
@@ -46,7 +46,7 @@ export default function () {
         if (!session.csrf) throw new Error('Jeton CSRF jetable requis.');
         const headers = { ...params.headers, 'X-CSRF-TOKEN': session.csrf, Accept: 'application/json' };
         if (mode === 'submit') {
-            const url = `${origin}/dashboard/student/resources/${resource}/submit?academic=${academic}`;
+            const url = `${origin}/app/dashboard/student/resources/${resource}/submit?academic=${academic}`;
             const body = {
                 body: 'Remise jetable de recette',
                 operation_key: session.operation_key,
@@ -57,7 +57,7 @@ export default function () {
                 check(response, { 'dépôt ou rejeu accepté': (r) => r.status === 302 || r.status === 303 }),
             );
         } else {
-            const url = `${origin}/dashboard/admin/assessments/${resource}/records/${Number(session.record_id)}/correction`;
+            const url = `${origin}/app/dashboard/admin/assessments/${resource}/records/${Number(session.record_id)}/correction`;
             check(http.post(url, session.correction, { ...params, headers }), { 'correction jetable enregistrée': (r) => r.status === 303 });
         }
     }

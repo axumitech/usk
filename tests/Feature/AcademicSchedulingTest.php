@@ -31,7 +31,7 @@ final class AcademicSchedulingTest extends TestCase
 {
     use CreatesStudentContext, RefreshDatabase;
 
-    private const BASE = '/dashboard/admin/schedule';
+    private const BASE = '/app/dashboard/admin/schedule';
 
     private const REASON = 'Décision motivée du service académique.';
 
@@ -157,7 +157,7 @@ final class AcademicSchedulingTest extends TestCase
         $this->post(self::BASE.'/'.$replacement->id.'/transition', ['action' => 'cancel', 'reason' => self::REASON])->assertStatus(303);
         $this->delete(self::BASE.'/'.$original->id)->assertSessionHasErrors('session');
         $this->assertSame(3, $student->notifications()->where('type', AcademicScheduleNotice::class)->count());
-        $this->actingAs($student)->get('/dashboard/student/schedule?week=2026-11-02&academic='.$entry->id)
+        $this->actingAs($student)->get('/app/dashboard/student/schedule?week=2026-11-02&academic='.$entry->id)
             ->assertInertia(fn (Assert $page) => $page->has('sessions', 2)->where('sessions.0.status', 'rescheduled')->where('sessions.1.status', 'cancelled'));
     }
 
@@ -182,7 +182,7 @@ final class AcademicSchedulingTest extends TestCase
         $professor = Professor::create(['first_name' => 'Anne', 'last_name' => 'Test', 'email' => $account->email, 'is_active' => true]);
         $professor->forceFill(['user_id' => $account->id, 'photo' => 'professors/test-portrait.png'])->save();
         $session = $offer->sessions()->create(['starts_at' => '2026-11-01 01:00:00', 'ends_at' => '2026-11-01 02:00:00', 'room' => 'A', 'is_published' => true]);
-        $teacher = '/dashboard/teacher/sessions/'.$session->id.'/attendance';
+        $teacher = '/app/dashboard/teacher/sessions/'.$session->id.'/attendance';
         $this->actingAs($account)->get($teacher)->assertForbidden();
         $offer->update(['professor_id' => $professor->id]);
         $row = ['records' => [['id' => $entry->id, 'status' => 'absent']], 'revision' => 0];
@@ -207,14 +207,14 @@ final class AcademicSchedulingTest extends TestCase
         Storage::fake('local');
         $session = $offer->sessions()->create(['starts_at' => '2026-11-01 01:00:00', 'ends_at' => '2026-11-01 02:00:00', 'room' => 'A', 'is_published' => true]);
         $record = AcademicAttendance::create(['academic_session_id' => $session->id, 'academic_enrollment_id' => $entry->id, 'status' => 'absent', 'recorded_by' => $admin->id]);
-        $submit = '/dashboard/student/absences/'.$record->id;
+        $submit = '/app/dashboard/student/absences/'.$record->id;
         $this->actingAs($student)->post($submit, ['reason' => 'Motif confidentiel pour le service.'])->assertStatus(303);
         $case = AbsenceJustification::sole();
         $decision = self::BASE.'/absences/'.$case->id.'/decision';
         $this->actingAs($admin)->post($decision, ['status' => 'correction', 'revision' => 1, 'reason' => 'Ajoutez une pièce justificative.'])->assertStatus(303);
         $this->actingAs($student)->post($submit, ['reason' => 'Pièce complémentaire jointe.', 'revision' => 2,
             'file' => UploadedFile::fake()->createWithContent('preuve.pdf', "%PDF-1.4\n%%EOF")])->assertStatus(303);
-        $file = '/dashboard/student/absences/'.$case->id.'/file';
+        $file = '/app/dashboard/student/absences/'.$case->id.'/file';
         $response = $this->get($file)->assertOk();
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertStringContainsString('private', $response->headers->get('Cache-Control'));

@@ -1,0 +1,154 @@
+.teacher-attendance.teaching-page {
+    gap: clamp(0.8rem, 2vw, 1.25rem);
+}
+
+.teacher-attendance .teaching-profile {
+    padding: clamp(0.85rem, 2.3vw, 1.35rem);
+    border-radius: 1rem;
+    box-shadow: 0 6px 18px #17382b0c;
+}
+
+.teacher-attendance .teaching-section-heading {
+    gap: 0.65rem 0.8rem;
+    margin-bottom: 0.85rem;
+}
+
+.teacher-attendance-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.teacher-attendance-symbol {
+    display: grid;
+    flex: none;
+    width: 2.65rem;
+    aspect-ratio: 1;
+    place-items: center;
+    border-radius: 0.68rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-green);
+}
+
+.usk-dashboard .teacher-attendance .teacher-attendance-heading h2 {
+    margin: 0;
+    font-family: inherit;
+    font-size: clamp(1.02rem, 2vw, 1.25rem);
+    font-weight: 740;
+}
+
+.teacher-attendance .teacher-attendance-heading p,
+.teacher-attendance .course-attendance-list p {
+    margin: 0.15rem 0 0;
+    color: var(--usk-night-muted, #526a5c);
+    font-size: 0.79rem;
+    line-height: 1.35;
+}
+
+.teacher-attendance .teaching-section-heading .admin-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.72rem;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.65rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-green);
+    font-size: 0.79rem;
+    font-weight: 700;
+}
+
+.teacher-attendance .admin-primary {
+    min-height: 2.75rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 0.65rem;
+    font-size: 0.83rem;
+    font-weight: 740;
+    white-space: normal;
+}
+
+.teacher-attendance button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.teacher-attendance .teaching-profile :is(select, button):focus-visible {
+    outline: 2px solid var(--teacher-module-gold);
+    outline-offset: 2px;
+}
+
+.teacher-attendance .course-attendance-list {
+    display: grid;
+    gap: 0.38rem;
+}
+
+.teacher-attendance .course-attendance-list > article {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 9.25rem);
+    gap: 0.45rem 0.75rem;
+    padding: 0.52rem 0.7rem;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.65rem;
+    background: var(--teacher-module-surface);
+    overflow-wrap: anywhere;
+}
+
+.teacher-attendance .course-attendance-list strong {
+    color: var(--teacher-module-ink);
+    font-size: 0.87rem;
+}
+
+.teacher-attendance .course-attendance-list select {
+    width: 100%;
+    padding: 0.45rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-ink);
+    font-size: 0.81rem;
+    font-weight: 680;
+}
+
+.teacher-attendance .course-attendance-list select[data-status='present'] {
+    background: var(--usk-night-positive, #e7f2e8);
+    color: var(--teacher-module-green);
+}
+
+.teacher-attendance .course-attendance-list select[data-status='absent'] {
+    color: var(--usk-night-danger, #983e31);
+}
+
+.teacher-attendance .course-attendance-list select[data-status='late'] {
+    background: var(--usk-night-warm, #f9efd7);
+    color: var(--teacher-module-gold);
+}
+
+.teacher-attendance .teacher-attendance-note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.65rem;
+    background: var(--usk-night-warm, #f9efd7);
+    color: var(--teacher-module-gold);
+    font-size: 0.87rem;
+}
+
+.teacher-attendance-note svg {
+    flex: none;
+}
+
+@media (max-width: 28rem) {
+    .teacher-attendance .course-attendance-list > article {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 7.5rem);
+        padding-inline: 0.55rem;
+    }
+
+    .teacher-attendance .teaching-section-heading .admin-secondary,
+    .teacher-attendance .admin-primary {
+        width: 100%;
+    }
+}

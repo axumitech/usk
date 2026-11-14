@@ -103,6 +103,22 @@ export type LevelReview = {
 
 export type ScheduleGeneration = { sessions: number; issues: string[] };
 
+export type AnnualFinance = {
+    year_id: number;
+    url: string;
+    rows: {
+        level_id: number;
+        level: string;
+        faculty: string;
+        category: 'national' | 'foreign';
+        status: 'created' | 'existing' | 'missing_amounts' | 'not_generated';
+        tariff_id?: number;
+        tariff_status?: 'draft' | 'active';
+        currency?: string;
+        schedule?: { amount_cents: number; due_at: string }[];
+    }[];
+};
+
 export type Props = {
     packYear: number | null;
     facultyPack: {
@@ -122,7 +138,7 @@ export type Props = {
         | null;
     sites: { id: number; site_name: string; address?: string | null; contact_email?: string | null; contact_phone?: string | null }[];
     faculties: { id: number; name: string; university_id: number | null }[];
-    years: { id: number; title: string; university_id: number | null }[];
+    years: { id: number; title: string; university_id: number | null; start_date?: string; end_date?: string }[];
     levels: Level[];
     departments: Row[];
     cycles: Row[];
@@ -139,7 +155,7 @@ export type Props = {
     unmapped: Page<Student> | null;
     comparison: Difference[] | null;
     audit: { id: number; action: string; reason: string; actor_id: number; created_at: string }[];
-    abilities: { manage: boolean; curriculum: boolean };
+    abilities: { manage: boolean; curriculum: boolean; finance?: boolean; programFinance?: boolean };
     filters: {
         tab?: 'institution' | 'programs' | 'curriculum';
         program?: number;
@@ -150,8 +166,11 @@ export type Props = {
         student_q?: string;
     };
     success?: string;
+    annualFinance?: AnnualFinance | null;
+    feeGeneration?: AnnualFinance | null;
     annualBatch?: {
         year: string;
+        finance?: AnnualFinance | null;
         rows: (
             | {
                   faculty: string;

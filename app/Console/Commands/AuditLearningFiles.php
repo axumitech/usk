@@ -32,7 +32,7 @@ final class AuditLearningFiles extends Command
                 $this->warn('Fichier absent ou stockage indisponible pour '.$context);
             }
         };
-        AcademicResource::whereIn('kind', AcademicResource::CONTENT_KINDS)->whereNotNull('path')
+        AcademicResource::whereIn('kind', [...AcademicResource::CONTENT_KINDS, 'assignment', 'evaluation'])->whereNotNull('path')
             ->select(['id', 'disk', 'path'])->eachById(fn ($r) => $check($r->only(['disk', 'path']), 'ressource '.$r->id));
         ResourceVersion::select(['id', 'academic_resource_id', 'number', 'snapshot'])
             ->eachById(fn ($v) => $check($v->snapshot, 'ressource '.$v->academic_resource_id.' version '.$v->number));

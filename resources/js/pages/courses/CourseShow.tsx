@@ -98,7 +98,7 @@ export default function CourseShow({ course, mayLike = [] }: { course: Course; m
                                         'Développez vos connaissances et construisez votre projet au sein de l’Université Simon Kimbangu.'}
                                 </p>
                                 <div className="usk-actions">
-                                    <Link className="usk-button usk-button-gold" href="/dashboard/enrollments/create">
+                                    <Link className="usk-button usk-button-gold" href="/app/dashboard/enrollments/create">
                                         Commencer mon inscription
                                         <ArrowUpRight size={18} />
                                     </Link>
@@ -342,7 +342,7 @@ export default function CourseShow({ course, mayLike = [] }: { course: Course; m
                                     <ArrowUpRight size={13} />
                                 </Link>
                             </div>
-                            <Link className="usk-button usk-button-green" href="/dashboard/enrollments/create">
+                            <Link className="usk-button usk-button-green" href="/app/dashboard/enrollments/create">
                                 Commencer mon inscription
                                 <ArrowUpRight size={17} />
                             </Link>

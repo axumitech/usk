@@ -1,0 +1,63 @@
+body[data-usk-pwa] {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.usk-pwa-notices {
+    position: fixed;
+    z-index: 60;
+    inset-inline-end: max(1rem, env(safe-area-inset-right));
+    inset-block-end: max(1rem, env(safe-area-inset-bottom));
+    width: max-content;
+    max-width: min(22rem, calc(100vw - 2rem));
+    display: grid;
+    justify-items: end;
+    gap: 0.4rem;
+    font: 500 0.875rem/1.45 system-ui;
+    color: #fff;
+    pointer-events: none;
+}
+
+.usk-pwa-notices > * {
+    pointer-events: auto;
+    background: #073e32;
+    color: white;
+    border-radius: 0.85rem;
+    padding: 0.55rem 0.85rem;
+    box-shadow: 0 4px 22px #071a1680;
+}
+
+.usk-pwa-notices :is(button, a, summary) {
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.usk-pwa-notices :is(button, a) {
+    display: inline-flex;
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.usk-pwa-notices > div :is(button, a) {
+    text-decoration: underline;
+    margin-inline-end: 0.65rem;
+}
+
+.usk-pwa-notices summary {
+    align-content: center;
+}
+.usk-pwa-notices button:disabled {
+    opacity: 0.7;
+    cursor: wait;
+}
+
+@media (display-mode: standalone) {
+    body[data-usk-pwa] {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    body[data-usk-pwa] :is(header.fixed, nav.fixed) {
+        top: env(safe-area-inset-top);
+    }
+}

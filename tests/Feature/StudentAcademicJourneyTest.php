@@ -14,6 +14,7 @@ use App\Models\LevelDetail;
 use App\Models\Professor;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
+use App\Models\Student\AcademicProgression;
 use App\Models\Student\AcademicResource;
 use App\Models\Student\AcademicSemester;
 use App\Models\Student\AcademicSession;
@@ -28,7 +29,10 @@ use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Services\MatriculeGenerator;
 use App\Modules\Enrollment\Domain\ValueObjects\Matricule;
 use App\Modules\Student\Application\Services\AcademicAccessService;
+use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\AcademicRuleService;
+use App\Modules\Student\Application\Services\FeeTariffService;
+use App\Modules\Student\Application\Services\PaymentRefundService;
 use App\Modules\Student\Application\Services\ProviderPaymentReconciliation;
 use App\Modules\Student\Application\Services\StudentAdmissionService;
 use App\Modules\Student\Application\Services\StudentFinanceService;
@@ -48,6 +52,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -89,7 +94,7 @@ class StudentAcademicJourneyTest extends TestCase
     private function admitted(bool $assess = false): array
     {
         [$admin,$student,$application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = AcademicEnrollment::where('application_id', $application->id)->firstOrFail();
         $academic->update(['enrollment_status' => 'confirmed']);
         $course = new Courses;
@@ -126,7 +131,7 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin,$student,$application] = $this->application();
         $student->assignRole(Role::findOrCreate('instructor', 'web'));
         $before = User::count();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $profile = $student->fresh()->studentProfile;
         $academic = AcademicEnrollment::firstOrFail();
         $this->assertSame('active', $profile->student_status);
@@ -143,20 +148,147 @@ class StudentAcademicJourneyTest extends TestCase
         $this->assertDatabaseCount('student_profiles', 1);
         $this->assertDatabaseCount('academic_enrollments', 1);
         $this->assertSame(1, $student->notifications()->where('type', StudentAdmissionActivated::class)->count());
-        $this->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
+        $this->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
         $this->assertDatabaseCount('academic_enrollments', 1);
-        Mail::assertSent(EnrollmentReviewUpdated::class, fn ($m) => $m->kind === 'validated' && str_contains($m->render(), '/dashboard/student?application='));
+        Mail::assertSent(EnrollmentReviewUpdated::class, fn ($m) => $m->kind === 'validated' && str_contains($m->render(), '/app/dashboard/student?application='));
+    }
+
+    public static function nationalitiesForAdmission(): array
+    {
+        return [
+            'RDC' => ['CD', 'République démocratique du Congo (RDC)', 'national', '110.00', 11000],
+            'Congo-Brazzaville' => ['CG', 'République du Congo (Congo-Brazzaville)', 'foreign', '210.00', 21000],
+        ];
+    }
+
+    #[DataProvider('nationalitiesForAdmission')]
+    public function test_validation_applies_the_annual_tariff_for_the_declared_nationality(
+        string $nationality, string $label, string $category, string $amount, int $cents,
+    ): void {
+        $this->travelTo(CarbonImmutable::parse('2026-11-12 12:00', 'Africa/Kinshasa'));
+        [$admin, $student, $application] = $this->application();
+        $student->forceFill(['nationality_code' => $nationality])->save();
+        $reason = 'Barème annuel vérifié par la comptabilité.';
+        $tariffs = app(FeeTariffService::class);
+        $expectedTariff = null;
+        foreach (['national', 'foreign'] as $tariffCategory) {
+            $tariff = $tariffs->create($admin, [
+                'academic_year_id' => $application->academic_year_id, 'level_id' => $application->level_id, 'category' => $tariffCategory,
+                'kind' => 'tuition', 'title' => 'Barème de la licence', 'currency' => 'USD', 'valid_from' => '2026-10-01',
+                'valid_until' => '2027-09-30', 'schedule' => [
+                    ['amount' => $tariffCategory === $category ? $amount : '999.00', 'due_at' => '2026-12-01'],
+                    ['amount' => '75.00', 'due_at' => '2027-03-01'],
+                ],
+                'reason' => $reason,
+            ]);
+            $tariffs->activate($tariff, $admin, $reason);
+            if ($tariffCategory === $category) {
+                $expectedTariff = $tariff;
+            }
+        }
+
+        Role::findByName('admin', 'web')->revokePermissionTo('manage academic finance');
+        $admin = $admin->fresh();
+        $admin->academicFaculties()->attach($application->level->faculty_id);
+        $this->assertFalse($admin->can('manage academic finance'));
+
+        $this->actingAs($admin)->get(route('dashboard.admin.enrollments.show', $application))->assertInertia(fn (Assert $page) => $page
+            ->where('enrollment.nationality', $label)->where('enrollment.fee_category', $category));
+        $this->post(route('dashboard.admin.enrollments.validate', $application))->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Le dossier a été validé. Les échéances sont visibles dans Finances pour l’étudiant.');
+        $entry = $application->academicEnrollment()->sole();
+        $this->assertSame($category, $entry->fee_category);
+        $this->assertSame('pending_confirmation', $entry->enrollment_status);
+        $this->assertSame('unpaid', $application->fresh()->payment_status->value);
+        $this->assertSame([$expectedTariff->id, $expectedTariff->id], $entry->obligations()->orderBy('installment')->pluck('finance_tariff_id')->all());
+        app(StudentAdmissionService::class)->activate($application->fresh(), $admin->id);
+        $this->assertSame(2, $entry->obligations()->count());
+
+        $this->actingAs($student->fresh())->get('/app/dashboard/student/fees?academic='.$entry->id)
+            ->assertInertia(fn (Assert $page) => $page->where('academic.fee_category', $category)->where('balance.total_cents', $cents + 7500)
+                ->has('finance_schedule', 2)
+                ->where('finance_schedule.0.amount_cents', $cents)->where('finance_schedule.0.due_at', '2026-12-01')
+                ->where('finance_schedule.1.amount_cents', 7500)->where('finance_schedule.1.due_at', '2027-03-01'));
+    }
+
+    public function test_validation_ignores_draft_and_out_of_scope_tariffs(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-12 12:00', 'Africa/Kinshasa'));
+        [$admin, $student, $application] = $this->application();
+        $student->update(['nationality_code' => 'CD']);
+        $otherLevel = Level::create(['faculty_id' => $application->level->faculty_id, 'title' => 'Licence 2', 'code' => 'L2', 'is_active' => true]);
+        $otherYear = AcademicYear::create(['title' => 'Autre année académique', 'start_date' => '2026-09-01', 'end_date' => '2027-08-31', 'status' => 'draft']);
+        $reason = 'Barème annuel vérifié par la comptabilité.';
+        $tariffs = app(FeeTariffService::class);
+        $base = [
+            'academic_year_id' => $application->academic_year_id, 'level_id' => $application->level_id, 'category' => 'national',
+            'kind' => 'tuition', 'title' => 'Barème de la licence', 'currency' => 'USD', 'valid_from' => '2026-10-01',
+            'schedule' => [['amount' => '999.00', 'due_at' => '2026-12-01']], 'reason' => $reason,
+        ];
+        $tariffs->create($admin, $base);
+        foreach ([
+            ['level_id' => $otherLevel->id],
+            ['category' => 'foreign'],
+            ['currency' => 'CDF'],
+            ['valid_from' => '2026-12-01'],
+            ['academic_year_id' => $otherYear->id],
+        ] as $scope) {
+            $tariff = $tariffs->create($admin, $scope + $base);
+            $tariffs->activate($tariff, $admin, $reason);
+        }
+
+        $this->actingAs($admin)->post(route('dashboard.admin.enrollments.validate', $application))->assertSessionHasNoErrors()
+            ->assertSessionHas('success', 'Le dossier a été validé. Les frais sont en attente d’un barème actif et en vigueur pour cette inscription.');
+        $entry = $application->academicEnrollment()->sole();
+        $this->assertSame('national', $entry->fee_category);
+        $this->assertFalse($entry->obligations()->exists());
+        $this->actingAs($student->fresh())->get('/app/dashboard/student/fees?academic='.$entry->id)
+            ->assertInertia(fn (Assert $page) => $page->where('balance.assessed', false)->has('finance_schedule', 0));
+    }
+
+    public function test_admission_validation_cannot_issue_fees_for_a_faculty_outside_the_agents_scope(): void
+    {
+        [$admin, $student, $application] = $this->application();
+        $student->update(['nationality_code' => 'CD']);
+        $faculty = Faculty::create(['name' => 'Sciences', 'code' => 'SCI']);
+        $admin->academicFaculties()->attach($faculty);
+
+        $this->actingAs($admin)->post(route('dashboard.admin.enrollments.validate', $application))->assertForbidden();
+        $this->assertSame(EnrollmentStatus::SUBMITTED, $application->fresh()->status);
+        $this->assertFalse($application->academicEnrollment()->exists());
+        $this->assertFalse($student->fresh()->hasRole('student'));
+    }
+
+    public function test_admission_keeps_existing_financial_category_and_does_not_categorize_historical_imports(): void
+    {
+        [$admin, $student, $application] = $this->application();
+        $student->forceFill(['nationality_code' => 'CD'])->save();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $entry = $application->academicEnrollment()->sole();
+        $finance = app(StudentFinanceService::class);
+        $finance->assess($entry, $admin, 'foreign', [], 'Catégorie corrigée selon le dossier.');
+        $admissions = app(StudentAdmissionService::class);
+        $this->assertSame('foreign', $admissions->activate($application->fresh(), $admin->id)->fee_category);
+        $this->assertSame(16000, (int) $entry->obligations()->sum('amount_cents'));
+
+        $pastYear = AcademicYear::create(['title' => '2025–2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed']);
+        $pastApplication = Enrollment::create([
+            'student_id' => $student->id, 'level_id' => $entry->level_id, 'academic_year_id' => $pastYear->id, 'status' => 'validated',
+        ]);
+        $past = $admissions->activate($pastApplication, $admin->id, notify: false, historicalImport: true);
+        $this->assertNull($past->fee_category);
+        $this->assertFalse($past->obligations()->exists());
     }
 
     public function test_incomplete_or_unaccepted_documents_cannot_activate_student_access(): void
     {
         [$admin,$student,$application] = $this->application(false);
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
         $this->assertDatabaseCount('academic_enrollments', 0);
         $this->assertFalse($student->fresh()->hasRole('student'));
         $application->documents()->update(['review_status' => 'accepted']);
         AdmissionCondition::create(['level_id' => $application->level_id, 'faculty_id' => $application->level->faculty_id, 'title' => 'Acte de naissance', 'section' => 'personal_info', 'is_required' => true]);
-        $this->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
+        $this->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasErrors('decision');
         $this->assertDatabaseCount('student_profiles', 0);
     }
 
@@ -176,19 +308,19 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_unpaid_student_can_open_dashboard_and_published_courses(): void
     {
         [, $student,, $academic] = $this->admitted(true);
-        $this->actingAs($student)->get('/dashboard')->assertRedirect('/dashboard/student');
-        $this->get('/dashboard/student')->assertOk()->assertInertia(fn (Assert $p) => $p->component('dashboard/student/Portal')->where('academic.matricule', 'ST-2026-0001')->where('academic.faculty', 'Droit')->where('academic.level', 'Licence 1')->where('academic.year', '2026–2027')->where('balance.financial_clearance_status', 'unpaid')->where('permissions.courses_view.allowed', true)->where('permissions.results_view.allowed', true)->has('courses', 1));
-        $this->get('/dashboard/student/courses')->assertOk();
-        $this->get('/dashboard/student/fees')->assertOk();
-        $this->get('/dashboard/student/requests')->assertOk();
+        $this->actingAs($student)->get('/app/dashboard')->assertRedirect('/app/dashboard/student');
+        $this->get('/app/dashboard/student')->assertOk()->assertInertia(fn (Assert $p) => $p->component('dashboard/student/Portal')->where('academic.matricule', 'ST-2026-0001')->where('academic.faculty', 'Droit')->where('academic.level', 'Licence 1')->where('academic.year', '2026–2027')->where('balance.financial_clearance_status', 'unpaid')->where('permissions.courses_view.allowed', true)->where('permissions.results_view.allowed', true)->has('courses', 1));
+        $this->get('/app/dashboard/student/courses')->assertOk();
+        $this->get('/app/dashboard/student/fees')->assertOk();
+        $this->get('/app/dashboard/student/requests')->assertOk();
         $notice = $student->notifications()->where('type', StudentAdmissionActivated::class)->firstOrFail();
-        $this->post('/dashboard/notifications/'.$notice->id.'/open')->assertRedirect('/dashboard/student?academic='.$academic->id);
+        $this->post('/app/dashboard/notifications/'.$notice->id.'/open')->assertRedirect('/app/dashboard/student?academic='.$academic->id);
     }
 
     public function test_role_alone_does_not_grant_an_academic_context(): void
     {
         $user = $this->user('role-only@example.test', 'student');
-        $this->actingAs($user)->get('/dashboard/student')->assertForbidden();
+        $this->actingAs($user)->get('/app/dashboard/student')->assertForbidden();
     }
 
     public function test_unpaid_student_cannot_submit_or_download_restricted_resource_by_direct_route(): void
@@ -196,10 +328,11 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin,$student,,$academic,,$assignment,$material] = $this->admitted(true);
         $this->rule($admin);
         $this->rule($admin, 'materials_download');
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Tentative directe'])->assertForbidden();
-        $this->get('/dashboard/student/resources/'.$material->id.'/download')->assertForbidden();
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Tentative directe'])->assertForbidden();
+        $this->get('/app/dashboard/student/resources/'.$material->id.'/download')->assertForbidden();
         $this->assertDatabaseCount('academic_submissions', 0);
-        $this->get('/dashboard/student/materials')->assertInertia(fn (Assert $p) => $p->where('resources.0.body', null)->where('resources.0.download_url', null));
+        $this->get('/app/dashboard/student/materials')->assertInertia(fn (Assert $p) => $p
+            ->where('materials.items.data.0.description', null)->where('materials.items.data.0.download_url', null));
     }
 
     public function test_confirmed_threshold_unlocks_only_the_required_services_without_claiming_full_payment(): void
@@ -208,9 +341,9 @@ class StudentAcademicJourneyTest extends TestCase
         $this->rule($admin);
         $this->rule($admin, 'materials_download');
         $this->payment($academic, $admin, '50.00');
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Mon travail enregistré.'])->assertSessionHasNoErrors();
-        $this->get('/dashboard/student/resources/'.$material->id.'/download')->assertOk()->assertDownload('support.pdf');
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $p) => $p->where('permissions.assignments_submit.allowed', true)->where('balance.balance_cents', 5000)->where('balance.financial_clearance_status', 'partial'));
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Mon travail enregistré.'])->assertSessionHasNoErrors();
+        $this->get('/app/dashboard/student/resources/'.$material->id.'/download')->assertOk()->assertDownload('support.pdf');
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $p) => $p->where('permissions.assignments_submit.allowed', true)->where('balance.balance_cents', 5000)->where('balance.financial_clearance_status', 'partial'));
     }
 
     public function test_insufficient_partial_payment_does_not_unlock_service(): void
@@ -218,7 +351,7 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin,$student,,$academic,,$assignment] = $this->admitted(true);
         $this->rule($admin);
         $this->payment($academic, $admin, '20.00');
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
     }
 
     public function test_pending_payment_does_not_unlock_or_produce_a_receipt(): void
@@ -226,9 +359,9 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin,$student,,$academic,,$assignment] = $this->admitted(true);
         $this->rule($admin);
         $payment = $this->payment($academic, $admin, '100.00', 'pending');
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
-        $this->get('/dashboard/student/payments/'.$payment->uuid.'/receipt')->assertNotFound();
-        $this->get('/dashboard/student/fees')->assertInertia(fn (Assert $p) => $p->where('balance.pending_cents', 10000)->where('balance.paid_cents', 0));
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
+        $this->get('/app/dashboard/student/payments/'.$payment->uuid.'/receipt')->assertNotFound();
+        $this->get('/app/dashboard/student/fees')->assertInertia(fn (Assert $p) => $p->where('balance.pending_cents', 10000)->where('balance.paid_cents', 0));
     }
 
     public function test_valid_exemption_and_scholarship_are_taken_into_account(): void
@@ -236,8 +369,8 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin,$student,,$academic,,$assignment] = $this->admitted(true);
         $this->rule($admin);
         $grant = app(StudentFinanceService::class)->adjust($academic, $admin, ['type' => 'exemption', 'reason' => 'Exonération approuvée et documentée.', 'expires_at' => today()->addYear()->toDateString()]);
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail exonéré.'])->assertSessionHasNoErrors();
-        $this->get('/dashboard/student/fees')->assertInertia(fn (Assert $p) => $p->where('balance.financial_clearance_status', 'exempted')->where('balance.waived_cents', 10000));
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail exonéré.'])->assertSessionHasNoErrors();
+        $this->get('/app/dashboard/student/fees')->assertInertia(fn (Assert $p) => $p->where('balance.financial_clearance_status', 'exempted')->where('balance.waived_cents', 10000));
         $this->travelTo(today()->addYears(2)); // Expiration réelle ; la décision approuvée reste immuable.
         $this->assertFalse(app(AcademicAccessService::class)->decision($academic->fresh(), 'assignments_submit')['allowed']);
     }
@@ -252,7 +385,7 @@ class StudentAcademicJourneyTest extends TestCase
         $refund = $refunds->request($payment, $admin, ['amount' => '50.00', 'operation_key' => (string)\Illuminate\Support\Str::uuid(), 'reason' => 'Demande de remboursement documentée.']);
         $refunds->transition($refund, $admin, ['status' => 'approved', 'reason' => 'Autorisation de remboursement documentée.']);
         $refunds->transition($refund, $admin, ['status' => 'executed', 'method' => 'bank_transfer', 'execution_reference' => 'REFUND-TEST-001', 'reason' => 'Décaissement contrôlé et documenté.']);
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Travail'])->assertForbidden();
         $payment = $this->payment($academic, $admin, '50.00');
         app(StudentFinanceService::class)->transition($payment, $admin, 'cancelled', 'Écriture incorrecte annulée après contrôle.');
         $this->assertFalse(app(AcademicAccessService::class)->decision($academic->fresh(), 'assignments_submit')['allowed']);
@@ -270,7 +403,7 @@ class StudentAcademicJourneyTest extends TestCase
         $academic->profile->update(['student_status' => 'suspended']);
         app(StudentFinanceService::class)->adjust($academic, $admin, ['type' => 'override', 'feature' => 'assignments_submit', 'reason' => 'Dérogation temporaire documentée.', 'expires_at' => today()->addMonth()->toDateString()]);
         $this->assertFalse(app(AcademicAccessService::class)->decision($academic->fresh(), 'assignments_submit')['allowed']);
-        $this->actingAs($student)->get('/dashboard/student/fees')->assertOk();
+        $this->actingAs($student)->get('/app/dashboard/student/fees')->assertOk();
     }
 
     public function test_student_cannot_see_another_context_or_other_personal_results(): void
@@ -280,10 +413,10 @@ class StudentAcademicJourneyTest extends TestCase
         $source = Enrollment::create(['student_id' => $other->id, 'level_id' => $academic->level_id, 'academic_year_id' => $academic->academic_year_id, 'matricule' => 'ST-OTHER', 'status' => 'validated']);
         $otherAcademic = app(StudentAdmissionService::class)->activate($source, $admin->id, false);
         $result = AcademicResource::create(['academic_offering_id' => $offering->id, 'student_profile_id' => $otherAcademic->student_profile_id, 'kind' => 'result', 'title' => 'Résultat confidentiel', 'body' => 'Note privée 15/20', 'is_published' => true, 'path' => 'private/result.pdf', 'filename' => 'result.pdf']);
-        $this->actingAs($student)->get('/dashboard/student?academic='.$otherAcademic->id)->assertNotFound();
-        $this->get('/dashboard/student?application='.$source->uuid)->assertNotFound();
-        $this->get('/dashboard/student/resources/'.$result->id.'/download')->assertNotFound();
-        $this->get('/dashboard/student/results')->assertInertia(fn (Assert $p) => $p->where('resources', fn ($r) => ! collect($r)->contains('id', $result->id)));
+        $this->actingAs($student)->get('/app/dashboard/student?academic='.$otherAcademic->id)->assertNotFound();
+        $this->get('/app/dashboard/student?application='.$source->uuid)->assertNotFound();
+        $this->get('/app/dashboard/student/resources/'.$result->id.'/download')->assertNotFound();
+        $this->get('/app/dashboard/student/results')->assertInertia(fn (Assert $p) => $p->where('resources', fn ($r) => ! collect($r)->contains('id', $result->id)));
     }
 
     public function test_student_sees_level_catalog_before_yearly_teaching_is_configured(): void
@@ -291,14 +424,14 @@ class StudentAcademicJourneyTest extends TestCase
         [, $student, , $academic] = $this->admitted();
         $catalog = (new Courses)->forceFill(['level_id' => $academic->level_id, 'title' => 'Droit constitutionnel', 'credits' => 6, 'semester' => 1]);
         $catalog->save();
-        $this->actingAs($student)->get('/dashboard/student/courses')->assertOk()->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student/courses')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('courses', 2)->where('courses', fn ($courses) => collect($courses)->contains(fn ($c) => $c['title'] === 'Droit constitutionnel' && $c['semester'] === '1er semestre' && $c['catalog_only'])));
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('overview.course_count', 2));
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('overview.course_count', 2));
         $configured = AcademicOffering::create(['course_id' => $catalog->id, 'level_id' => $academic->level_id, 'academic_year_id' => $academic->academic_year_id, 'is_published' => false]);
-        $this->get('/dashboard/student/courses')->assertInertia(fn (Assert $page) => $page->has('courses', 1));
+        $this->get('/app/dashboard/student/courses')->assertInertia(fn (Assert $page) => $page->has('courses', 1));
         $teacher = Professor::create(['first_name' => 'Anne', 'last_name' => 'Mbemba', 'email' => 'professor@example.test', 'is_active' => true]);
         $configured->update(['is_published' => true, 'professor_id' => $teacher->id]);
-        $this->get('/dashboard/student/courses')->assertInertia(fn (Assert $page) => $page
+        $this->get('/app/dashboard/student/courses')->assertInertia(fn (Assert $page) => $page
             ->has('courses', 2)->where('courses', fn ($courses) => collect($courses)->contains(fn ($c) => $c['title'] === 'Droit constitutionnel' && $c['semester'] === '1er semestre' && ! $c['catalog_only'] && $c['teacher'] === 'Anne Mbemba')));
     }
 
@@ -306,23 +439,23 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin,$student,,$academic,$offering] = $this->admitted();
         $offering->update(['is_published' => false]);
-        $this->actingAs($student)->get('/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 0)->has('resources', 0));
+        $this->actingAs($student)->get('/app/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 0)->has('resources', 0));
         $offering->update(['is_published' => true, 'is_optional' => true]);
-        $this->get('/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 0));
+        $this->get('/app/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 0));
         CourseException::create(['academic_enrollment_id' => $academic->id, 'academic_offering_id' => $offering->id, 'action' => 'include', 'reason' => 'Option académique confirmée.', 'authorized_by' => $admin->id]);
-        $this->get('/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 1));
+        $this->get('/app/dashboard/student/courses')->assertInertia(fn (Assert $p) => $p->has('courses', 1));
         $session = AcademicSession::create(['academic_offering_id' => $offering->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHour(), 'room' => 'Salle 1', 'is_published' => false]);
-        $this->get('/dashboard/student/schedule')->assertInertia(fn (Assert $p) => $p->has('sessions', 0));
+        $this->get('/app/dashboard/student/schedule')->assertInertia(fn (Assert $p) => $p->has('sessions', 0));
         $session->update(['is_published' => true]);
-        $this->get('/dashboard/student/schedule?week='.$session->starts_at->copy()->timezone('Africa/Kinshasa')->toDateString())->assertInertia(fn (Assert $p) => $p->has('sessions', 1));
+        $this->get('/app/dashboard/student/schedule?week='.$session->starts_at->copy()->timezone('Africa/Kinshasa')->toDateString())->assertInertia(fn (Assert $p) => $p->has('sessions', 1));
     }
 
     public function test_results_remain_open_without_payment_and_restrictions_require_regulatory_confirmation(): void
     {
         [$admin,$student,,$academic,$offering] = $this->admitted(true);
         $result = AcademicResource::create(['academic_offering_id' => $offering->id, 'student_profile_id' => $academic->student_profile_id, 'kind' => 'result', 'title' => 'Résultat publié', 'body' => 'Résultat validé par le jury : 15/20', 'is_published' => true]);
-        $this->actingAs($student)->get('/dashboard/student/results')->assertOk()->assertInertia(fn (Assert $p) => $p->where('resources', fn ($r) => collect($r)->contains(fn ($x) => $x['id'] === $result->id && str_contains($x['body'], '15/20'))));
-        $this->actingAs($admin)->post('/dashboard/admin/student-academic/rules', ['fee_kind' => 'tuition', 'feature' => 'results_view', 'mode' => 'full', 'reason' => 'Restriction demandée sans règlement.'])->assertSessionHasErrors('regulation_reference');
+        $this->actingAs($student)->get('/app/dashboard/student/results')->assertOk()->assertInertia(fn (Assert $p) => $p->where('resources', fn ($r) => collect($r)->contains(fn ($x) => $x['id'] === $result->id && str_contains($x['body'], '15/20'))));
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/rules', ['fee_kind' => 'tuition', 'feature' => 'results_view', 'mode' => 'full', 'reason' => 'Restriction demandée sans règlement.'])->assertSessionHasErrors('regulation_reference');
         $this->assertDatabaseCount('academic_access_rules', 0);
     }
 
@@ -330,20 +463,20 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin,$student,,$academic] = $this->admitted(true);
         $payment = $this->payment($academic, $admin, '50.00', 'pending');
-        $this->actingAs($student)->post('/dashboard/admin/student-academic/payments/'.$payment->id.'/status', ['status' => 'confirmed', 'reason' => 'Tentative de confirmation cliente.'])->assertForbidden();
+        $this->actingAs($student)->post('/app/dashboard/admin/student-academic/payments/'.$payment->id.'/status', ['status' => 'confirmed', 'reason' => 'Tentative de confirmation cliente.'])->assertForbidden();
         $staff = $this->user('teacher@example.test', 'instructor');
-        $this->actingAs($staff)->post('/dashboard/admin/student-academic/rules', ['feature' => 'assignments_submit', 'mode' => 'open', 'reason' => 'Tentative non autorisée.'])->assertForbidden();
+        $this->actingAs($staff)->post('/app/dashboard/admin/student-academic/rules', ['feature' => 'assignments_submit', 'mode' => 'open', 'reason' => 'Tentative non autorisée.'])->assertForbidden();
         $admin->revokePermissionTo('manage academic finance');
         $role = Role::findByName('admin', 'web');
         $role->revokePermissionTo('manage academic finance');
-        $this->actingAs($admin->fresh())->post('/dashboard/admin/student-academic/payments/'.$payment->id.'/status', ['status' => 'confirmed', 'reason' => 'Sans autorisation financière.'])->assertForbidden();
+        $this->actingAs($admin->fresh())->post('/app/dashboard/admin/student-academic/payments/'.$payment->id.'/status', ['status' => 'confirmed', 'reason' => 'Sans autorisation financière.'])->assertForbidden();
         $this->assertSame('pending', $payment->fresh()->status);
     }
 
     public function test_unpaid_student_can_contact_administration_and_appeal(): void
     {
         [, $student] = $this->admitted(true);
-        $this->actingAs($student)->post('/dashboard/student/requests', ['category' => 'appeal', 'subject' => 'Demande de recours', 'body' => 'Je souhaite obtenir une précision sur mon dossier.'])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/student/requests', ['category' => 'appeal', 'subject' => 'Demande de recours', 'body' => 'Je souhaite obtenir une précision sur mon dossier.'])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('student_service_requests', 1);
     }
 
@@ -383,9 +516,9 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_administrative_forms_can_establish_fees_rules_and_payment_confirmation(): void
     {
         [$admin, $student, $application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
-        $base = '/dashboard/admin/student-academic';
+        $base = '/app/dashboard/admin/student-academic';
         $pending = $base.'?tab=students&enrollment_status=pending_confirmation';
         $this->get($pending)->assertInertia(fn (Assert $p) => $p->has('students.data', 1)->where('students.data.0.id', $academic->id));
         $this->post($base.'/'.$academic->id.'/status', [
@@ -410,7 +543,51 @@ class StudentAcademicJourneyTest extends TestCase
         $this->get($pending)->assertInertia(fn (Assert $p) => $p->has('students.data', 0));
         $this->get($base.'?tab=students&enrollment_status=confirmed')->assertInertia(fn (Assert $p) => $p->has('students.data', 1)->where('students.data.0.id', $academic->id));
         $this->assertTrue(app(AcademicAccessService::class)->decision($academic->fresh(), 'assignments_submit')['allowed']);
-        $this->actingAs($student)->get('/dashboard/student/payments/'.$payment->uuid.'/receipt')->assertOk()->assertSee('BANK-HTTP');
+        $this->actingAs($student)->get('/app/dashboard/student/payments/'.$payment->uuid.'/receipt')->assertOk()->assertSee('BANK-HTTP');
+    }
+
+    public function test_student_header_uses_the_open_year_and_keeps_an_explicit_historical_context(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-13 09:00', 'Africa/Kinshasa')->utc());
+        [, $student, , $current, $offering] = $this->admitted();
+        $otherYears = [
+            ['title' => '2025–2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed'],
+            ['title' => '2027–2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft'],
+        ];
+        $contexts = [];
+        foreach ($otherYears as $yearData) {
+            $year = AcademicYear::create($yearData);
+            $application = Enrollment::create([
+                'student_id' => $student->id, 'level_id' => $current->level_id,
+                'academic_year_id' => $year->id, 'status' => 'validated',
+            ]);
+            $contexts[] = $student->studentProfile->enrollments()->create([
+                'level_id' => $current->level_id, 'academic_year_id' => $year->id, 'application_id' => $application->id,
+                'enrollment_status' => 'completed', 'currency' => 'USD', 'matricule' => $current->matricule,
+            ]);
+        }
+        [$historical, $future] = $contexts;
+
+        $this->actingAs($student)->get(route('dashboard.student.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('academic.id', $current->id)
+                ->where('studentChrome.name', 'Test Étudiant')
+                ->where('studentChrome.matricule', $current->matricule)
+                ->where('studentChrome.academic_id', $current->id)
+                ->where('studentChrome.current_year_id', $current->academic_year_id)
+                ->has('studentChrome.options', 3)
+                ->where('studentChrome.options.0.id', $future->id)
+                ->where('studentChrome.options.0.is_current', false)
+                ->where('studentChrome.options.1.id', $current->id)
+                ->where('studentChrome.options.1.is_current', true));
+        $this->get(route('dashboard.student.index', ['academic' => $historical->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('studentChrome.academic_id', $historical->id));
+        $this->get(route('dashboard.student.courses.show', ['course' => $offering->course_id, 'academic' => $current->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('studentChrome.academic_id', $current->id));
+        $this->get(route('dashboard.student.enrollments', ['academic' => $historical->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('studentChrome.academic_id', $historical->id)->has('entries.data', 3));
+        $this->get(route('dashboard.student.absences', ['academic' => $historical->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('studentChrome.academic_id', $historical->id));
     }
 
     public function test_jury_passage_creates_a_renewal_only_when_the_student_starts_it(): void
@@ -419,7 +596,7 @@ class StudentAcademicJourneyTest extends TestCase
         $level = Level::create(['faculty_id' => $source->level->faculty_id, 'title' => 'Licence 2', 'code' => 'L2', 'is_active' => true]);
         LevelDetail::create(['level_id' => $level->id, 'price_national_first' => '60.00', 'price_national_second' => '70.00']);
         $year = AcademicYear::create(['title' => '2027–2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft']);
-        $adminUrl = '/dashboard/admin/student-academic';
+        $adminUrl = '/app/dashboard/admin/student-academic';
         $decisionUrl = $adminUrl.'/'.$source->id.'/progression';
         $payload = ['level_id' => $level->id, 'academic_year_id' => $year->id, 'reason' => 'Décision de passage du jury PV-2027-001.'];
 
@@ -433,8 +610,8 @@ class StudentAcademicJourneyTest extends TestCase
         $decision = \App\Models\Student\AcademicProgression::firstOrFail();
         $this->get($adminUrl.'/renewals')->assertInertia(fn (Assert $p) => $p->where('decisions.data.0.id', $decision->id)->where('decisions.data.0.target_id', null));
 
-        $overview = '/dashboard/student/overview?academic='.$source->id;
-        $start = '/dashboard/student/renewals/'.$decision->id;
+        $overview = '/app/dashboard/student/overview?academic='.$source->id;
+        $start = '/app/dashboard/student/renewals/'.$decision->id;
         $this->actingAs($student)->get($overview)->assertInertia(fn (Assert $p) => $p
             ->where('progression.level', 'Licence 2')->where('progression.year', '2027–2028')->where('progression.can_start', false));
         $this->post($start)->assertSessionHasErrors('progression');
@@ -465,16 +642,67 @@ class StudentAcademicJourneyTest extends TestCase
         $this->payment($target, $admin, '40.00');
         $this->assertSame('pending_confirmation', $target->fresh()->enrollment_status);
         app(StudentFinanceService::class)->adjust($target, $admin, ['type' => 'scholarship', 'amount' => '20.00', 'reason' => 'Aide validée pour la nouvelle année.']);
-        $this->get('/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $p) => $p
+        $this->get('/app/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $p) => $p
             ->where('academic.level', 'Licence 2')->where('progression.status', 'confirmed'));
         $this->assertSame('completed', $source->fresh()->enrollment_status);
+    }
+
+    public static function annualTariffStates(): array
+    {
+        return [
+            'already active' => [true, false],
+            'still a draft' => [false, false],
+            'declared nationality fills an unclassified source' => [true, true],
+        ];
+    }
+
+    #[DataProvider('annualTariffStates')]
+    public function test_renewal_uses_the_new_year_tariff_for_the_confirmed_category(bool $activateBeforeRenewal, bool $legacySource): void
+    {
+        [$admin, $student, , $source] = $this->admitted(! $legacySource);
+        $student->forceFill(['nationality_code' => $legacySource ? 'CD' : 'CG'])->save();
+        $this->travelTo(CarbonImmutable::parse('2027-10-12 12:00', 'Africa/Kinshasa'));
+        $level = Level::create(['faculty_id' => $source->level->faculty_id, 'title' => 'Licence 2', 'code' => 'L2', 'is_active' => true]);
+        LevelDetail::create(['level_id' => $level->id, 'price_national_first' => '60.00', 'price_national_second' => '70.00']);
+        $year = AcademicYear::create(['title' => '2027–2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'open']);
+        $fees = app(FeeTariffService::class);
+        $data = [
+            'academic_year_id' => $year->id, 'level_id' => $level->id, 'category' => 'national',
+            'kind' => 'tuition', 'title' => 'Frais annuels du niveau', 'currency' => 'USD', 'valid_from' => '2027-10-01', 'valid_until' => '2028-09-30',
+            'schedule' => [['amount' => '75.00', 'due_at' => '2027-11-01'], ['amount' => '80.00', 'due_at' => '2028-02-15']],
+            'reason' => 'Frais annuels du nouveau niveau.',
+        ];
+        $tariff = $fees->create($admin, $data);
+        $reason = 'Activation du barème annuel pour la réinscription.';
+        if ($activateBeforeRenewal) {
+            $fees->activate($tariff, $admin, $reason);
+        }
+
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/'.$source->id.'/progression', [
+            'level_id' => $level->id, 'academic_year_id' => $year->id, 'reason' => 'Passage approuvé par la décision du jury.',
+        ])->assertSessionHasNoErrors();
+        $decision = AcademicProgression::sole();
+        $this->actingAs($student)->post('/app/dashboard/student/renewals/'.$decision->id)->assertSessionHasNoErrors();
+        $target = $decision->fresh()->target;
+        $this->assertSame('national', $target->fee_category);
+        if (! $activateBeforeRenewal) {
+            $this->assertFalse($target->obligations()->exists());
+            $fees->activate($tariff, $admin, $reason);
+        }
+
+        $this->assertSame([7500, 8000], $target->obligations()->where('finance_tariff_id', $tariff->id)->orderBy('installment')->pluck('amount_cents')->all());
+        $this->assertSame($legacySource ? 0 : 10000, (int) $source->obligations()->sum('amount_cents'));
+        $this->assertSame($legacySource ? null : 'national', $source->fresh()->fee_category);
+        $this->actingAs($student)->get('/app/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $page) => $page
+            ->where('academic.fee_category', 'national')->where('balance.total_cents', 15500)
+            ->where('finance_schedule.0.due_at', '2027-11-01')->where('finance_schedule.1.due_at', '2028-02-15'));
     }
 
     public function test_finance_confirmation_requires_coverage_and_records_a_single_manual_decision(): void
     {
         config(['student.enrollment_auto_confirmation' => false]);
         [$admin, $student, $application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
         app(StudentFinanceService::class)->assess($academic, $admin, 'national');
         $index = route('dashboard.admin.finance.confirmations');
@@ -501,7 +729,7 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_payment_and_valid_aid_combine_to_confirm_the_first_installment_once(): void
     {
         [$admin, , $application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
         $finance = app(StudentFinanceService::class);
         $finance->assess($academic, $admin, 'national');
@@ -522,7 +750,7 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_verified_provider_payment_can_complete_coverage_with_a_valid_scholarship(): void
     {
         [$admin, , $application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
         $finance = app(StudentFinanceService::class);
         $finance->assess($academic, $admin, 'national');
@@ -550,7 +778,7 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_valid_exemption_alone_confirms_a_pending_enrollment(): void
     {
         [$admin, , $application] = $this->application();
-        $this->actingAs($admin)->post('/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
         $finance = app(StudentFinanceService::class);
         $finance->assess($academic, $admin, 'national');
@@ -563,14 +791,14 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin,$student,,$academic,,$assignment] = $this->admitted(true);
         $this->rule($admin, mode: 'open');
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['file' => UploadedFile::fake()->createWithContent('travail.pdf', "%PDF-1.4\nCopie de test\n%%EOF\n")])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['file' => UploadedFile::fake()->createWithContent('travail.pdf', "%PDF-1.4\nCopie de test\n%%EOF\n")])->assertSessionHasNoErrors();
         $work = AcademicSubmission::firstOrFail();
         Storage::disk('local')->assertExists($work->path);
-        $this->get('/dashboard/student/submissions/'.$work->id.'/download')->assertOk()->assertDownload('travail.pdf');
-        $this->get('/dashboard/admin/student-academic/submissions/'.$work->id.'/download')->assertForbidden();
-        $this->actingAs($admin)->get('/dashboard/admin/student-academic/submissions/'.$work->id.'/download')->assertOk()->assertDownload('travail.pdf');
+        $this->get('/app/dashboard/student/submissions/'.$work->id.'/download')->assertOk()->assertDownload('travail.pdf');
+        $this->get('/app/dashboard/admin/student-academic/submissions/'.$work->id.'/download')->assertForbidden();
+        $this->actingAs($admin)->get('/app/dashboard/admin/student-academic/submissions/'.$work->id.'/download')->assertOk()->assertDownload('travail.pdf');
         $assignment->update(['closes_at' => now()->subHour()]);
-        $this->actingAs($student)->post('/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Hors délai'])->assertForbidden();
+        $this->actingAs($student)->post('/app/dashboard/student/resources/'.$assignment->id.'/submit', ['body' => 'Hors délai'])->assertForbidden();
     }
 
     public function test_no_payment_provider_is_assumed_or_simulated(): void
@@ -591,7 +819,7 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin,$student,$application,$academic] = $this->admitted(true);
         $this->payment($academic, $admin, '100.00');
-        $this->actingAs($student)->get('/dashboard/enrollments/'.$application->uuid)->assertInertia(fn (Assert $p) => $p->where('enrollment.payment_status', 'paid')->where('enrollment.academic_portal_url', '/dashboard/student?application='.$application->uuid));
+        $this->actingAs($student)->get('/app/dashboard/enrollments/'.$application->uuid)->assertInertia(fn (Assert $p) => $p->where('enrollment.payment_status', 'paid')->where('enrollment.academic_portal_url', '/app/dashboard/student?application='.$application->uuid));
         $this->assertSame('unpaid', $application->fresh()->payment_status->value);
     }
 
@@ -599,32 +827,32 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin,$student,,$academic,,$assignment,$material] = $this->admitted(true);
         $this->rule($admin, 'materials_download', 'hidden');
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $p) => $p->where('permissions.materials_download.visible', false)->where('resources', fn ($items) => ! collect($items)->contains('id', $material->id)));
-        $this->get('/dashboard/student/materials')->assertForbidden();
-        $this->get('/dashboard/student/resources/'.$material->id.'/download')->assertForbidden();
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $p) => $p->where('permissions.materials_download.visible', false)->where('resources', fn ($items) => ! collect($items)->contains('id', $material->id)));
+        $this->get('/app/dashboard/student/materials')->assertForbidden();
+        $this->get('/app/dashboard/student/resources/'.$material->id.'/download')->assertForbidden();
     }
 
     public function test_welcome_is_personal_persisted_and_acknowledged_only_once(): void
     {
         [$admin, $student, $application, $academic] = $this->admitted();
-        $url = '/dashboard/student?application='.$application->uuid.'&welcome=1';
+        $url = '/app/dashboard/student?application='.$application->uuid.'&welcome=1';
         $this->actingAs($student)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->where('welcome_pending', true));
-        $this->from($url)->post('/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect($url);
+        $this->from($url)->post('/app/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect($url);
         $seen = $student->fresh()->studentProfile->welcome_seen_at;
         $this->assertNotNull($seen);
         $this->travel(1)->day();
-        $this->post('/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect();
+        $this->post('/app/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect();
         $this->assertTrue($seen->equalTo($student->fresh()->studentProfile->welcome_seen_at));
         $this->get($url)->assertInertia(fn (Assert $page) => $page->where('welcome_pending', false));
         $outsider = $this->user('welcome-outsider@example.test', 'student');
-        $this->actingAs($outsider)->post('/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertForbidden();
+        $this->actingAs($outsider)->post('/app/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertForbidden();
     }
 
     public function test_validation_email_links_to_authenticated_student_welcome(): void
     {
         [$admin, $student, $application, $academic] = $this->admitted();
         $content = (new EnrollmentReviewUpdated($application->fresh(), 'validated'))->content();
-        $this->assertSame(url('/dashboard/student?application='.$application->uuid.'&welcome=1'), $content->with['actionUrl']);
+        $this->assertSame(url('/app/dashboard/student?application='.$application->uuid.'&welcome=1'), $content->with['actionUrl']);
         auth()->logout();
         $this->get($content->with['actionUrl'])->assertRedirect(route('login'));
         $this->assertSame($content->with['actionUrl'], session('url.intended'));
@@ -634,12 +862,12 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin, $student, $application, $academic] = $this->admitted();
         foreach (['profile', 'academics', 'assessments', 'services'] as $section) {
-            $this->actingAs($student)->get('/dashboard/student/'.$section.'?academic='.$academic->id)
+            $this->actingAs($student)->get('/app/dashboard/student/'.$section.'?academic='.$academic->id)
                 ->assertOk()->assertInertia(fn (Assert $page) => $page->component('dashboard/student/Portal')->where('section', $section)->where('academic.id', $academic->id));
         }
         $outsider = $this->user('modules-outsider@example.test', 'student');
-        $this->actingAs($outsider)->get('/dashboard/student/profile?academic='.$academic->id)->assertForbidden();
-        $this->actingAs($student)->get('/dashboard/student/library')->assertNotFound();
+        $this->actingAs($outsider)->get('/app/dashboard/student/profile?academic='.$academic->id)->assertForbidden();
+        $this->actingAs($student)->get('/app/dashboard/student/library')->assertNotFound();
     }
 
     public function test_student_calendar_is_scoped_to_the_selected_week_year_and_group_and_includes_teacher(): void
@@ -664,12 +892,18 @@ class StudentAcademicJourneyTest extends TestCase
         $year = DB::table('academic_years')->insertGetId(['title' => 'Autre année', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed']);
         $foreignYear = AcademicOffering::create(['course_id' => $offering->course_id, 'level_id' => $academic->level_id, 'academic_year_id' => $year, 'is_published' => true]);
         $create($foreignYear, '2026-11-05');
-        $this->actingAs($student)->get('/dashboard/student/schedule?week=2026-11-04&academic='.$academic->id)->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->where('schedule_week', '2026-11-02')->has('sessions', 1)->where('sessions.0.teacher', 'Anne Mbemba')->where('sessions.0.room', 'Auditoire A'));
-        $this->get('/dashboard/student/schedule?week=2026-11-09')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('schedule_week', '2026-11-09'));
-        $this->get('/dashboard/student/schedule?week=2026-10-26')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('schedule_week', '2026-10-26'));
-        $this->get('/dashboard/student/schedule?week=2026-11-16')->assertInertia(fn (Assert $page) => $page->has('sessions', 0));
-        $this->get('/dashboard/student/schedule?week=invalid')->assertSessionHasErrors('week');
+        $this->actingAs($student)->get('/app/dashboard/student/schedule?week=2026-11-04&day=2026-11-02&view=list&academic='.$academic->id)
+            ->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('schedule_week', '2026-11-02')->where('schedule_day', '2026-11-02')->where('schedule_view', 'list')
+            ->has('sessions', 1)->where('sessions.0.course_id', $offering->course_id)
+            ->where('sessions.0.teacher', 'Anne Mbemba')->where('sessions.0.room', 'Auditoire A'));
+        $this->get('/app/dashboard/student/schedule?day=2026-11-10&view=exams')->assertInertia(fn (Assert $page) => $page
+            ->where('schedule_week', '2026-11-09')->where('schedule_day', '2026-11-10')->where('schedule_view', 'exams'));
+        $this->get('/app/dashboard/student/schedule?week=2026-11-09')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('schedule_week', '2026-11-09'));
+        $this->get('/app/dashboard/student/schedule?week=2026-10-26')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('schedule_week', '2026-10-26'));
+        $this->get('/app/dashboard/student/schedule?week=2026-11-16')->assertInertia(fn (Assert $page) => $page->has('sessions', 0));
+        $this->get('/app/dashboard/student/schedule?week=invalid')->assertSessionHasErrors('week');
+        $this->get('/app/dashboard/student/schedule?day=2026-11-31&view=invalid')->assertSessionHasErrors(['day', 'view']);
     }
 
     public function test_admin_managed_schedule_reaches_students_only_after_publication(): void
@@ -679,16 +913,16 @@ class StudentAcademicJourneyTest extends TestCase
         $offering->course->forceFill(['semester' => 1])->save();
         AcademicSemester::create(['academic_year_id' => $offering->academic_year_id, 'number' => 1, 'start_date' => '2026-10-01', 'end_date' => '2027-03-31']);
         $payload = ['academic_offering_id' => $offering->id, 'starts_at' => '2026-11-02T08:00', 'ends_at' => '2026-11-02T10:00', 'room' => 'Auditoire A', 'repeat_count' => 1, 'is_published' => false];
-        $this->actingAs($admin)->post('/dashboard/admin/schedule', $payload)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post('/app/dashboard/admin/schedule', $payload)->assertSessionHasNoErrors();
         $session = AcademicSession::firstOrFail();
-        $this->actingAs($student)->get('/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page->has('sessions', 0));
-        $this->actingAs($admin)->put('/dashboard/admin/schedule/'.$session->id, array_replace($payload, ['is_published' => true]))->assertSessionHasNoErrors();
-        $this->actingAs($student)->get('/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page->has('sessions', 0));
+        $this->actingAs($admin)->put('/app/dashboard/admin/schedule/'.$session->id, array_replace($payload, ['is_published' => true]))->assertSessionHasNoErrors();
+        $this->actingAs($student)->get('/app/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page
             ->has('sessions', 1)->where('sessions.0.room', 'Auditoire A')->where('sessions.0.course', 'Introduction au droit'));
-        $this->actingAs($admin)->delete('/dashboard/admin/schedule/'.$session->id)->assertSessionHasErrors('session');
-        $this->post('/dashboard/admin/schedule/'.$session->id.'/transition', ['action' => 'cancel', 'reason' => 'Annulation communiquée aux étudiants.'])->assertStatus(303);
+        $this->actingAs($admin)->delete('/app/dashboard/admin/schedule/'.$session->id)->assertSessionHasErrors('session');
+        $this->post('/app/dashboard/admin/schedule/'.$session->id.'/transition', ['action' => 'cancel', 'reason' => 'Annulation communiquée aux étudiants.'])->assertStatus(303);
         $this->assertNotNull($session->fresh()->cancelled_at);
-        $this->actingAs($student)->get('/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('sessions.0.status', 'cancelled'));
+        $this->actingAs($student)->get('/app/dashboard/student/schedule')->assertInertia(fn (Assert $page) => $page->has('sessions', 1)->where('sessions.0.status', 'cancelled'));
     }
 
     public function test_course_workspace_has_metadata_and_only_its_published_resources(): void
@@ -701,11 +935,11 @@ class StudentAcademicJourneyTest extends TestCase
         $offering->update(['professor_id' => $professor->id, 'assistant_professor_id' => $assistant->id, 'group_leader_name' => 'Marie Kabeya']);
         AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'video', 'title' => 'Vidéo du cours', 'url' => 'https://example.test/video', 'is_published' => true]);
         AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'video', 'title' => 'Brouillon privé', 'is_published' => false]);
-        $url = '/dashboard/student/courses/'.$course->id;
+        $url = '/app/dashboard/student/courses/'.$course->id;
         $this->actingAs($student)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->component('dashboard/student/Course')
             ->where('course.cmi_hours', 30)->where('organization.0.teacher', 'Anne Mbemba')->where('organization.0.assistant', 'Paul Kiala')->where('organization.0.leader', 'Marie Kabeya')->where('counts.videos', 1));
         $this->get($url.'/videos')->assertInertia(fn (Assert $page) => $page->has('resources', 1)->where('resources.0.title', 'Vidéo du cours'));
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('courses.0.detail_url', $url.'?academic='.$academic->id));
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('courses.0.detail_url', $url.'?academic='.$academic->id));
         $offering->update(['is_published' => false]);
         $this->get($url)->assertNotFound();
         $this->get($url.'/videos')->assertNotFound();
@@ -716,10 +950,10 @@ class StudentAcademicJourneyTest extends TestCase
         [, $student, , $academic] = $this->admitted();
         $catalog = (new Courses)->forceFill(['level_id' => $academic->level_id, 'title' => 'Matière du catalogue', 'credits' => 3]);
         $catalog->save();
-        $this->actingAs($student)->get('/dashboard/student/courses/'.$catalog->id)->assertOk()->assertInertia(fn (Assert $page) => $page->has('organization', 0)->where('course.title', 'Matière du catalogue'));
-        $this->get('/dashboard/student/courses/99999')->assertNotFound();
-        $this->get('/dashboard/student/courses/'.$catalog->id.'/files')->assertForbidden();
-        $this->get('/dashboard/student/courses/'.$catalog->id.'?academic=999999')->assertNotFound();
+        $this->actingAs($student)->get('/app/dashboard/student/courses/'.$catalog->id)->assertOk()->assertInertia(fn (Assert $page) => $page->has('organization', 0)->where('course.title', 'Matière du catalogue'));
+        $this->get('/app/dashboard/student/courses/99999')->assertNotFound();
+        $this->get('/app/dashboard/student/courses/'.$catalog->id.'/files')->assertForbidden();
+        $this->get('/app/dashboard/student/courses/'.$catalog->id.'?academic=999999')->assertNotFound();
     }
 
     public function test_staff_records_attendance_and_students_see_only_their_own_status(): void
@@ -731,23 +965,23 @@ class StudentAcademicJourneyTest extends TestCase
         $otherEntry = app(StudentAdmissionService::class)->activate($source, $admin->id, false);
         $otherEntry->update(['enrollment_status' => 'confirmed']);
         $session = AcademicSession::create(['academic_offering_id' => $offering->id, 'starts_at' => now()->subHours(3), 'ends_at' => now()->subHour(), 'room' => 'A', 'is_published' => true]);
-        $this->actingAs($admin)->get('/dashboard/admin/schedule/'.$session->id.'/attendance')->assertOk()->assertInertia(fn (Assert $page) => $page->has('students', 2));
-        $this->post('/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'present'], ['id' => $otherEntry->id, 'status' => 'absent']]])->assertSessionHasNoErrors();
-        $this->post('/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => 999999, 'status' => 'present']]])->assertSessionHasErrors('records');
-        $url = '/dashboard/student/courses/'.$offering->course_id.'/attendance';
+        $this->actingAs($admin)->get('/app/dashboard/admin/schedule/'.$session->id.'/attendance')->assertOk()->assertInertia(fn (Assert $page) => $page->has('students', 2));
+        $this->post('/app/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'present'], ['id' => $otherEntry->id, 'status' => 'absent']]])->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => 999999, 'status' => 'present']]])->assertSessionHasErrors('records');
+        $url = '/app/dashboard/student/courses/'.$offering->course_id.'/attendance';
         $this->actingAs($student)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->has('attendance.data', 1)->where('attendance.data.0.status', 'present')->where('attendance_stats.present', 1)->missing('attendance_stats.absent'));
         $this->actingAs($other->fresh())->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->where('attendance.data.0.status', 'absent'));
-        $this->post('/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'absent']]])->assertForbidden();
+        $this->post('/app/dashboard/admin/schedule/'.$session->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'absent']]])->assertForbidden();
         $future = AcademicSession::create(['academic_offering_id' => $offering->id, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHour(), 'room' => 'A', 'is_published' => true]);
-        $this->actingAs($admin)->post('/dashboard/admin/schedule/'.$future->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'present']]])->assertStatus(422);
+        $this->actingAs($admin)->post('/app/dashboard/admin/schedule/'.$future->id.'/attendance', ['records' => [['id' => $academic->id, 'status' => 'present']]])->assertStatus(422);
     }
 
     public function test_course_links_require_safe_urls_and_can_be_published_by_staff(): void
     {
         [$admin, $student, , , $offering] = $this->admitted();
-        $this->actingAs($admin)->post('/dashboard/admin/student-academic/resources', ['academic_offering_id' => $offering->id, 'kind' => 'online', 'title' => 'Cours en ligne', 'url' => 'javascript:alert(1)', 'is_published' => true])->assertSessionHasErrors('url');
-        $this->post('/dashboard/admin/student-academic/resources', ['academic_offering_id' => $offering->id, 'kind' => 'online', 'title' => 'Cours en ligne', 'url' => 'https://example.test/class', 'is_published' => true])->assertSessionHasNoErrors();
-        $this->actingAs($student)->get('/dashboard/student/courses/'.$offering->course_id.'/online')->assertOk()->assertInertia(fn (Assert $page) => $page->has('resources', 1)->where('resources.0.url', 'https://example.test/class'));
+        $this->actingAs($admin)->post('/app/dashboard/admin/student-academic/resources', ['academic_offering_id' => $offering->id, 'kind' => 'online', 'title' => 'Cours en ligne', 'url' => 'javascript:alert(1)', 'is_published' => true])->assertSessionHasErrors('url');
+        $this->post('/app/dashboard/admin/student-academic/resources', ['academic_offering_id' => $offering->id, 'kind' => 'online', 'title' => 'Cours en ligne', 'url' => 'https://example.test/class', 'is_published' => true])->assertSessionHasNoErrors();
+        $this->actingAs($student)->get('/app/dashboard/student/courses/'.$offering->course_id.'/online')->assertOk()->assertInertia(fn (Assert $page) => $page->has('resources', 1)->where('resources.0.url', 'https://example.test/class'));
     }
 
     public function test_overview_uses_kinshasa_day_week_and_only_published_assigned_sessions(): void
@@ -758,10 +992,12 @@ class StudentAcademicJourneyTest extends TestCase
         foreach ([['2026-11-02 21:00', '2026-11-02 22:00', true], ['2026-11-02 23:00', '2026-11-03 00:00', true], ['2026-11-02 23:45', '2026-11-03 00:15', true], ['2026-11-03 00:15', '2026-11-03 01:00', true], ['2026-11-09 09:00', '2026-11-09 10:00', true], ['2026-11-02 23:40', '2026-11-03 00:00', false]] as [$start, $end, $published]) {
             AcademicSession::create(['academic_offering_id' => $offering->id, 'starts_at' => Carbon::parse($start, 'Africa/Kinshasa')->utc(), 'ends_at' => Carbon::parse($end, 'Africa/Kinshasa')->utc(), 'room' => 'Salle réelle', 'is_published' => $published]);
         }
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page
             ->where('overview.timezone', 'Africa/Kinshasa')->where('overview.today_count', 3)->where('overview.week_count', 4)
-            ->has('overview.today_sessions', 3)->where('overview.today_sessions.0.ongoing', false)->where('overview.today_sessions.1.ongoing', true)->has('overview.week_sessions', 4)->where('overview.week_sessions.0.semester', '1er semestre'));
-        $this->get('/dashboard/student/overview?academic='.$academic->id.'&week=2026-11-11')->assertInertia(fn (Assert $page) => $page
+            ->has('overview.today_sessions', 3)->where('overview.today_sessions.0.ongoing', false)->where('overview.today_sessions.1.ongoing', true)
+            ->where('overview.today_sessions.1.course_id', $offering->course_id)
+            ->has('overview.week_sessions', 4)->where('overview.week_sessions.0.semester', '1er semestre'));
+        $this->get('/app/dashboard/student/overview?academic='.$academic->id.'&week=2026-11-11')->assertInertia(fn (Assert $page) => $page
             ->where('overview.schedule_week', '2026-11-09')->has('overview.week_sessions', 1)
             ->where('overview.week_sessions.0.course_id', $offering->course_id)->where('overview.week_sessions.0.room', 'Salle réelle'));
     }
@@ -774,9 +1010,9 @@ class StudentAcademicJourneyTest extends TestCase
         foreach ([[$academic->student_profile_id, true, 'Résultat personnel'], [$otherProfile->id, true, 'Résultat autre étudiant'], [$academic->student_profile_id, false, 'Brouillon personnel'], [null, true, 'Résultat non nominatif']] as [$target, $published, $title]) {
             AcademicResource::create(['academic_offering_id' => $offering->id, 'student_profile_id' => $target, 'kind' => 'result', 'title' => $title, 'body' => 'Note publiée : 16/20', 'is_published' => $published]);
         }
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.latest_results', 1)->where('overview.latest_results.0.title', 'Résultat personnel')->where('overview.latest_results.0.excerpt', 'Note publiée : 16/20'));
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.latest_results', 1)->where('overview.latest_results.0.title', 'Résultat personnel')->where('overview.latest_results.0.excerpt', 'Note publiée : 16/20'));
         $this->rule($admin, 'results_view', 'full', ['regulation_reference' => 'Règlement institutionnel adopté', 'regulation_confirmed' => true]);
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.latest_results', 0));
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.latest_results', 0));
     }
 
     public function test_overview_alerts_and_announcements_reflect_real_finances_documents_and_publications(): void
@@ -788,13 +1024,31 @@ class StudentAcademicJourneyTest extends TestCase
         AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'evaluation', 'title' => 'Évaluation publiée', 'opens_at' => now()->addDays(3), 'is_published' => true]);
         AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'announcement', 'title' => 'Annonce publiée', 'body' => 'Information réelle.', 'is_published' => true]);
         AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'announcement', 'title' => 'Annonce brouillon', 'is_published' => false]);
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page
             ->has('overview.alerts', 3)->where('overview.alerts.0.id', 'overdue')->where('overview.alerts.1.id', 'documents')->where('overview.alerts.2.id', 'evaluations')
             ->where('overview.missing_documents.0', 'Acte de naissance')->has('overview.announcements', 1)->where('overview.announcements.0.title', 'Annonce publiée')->has('overview.upcoming_evaluations', 1));
         $this->payment($academic, $admin, '50.00');
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.alerts', 2)->where('balance.overdue_cents', 0));
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.alerts', 2)->where('balance.overdue_cents', 0));
         $offering->update(['is_published' => false]);
-        $this->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.announcements', 0)->has('overview.upcoming_evaluations', 0)->where('overview.course_count', 0));
+        $this->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->has('overview.announcements', 0)->has('overview.upcoming_evaluations', 0)->where('overview.course_count', 0));
+    }
+
+    public function test_overview_flags_a_suspension_and_only_the_students_open_appeals(): void
+    {
+        [$admin, $student, , $academic] = $this->admitted();
+        $appeal = $academic->serviceRequests()->create(['category' => 'appeal', 'subject' => 'Recours en cours', 'body' => 'Détail du recours', 'status' => 'open']);
+        $academic->serviceRequests()->create(['category' => 'appeal', 'subject' => 'Recours terminé', 'body' => 'Détail du recours', 'status' => 'resolved']);
+        $other = $this->user('other@example.test');
+        $source = Enrollment::create(['student_id' => $other->id, 'level_id' => $academic->level_id, 'academic_year_id' => $academic->academic_year_id, 'matricule' => 'ST-OTHER', 'status' => 'validated']);
+        $otherAcademic = app(StudentAdmissionService::class)->activate($source, $admin->id, false);
+        $otherAcademic->serviceRequests()->create(['category' => 'appeal', 'subject' => 'Recours privé', 'body' => 'Détail du recours', 'status' => 'open']);
+        $academic->profile->update(['student_status' => 'suspended']);
+
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page
+            ->has('overview.alerts', 2)
+            ->where('overview.alerts.0.id', 'suspended-profile')->where('overview.alerts.0.tone', 'critical')
+            ->where('overview.alerts.1.id', 'appeal-'.$appeal->id)->where('overview.alerts.1.tone', 'warning')
+            ->where('overview.alerts.1.message', 'Recours en cours'));
     }
 
     public function test_faculty_matricule_sequence_is_shared_between_levels_and_years_and_reserved_uniquely(): void
@@ -851,8 +1105,8 @@ class StudentAcademicJourneyTest extends TestCase
         $this->assertSame('DR0001', $student->fresh()->studentProfile->matricule);
         $this->assertSame('DR0001', $academic->fresh()->matricule);
         $this->assertSame([], $service->run());
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('academic.matricule', 'DR0001'));
-        $this->actingAs($admin)->get('/dashboard/admin/enrollments/'.$application->id)->assertOk();
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page->where('academic.matricule', 'DR0001'));
+        $this->actingAs($admin)->get('/app/dashboard/admin/enrollments/'.$application->id)->assertOk();
     }
 
     public function test_matricule_migration_rolls_back_all_changes_when_a_faculty_code_is_invalid(): void
@@ -872,7 +1126,7 @@ class StudentAcademicJourneyTest extends TestCase
         foreach ([['En cours', now()->subHour(), now()->addHour()], ['Terminée', now()->subDays(2), now()->subDay()], ['À venir', now()->addDay(), now()->addDays(2)]] as [$title, $start, $end]) {
             AcademicResource::create(['academic_offering_id' => $offering->id, 'kind' => 'evaluation', 'title' => $title, 'body' => 'Énoncé confidentiel', 'opens_at' => $start, 'closes_at' => $end, 'is_published' => true]);
         }
-        $this->actingAs($student)->get('/dashboard/student')->assertInertia(fn (Assert $page) => $page
+        $this->actingAs($student)->get('/app/dashboard/student')->assertInertia(fn (Assert $page) => $page
             ->has('overview.fee_summary', 2)->has('overview.ongoing_evaluations', 1)->where('overview.ongoing_evaluations.0.title', 'En cours')->where('overview.ongoing_evaluations.0.excerpt', '')
             ->where('balance.balance_cents', 12500));
     }
@@ -882,36 +1136,41 @@ class StudentAcademicJourneyTest extends TestCase
         [$admin, $student, $application, $academic] = $this->admitted();
         $payload = ['first_name' => 'Marie', 'last_name' => 'Étudiante', 'post_name' => 'Test', 'email' => $student->email, 'gender' => 'female', 'birth_date' => '2003-05-15', 'birth_place' => 'Kinshasa', 'marital_status' => 'single', 'phone' => '+243 810 000 000', 'province' => 'Kinshasa', 'territory' => 'Mont-Ngafula', 'sector' => 'Centre', 'residence_commune' => 'Limete', 'home_address' => '12 avenue Test', 'description' => 'Présentation personnelle.', 'emergency_name' => 'Contact Test', 'emergency_relationship' => 'Parent', 'emergency_phone' => '+243 820 000 000', 'diploma_type' => 'state_diploma', 'diploma_number' => 'DIP-123', 'diploma_section' => 'Sciences', 'diploma_school' => 'Institut Test', 'diploma_year' => '2021'];
         $beforeDocuments = $application->documents()->pluck('path')->all();
-        $this->actingAs($student)->from('/dashboard/student/profile?academic='.$academic->id)->post('/dashboard/student/profile?academic='.$academic->id, $payload)->assertSessionHasNoErrors()->assertRedirect();
+        $profileUrl = '/app/dashboard/student/profile?academic='.$academic->id;
+        $personalUrl = $profileUrl.'&view=personal';
+        $this->actingAs($student)->from($personalUrl)->post($profileUrl, $payload)->assertSessionHasNoErrors()->assertRedirect($personalUrl);
         $this->assertSame('Marie', $student->fresh()->first_name);
         $this->assertSame('Kinshasa', $student->fresh()->studentProfile->personal_details['province']);
         $this->assertSame('DIP-123', $student->fresh()->studentProfile->personal_details['diploma_number']);
         $this->assertSame('ST-2026-0001', $application->fresh()->matricule);
         $this->assertSame($beforeDocuments, $application->documents()->pluck('path')->all());
-        $this->get('/dashboard/student/profile')->assertInertia(fn (Assert $page) => $page->has('profile_form.provinces', 26)->where('profile_form.values.birth_date', '2003-05-15')->where('academic.phone', '+243 810 000 000'));
-        $this->post('/dashboard/student/profile', array_merge($payload, ['matricule' => 'HACK0001']))->assertSessionHasErrors('matricule');
+        $this->get($personalUrl)->assertInertia(fn (Assert $page) => $page->where('profile_view', 'personal')->has('profile_form.provinces', 26)->where('profile_form.values.birth_date', '2003-05-15')->where('academic.phone', '+243 810 000 000'));
+        foreach (['overview' => $profileUrl, 'photo' => $profileUrl.'&view=photo', 'settings' => $profileUrl.'&view=settings'] as $view => $url) {
+            $this->get($url)->assertInertia(fn (Assert $page) => $page->where('profile_view', $view)->where('academic.id', $academic->id));
+        }
+        $this->post('/app/dashboard/student/profile', array_merge($payload, ['matricule' => 'HACK0001']))->assertSessionHasErrors('matricule');
         $this->assertSame('ST-2026-0001', $academic->fresh()->matricule);
     }
 
     public function test_profile_photo_is_private_validated_and_can_be_replaced_without_altering_admission_proofs(): void
     {
         [$admin, $student, $application, $academic] = $this->admitted();
-        $directory = '/dashboard/admin/student-academic';
+        $directory = '/app/dashboard/admin/student-academic';
         $photo = $directory.'/'.$academic->id.'/photo';
         $this->actingAs($admin)->get($directory)->assertInertia(fn (Assert $page) => $page->where('students.data.0.photo_url', null));
         $this->get($photo)->assertNotFound();
         $payload = ['first_name' => $student->first_name, 'last_name' => $student->last_name, 'email' => $student->email];
-        $this->actingAs($student)->post('/dashboard/student/profile?academic='.$academic->id, array_merge($payload, ['photo' => UploadedFile::fake()->image('portrait.jpg', 200, 200)]))->assertSessionHasNoErrors();
+        $this->actingAs($student)->post('/app/dashboard/student/profile?academic='.$academic->id, array_merge($payload, ['photo' => UploadedFile::fake()->image('portrait.jpg', 200, 200)]))->assertSessionHasNoErrors();
         $old = $student->fresh()->studentProfile->photo_path;
         Storage::disk('local')->assertExists($old);
-        $this->get('/dashboard/student/profile/photo?academic='.$academic->id)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
-        $this->post('/dashboard/student/profile', array_merge($payload, ['photo' => UploadedFile::fake()->image('nouveau.png', 200, 200)]))->assertSessionHasNoErrors();
+        $this->get('/app/dashboard/student/profile/photo?academic='.$academic->id)->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->post('/app/dashboard/student/profile', array_merge($payload, ['photo' => UploadedFile::fake()->image('nouveau.png', 200, 200)]))->assertSessionHasNoErrors();
         Storage::disk('local')->assertMissing($old);
         $this->assertSame('accepted', $application->documents()->first()->review_status);
         $other = $this->user('profile-other@example.test', 'student');
-        $this->actingAs($other)->get('/dashboard/student/profile/photo?academic='.$academic->id)->assertForbidden();
+        $this->actingAs($other)->get('/app/dashboard/student/profile/photo?academic='.$academic->id)->assertForbidden();
         $this->get($photo)->assertForbidden();
-        $this->actingAs($student)->post('/dashboard/student/profile', array_merge($payload, ['photo' => UploadedFile::fake()->create('invalid.svg', 1, 'image/svg+xml')]))->assertSessionHasErrors('photo');
+        $this->actingAs($student)->post('/app/dashboard/student/profile', array_merge($payload, ['photo' => UploadedFile::fake()->create('invalid.svg', 1, 'image/svg+xml')]))->assertSessionHasErrors('photo');
         $this->get($photo)->assertForbidden();
         $this->actingAs($admin)->get($photo)->assertOk()->assertHeader('Content-Type', 'image/png');
         foreach (['table', 'grid'] as $view) {
@@ -923,9 +1182,9 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_profile_password_requires_current_password_and_does_not_log_secrets(): void
     {
         [$admin, $student, $application, $academic] = $this->admitted();
-        $this->actingAs($student)->post('/dashboard/student/profile/password', ['current_password' => 'incorrect', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])->assertSessionHasErrorsIn('studentPassword', 'current_password');
+        $this->actingAs($student)->post('/app/dashboard/student/profile/password', ['current_password' => 'incorrect', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])->assertSessionHasErrorsIn('studentPassword', 'current_password');
         $this->assertTrue(Hash::check('password', $student->fresh()->password));
-        $this->post('/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/student/profile/password', ['current_password' => 'password', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])->assertSessionHasNoErrors();
         $this->assertTrue(Hash::check('NewPassword2026', $student->fresh()->password));
         $this->assertFalse(Hash::check('password', $student->fresh()->password));
         $this->assertStringNotContainsString('NewPassword2026', DB::table('academic_audits')->get()->toJson());
@@ -936,9 +1195,9 @@ class StudentAcademicJourneyTest extends TestCase
         Notification::fake();
         [$admin, $student, $application, $academic] = $this->admitted();
         $payload = ['first_name' => $student->first_name, 'last_name' => $student->last_name, 'email' => 'new-profile@example.test'];
-        $this->actingAs($student)->post('/dashboard/student/profile', $payload)->assertSessionHasErrors('email_current_password');
+        $this->actingAs($student)->post('/app/dashboard/student/profile', $payload)->assertSessionHasErrors('email_current_password');
         $this->assertSame('student@example.test', $student->fresh()->email);
-        $this->post('/dashboard/student/profile', array_merge($payload, ['email_current_password' => 'password']))->assertSessionHasNoErrors()->assertRedirect(route('verification.notice'));
+        $this->post('/app/dashboard/student/profile', array_merge($payload, ['email_current_password' => 'password']))->assertSessionHasNoErrors()->assertRedirect(route('verification.notice'));
         $this->assertNull($student->fresh()->email_verified_at);
         $this->assertSame('new-profile@example.test', $student->fresh()->email);
         Notification::assertSentTo($student->fresh(), VerifyEmail::class);
@@ -947,7 +1206,31 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_profile_validates_birth_date_other_province_and_emergency_contact(): void
     {
         [$admin, $student, $application, $academic] = $this->admitted();
-        $this->actingAs($student)->post('/dashboard/student/profile', ['first_name' => $student->first_name, 'last_name' => $student->last_name, 'email' => $student->email, 'birth_date' => now()->addYear()->format('Y-m-d'), 'province' => 'other', 'diploma_type' => 'other', 'emergency_name' => 'Contact sans numéro'])->assertSessionHasErrors(['birth_date', 'other_province', 'other_diploma', 'emergency_phone']);
+        $this->actingAs($student)->post('/app/dashboard/student/profile', ['first_name' => $student->first_name, 'last_name' => $student->last_name, 'email' => $student->email, 'birth_date' => now()->addYear()->format('Y-m-d'), 'province' => 'other', 'diploma_type' => 'other', 'emergency_name' => 'Contact sans numéro'])->assertSessionHasErrors(['birth_date', 'other_province', 'other_diploma', 'emergency_phone']);
         $this->assertNull($student->fresh()->studentProfile->personal_details);
+    }
+
+    public function test_profile_forms_preserve_the_selected_view_and_year_without_a_referrer(): void
+    {
+        [, $student, , $academic] = $this->admitted();
+        $profile = '/app/dashboard/student/profile?academic='.$academic->id;
+        $photo = $profile.'&view=photo';
+        $settings = $profile.'&view=settings';
+        $password = '/app/dashboard/student/profile/password?academic='.$academic->id.'&view=settings';
+        $payload = ['first_name' => $student->first_name, 'last_name' => $student->last_name, 'email' => $student->email];
+
+        $this->actingAs($student)->get('/app/dashboard/student')->assertOk();
+        $this->post($photo, $payload + ['photo' => UploadedFile::fake()->create('document.pdf')])
+            ->assertSessionHasErrors('photo')->assertRedirect($photo);
+        $this->assertNull(session()->getOldInput('photo'));
+        $this->post($photo, $payload + ['photo' => UploadedFile::fake()->image('portrait.jpg')])
+            ->assertStatus(303)->assertSessionHasNoErrors()->assertRedirect($photo);
+        $this->post($profile.'&view=personal', array_replace($payload, ['email' => 'nouveau@example.test', 'email_current_password' => 'incorrect']))
+            ->assertSessionHasErrors('email_current_password')->assertRedirect($profile.'&view=personal');
+        $this->assertNull(session()->getOldInput('email_current_password'));
+        $this->post($password, ['current_password' => 'incorrect', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])
+            ->assertSessionHasErrorsIn('studentPassword', 'current_password')->assertRedirect($settings);
+        $this->post($password, ['current_password' => 'password', 'password' => 'NewPassword2026', 'password_confirmation' => 'NewPassword2026'])
+            ->assertStatus(303)->assertSessionHasNoErrors()->assertRedirect($settings);
     }
 }

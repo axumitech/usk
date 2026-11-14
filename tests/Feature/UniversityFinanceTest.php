@@ -3,11 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\AcademicYear;
+use App\Models\Enrollment;
 use App\Models\LevelDetail;
 use App\Models\Student\AcademicEnrollment;
+use App\Models\Student\FinanceTariff;
 use App\Models\Student\StudentObligation;
 use App\Models\Student\StudentPayment;
+use App\Models\Student\StudentProfile;
 use App\Models\User;
+use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Application\Services\FeeTariffService;
 use App\Modules\Student\Application\Services\FinanceMutation;
 use App\Modules\Student\Application\Services\FinanceReconciliationService;
@@ -66,6 +70,102 @@ class UniversityFinanceTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertArrayHasKey($field, $e->errors());
         }
+    }
+
+    public function test_student_finance_shows_assigned_fees_and_only_reconciles_staff_confirmed_payments(): void
+    {
+        [$admin, $student, $entry, $finance] = $this->context();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
+        $this->obligation($entry, due: '2026-10-20');
+        $finance->adjust($entry, $admin, ['type' => 'reduction', 'amount' => '20.00', 'reason' => 'Réduction académique approuvée.']);
+        $finance->adjust($entry, $admin, ['type' => 'plan', 'schedule' => [['due_at' => '2026-12-01', 'amount' => '80.00']], 'reason' => 'Report de la date de versement.']);
+        $adminAccount = '/app/dashboard/admin/student-academic/'.$entry->id;
+        $this->actingAs($admin)->post($adminAccount.'/obligations', [
+            'kind' => 'laboratory', 'title' => 'Travaux pratiques de laboratoire', 'installment' => 1,
+            'amount' => '35.00', 'due_at' => '2026-11-20', 'reason' => 'Frais du laboratoire ajoutés au dossier.',
+        ])->assertSessionHasNoErrors();
+        $this->post($adminAccount.'/obligations', [
+            'kind' => 'registration', 'title' => 'Droits d’inscription', 'installment' => 1,
+            'amount' => '15.00', 'due_at' => '2026-10-15', 'reason' => 'Droits d’inscription confirmés.',
+        ])->assertSessionHasNoErrors();
+        $payment = ['kind' => 'laboratory', 'amount' => '35.00', 'method' => 'cash', 'reference' => 'PREUVE-LABO', 'note' => 'Preuve contrôlée au guichet.'];
+        $this->post($adminAccount.'/payments', $payment)->assertSessionHasNoErrors();
+        $pending = StudentPayment::where('reference', 'PREUVE-LABO')->sole();
+        $confirmed = $this->pay($entry, $admin, '30.00');
+        $finance->adjust($entry, $admin, ['type' => 'exemption', 'fee_kind' => 'registration', 'reason' => 'Exonération totale des droits d’inscription.']);
+
+        $fees = route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]);
+        $transactions = route('dashboard.student.index', ['section' => 'transactions', 'academic' => $entry->id]);
+        $this->actingAs($student)->post($adminAccount.'/payments', $payment)->assertForbidden();
+        $this->post('/app/dashboard/student/payments', $payment)->assertNotFound();
+        $this->get($fees)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('balance.total_cents', 15000)->where('balance.waived_cents', 3500)
+            ->where('balance.paid_cents', 3000)->where('balance.pending_cents', 3500)->where('balance.balance_cents', 8500)
+            ->where('balance.overdue_cents', 0)->has('finance_details.obligations', 3)
+            ->where('finance_details.obligations.0.status', 'exempted')
+            ->where('finance_details.obligations.1.kind_title', 'Frais académiques')->where('finance_details.obligations.1.status', 'partial')
+            ->where('finance_details.obligations.1.paid_cents', 3000)->where('finance_details.obligations.1.waived_cents', 2000)
+            ->where('finance_details.obligations.1.due_at', null)->where('finance_details.obligations.1.rescheduled', true)
+            ->where('finance_details.obligations.1.remaining_cents', 5000)
+            ->where('finance_details.obligations.2.title', 'Travaux pratiques de laboratoire')
+            ->where('finance_details.obligations.2.currency', 'USD')->where('finance_details.obligations.2.paid_cents', 0)
+            ->where('finance_schedule.0.status', 'exempted')
+            ->where('finance_schedule.2.due_at', '2026-12-01')->where('finance_schedule.2.remaining_cents', 5000)
+            ->where('finance_details.recent_payments.1.kind_title', 'Travaux pratiques de laboratoire')
+            ->where('finance_details.recent_payments.1.receipt_url', null)
+            ->has('finance_details.receipt_payments', 1)->where('finance_details.receipt_payments.0.id', $confirmed->id));
+        $this->get($transactions)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('finance_view', 'history')->has('payments', 2));
+        $this->get($transactions.'&view=receipts')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('finance_view', 'receipts')->has('payments', 1)->where('payments.0.id', $confirmed->id));
+
+        $this->actingAs($admin)->post(route('dashboard.admin.student-academic.payments.status', ['payment' => $pending->id]), [
+            'status' => 'confirmed', 'reason' => 'Preuve du versement vérifiée par la caisse.',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($student)->get($fees)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('balance.pending_cents', 0)->where('balance.balance_cents', 5000)
+            ->where('finance_details.obligations.2.status', 'paid')->where('finance_details.obligations.2.paid_cents', 3500)
+            ->has('finance_details.receipt_payments', 2));
+        $this->get(route('dashboard.student.payments.receipt', ['payment' => $pending->uuid, 'academic' => $entry->id]))
+            ->assertOk()->assertSee('PREUVE-LABO');
+    }
+
+    public function test_student_finance_filters_year_and_keeps_the_original_payment_currencies(): void
+    {
+        [$admin, $student, $entry] = $this->context();
+        $old = $entry->replicate();
+        $old->academic_year_id = AcademicYear::create(['title' => '2025-2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed'])->id;
+        $old->currency = 'CDF';
+        $old->save();
+        $this->obligation($old, amount: 120000);
+        $payment = $this->pay($old, $admin, '250.00');
+
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('balance.currency', 'USD')->where('balance.assessed', false)
+                ->has('finance_details.obligations', 0)->has('finance_details.recent_payments', 0));
+        $this->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $old->id]))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('academic.year', '2025-2026')
+                ->where('balance.currency', 'CDF')->where('balance.balance_cents', 95000)
+                ->where('finance_details.obligations.0.currency', 'CDF')->where('finance_details.recent_payments.0.currency', 'CDF')
+                ->where('finance_details.recent_payments.0.id', $payment->id)
+                ->where('finance_details.receipts_url', '/app/dashboard/student/transactions?academic='.$old->id.'&view=receipts'));
+        $this->get(route('dashboard.student.payments.receipt', ['payment' => $payment->uuid, 'academic' => $entry->id]))->assertNotFound();
+    }
+
+    public function test_student_finance_does_not_count_unallocated_cash_towards_fee_coverage(): void
+    {
+        [$admin, $student, $entry] = $this->context();
+        $fee = $this->obligation($entry);
+        $payment = $this->pay($entry, $admin, '40.00', 'unallocated');
+        app(PaymentAllocationService::class)->allocate($payment, $admin, [
+            ['obligation_id' => $fee->id, 'amount' => '15.00'],
+        ], 'Affectation partielle du versement à la scolarité.');
+
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('balance.paid_cents', 4000)->where('balance.unallocated_cents', 2500)->where('balance.balance_cents', 8500)
+                ->where('finance_details.obligations.0.paid_cents', 1500)->where('finance_details.obligations.0.remaining_cents', 8500)
+                ->where('finance_details.receipt_payments.0.kind_title', 'Versement général'));
     }
 
     public function test_money_is_exact_and_binary_floats_and_excess_precision_are_refused(): void
@@ -170,7 +270,7 @@ class UniversityFinanceTest extends TestCase
         $this->assertSame(7000, $finance->balance($entry)['paid_cents']);
         $this->assertSame(3000, $finance->balance($entry)['balance_cents']);
         $this->assertSame('confirmed', $p->fresh()->status);
-        $this->actingAs($student)->get('/dashboard/student/transactions?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page->where('payments.0.refunded_cents', 3000)->where('payments.0.currency', 'USD'));
+        $this->actingAs($student)->get('/app/dashboard/student/transactions?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page->where('payments.0.refunded_cents', 3000)->where('payments.0.currency', 'USD'));
         $this->get(URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid]))->assertJson(['state' => 'partially_refunded']);
         $this->invalid(fn () => $service->request($p, $admin, ['amount' => '80.00', 'operation_key' => (string) Str::uuid(), 'reason' => 'Dépassement du montant remboursable.']), 'amount');
         $this->invalid(fn () => $finance->transition($p, $admin, 'cancelled', 'Annulation incompatible avec remboursement.'), 'payment');
@@ -246,6 +346,190 @@ class UniversityFinanceTest extends TestCase
         $this->assertSame($v1->id, $entry->obligations()->sole()->finance_tariff_id);
     }
 
+    public function test_annual_tariff_activation_preserves_existing_fees_and_only_bills_matching_students(): void
+    {
+        [$admin, $student, $entry] = $this->context();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
+        $this->obligation($entry, 'laboratory', 5000);
+        $otherEntries = [];
+        foreach (['national', 'foreign', null, null] as $category) {
+            $other = User::factory()->create();
+            $context = ['level_id' => $entry->level_id, 'academic_year_id' => $entry->academic_year_id];
+            $application = Enrollment::create($context + ['student_id' => $other->id, 'status' => 'validated']);
+            $profile = StudentProfile::create(['user_id' => $other->id, 'student_status' => 'active']);
+            $otherEntries[] = $profile->enrollments()->create($context + ['application_id' => $application->id, 'enrollment_status' => 'confirmed', 'fee_category' => $category, 'currency' => 'USD']);
+        }
+        [$existing, $foreign, $unclassified, $declaredNational] = $otherEntries;
+        $existing->profile->user->update(['nationality_code' => 'CG']);
+        $foreign->profile->user->update(['nationality_code' => 'CD']);
+        $declaredNational->profile->user->update(['nationality_code' => 'CD']);
+        $original = $this->obligation($existing, due: '2026-11-15');
+        $oldYear = AcademicYear::create(['title' => '2025–2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed']);
+        $historical = $entry->replicate();
+        $historical->academic_year_id = $oldYear->id;
+        $historical->save();
+
+        $service = app(FeeTariffService::class);
+        $data = [
+            'academic_year_id' => $entry->academic_year_id, 'level_id' => $entry->level_id,
+            'category' => 'national', 'kind' => 'tuition', 'title' => 'Barème annuel national', 'currency' => 'USD',
+            'valid_from' => '2026-10-01', 'valid_until' => '2027-09-30', 'reason' => 'Frais annuels préparés depuis la maquette.',
+            'schedule' => [['amount' => '0.00', 'due_at' => '2026-11-20'], ['amount' => '120.00', 'due_at' => '2027-02-01']],
+        ];
+        $tariff = $service->create($admin, $data);
+        $historicalTariff = $service->create($admin, array_replace($data, ['academic_year_id' => $oldYear->id, 'valid_from' => '2025-10-01', 'valid_until' => '2026-09-30']));
+        $service->activate($historicalTariff, $admin, 'Ancien barème conservé pour l’historique.');
+        $action = route('dashboard.admin.finance.tariffs.apply', $tariff);
+        $activate = route('dashboard.admin.finance.tariffs.activate', $tariff);
+        $reason = ['reason' => 'Émission des frais contrôlés pour les inscrits concernés.'];
+        $this->actingAs($student)->post($action, $reason)->assertForbidden();
+        $this->actingAs($admin)->post($action, $reason)->assertSessionHasErrors('tariff');
+        $this->post(route('dashboard.admin.finance.tariffs.apply', $historicalTariff), $reason)->assertSessionHasErrors('tariff');
+        $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/fees', $reason + ['category' => 'national'])
+            ->assertSessionHas('success', 'Catégorie confirmée. Le barème pourra être affecté dès son activation et son entrée en vigueur.');
+        $this->assertSame('national', $entry->fresh()->fee_category);
+        $this->assertDatabaseHas('academic_audits', ['actor_id' => $admin->id, 'action' => 'fee_category_confirmed', 'entity_id' => $entry->id]);
+        $this->post($activate, $reason)->assertSessionHas('success', 'Barème activé. Échéanciers ajoutés : 2. Dossiers avec frais ou historique conservés : 1.');
+        $this->assertSame('national', $declaredNational->fresh()->fee_category);
+        $this->assertSame(2, $declaredNational->obligations()->where('finance_tariff_id', $tariff->id)->count());
+        $this->get(route('dashboard.admin.finance.tariffs.index', ['year' => $entry->academic_year_id, 'level' => $entry->level_id]))
+            ->assertInertia(fn (Assert $page) => $page->has('tariffs.data', 1)
+                ->where('tariffs.data.0.id', $tariff->id)->where('tariffs.data.0.can_apply', true)
+                ->where('tariffs.data.0.academic_year.id', $entry->academic_year_id)->where('tariffs.data.0.level.id', $entry->level_id));
+
+        $this->post($activate, $reason)->assertSessionHas('success', 'Barème activé. Échéanciers ajoutés : 0. Dossiers avec frais ou historique conservés : 3.');
+        $this->post($action, $reason)->assertSessionHas('success', 'Inscriptions facturées : 0. Dossiers avec obligations ou historique conservés : 3.');
+        $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/fees', $reason + ['category' => 'foreign'])->assertSessionHasErrors('category');
+        $this->assertSame($original->id, $existing->obligations()->sole()->id);
+        $this->assertSame(10000, (int) $original->refresh()->amount_cents);
+        $this->assertSame('2026-11-15', $original->due_at->toDateString());
+        foreach ([$foreign, $unclassified, $historical] as $unchanged) {
+            $this->assertFalse($unchanged->obligations()->exists());
+        }
+        $this->assertSame([0, 12000], $entry->obligations()->where('finance_tariff_id', $tariff->id)->orderBy('installment')->pluck('amount_cents')->all());
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('academic.fee_category', 'national')
+                ->where('balance.total_cents', 17000)->has('finance_details.obligations', 3)
+                ->where('finance_schedule.0.due_at', '2026-11-20')->where('finance_schedule.1.due_at', '2027-02-01'));
+    }
+
+    public function test_future_tariff_is_applied_automatically_when_its_validity_begins(): void
+    {
+        [$admin, $student, $entry] = $this->context();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
+        $student->update(['nationality_code' => 'CG']);
+        $tariff = app(FeeTariffService::class)->create($admin, [
+            'academic_year_id' => $entry->academic_year_id, 'level_id' => $entry->level_id,
+            'category' => 'foreign', 'kind' => 'tuition', 'title' => 'Barème annuel étranger', 'currency' => 'USD',
+            'valid_from' => '2026-11-11', 'valid_until' => '2027-09-30', 'reason' => 'Barème à effet différé pour l’année ouverte.',
+            'schedule' => [['amount' => '215.00', 'due_at' => '2026-12-01']],
+        ]);
+        $this->actingAs($admin)->post(route('dashboard.admin.finance.tariffs.activate', $tariff), ['reason' => 'Activation du barème à effet différé.'])
+            ->assertSessionHasNoErrors();
+        $this->artisan('student:apply-effective-tuition-tariffs')->assertSuccessful();
+        $this->assertFalse($entry->obligations()->exists());
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-11 00:01', 'Africa/Kinshasa'));
+        $this->artisan('student:apply-effective-tuition-tariffs')->assertSuccessful();
+        $this->artisan('student:apply-effective-tuition-tariffs')->assertSuccessful();
+        $this->assertSame('foreign', $entry->refresh()->fee_category);
+        $this->assertSame($tariff->id, $entry->obligations()->sole()->finance_tariff_id);
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))
+            ->assertInertia(fn (Assert $page) => $page->has('finance_schedule', 1)
+                ->where('finance_schedule.0.amount_cents', 21500)->where('finance_schedule.0.due_at', '2026-12-01'));
+    }
+
+    public function test_annual_tariff_workspace_edits_drafts_and_revises_active_versions_without_changing_issued_fees(): void
+    {
+        [$admin, $student, $entry] = $this->context();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'Africa/Kinshasa'));
+        $service = app(FeeTariffService::class);
+        $scope = ['academic_year_id' => $entry->academic_year_id, 'level_id' => $entry->level_id, 'category' => 'national', 'kind' => 'tuition', 'currency' => 'USD'];
+        $original = [
+            'title' => 'Barème généré avec la maquette', 'valid_from' => '2026-10-01', 'valid_until' => '2027-09-30',
+            'reason' => 'Génération annuelle des frais académiques.',
+            'schedule' => [['amount' => '125.50', 'due_at' => '2026-12-01'], ['amount' => '0.00', 'due_at' => '2027-03-01']],
+        ];
+        $draft = $service->create($admin, $scope + $original);
+        $workspace = route('dashboard.admin.finance.tariffs.index', ['year' => $entry->academic_year_id, 'level' => $entry->level_id, 'status' => 'draft']);
+        $update = route('dashboard.admin.finance.tariffs.update', ['tariff' => $draft->id, 'level' => $entry->level_id, 'status' => 'draft']);
+        $changes = array_replace($original, ['reason' => 'Ajustement des frais avant publication.', 'schedule' => [['amount' => '150.00', 'due_at' => '2026-12-15'], ['amount' => '0.00', 'due_at' => '2027-03-01']]]);
+        $draftRevision = $service->revision($draft, 1);
+        $this->actingAs($student)->get($workspace)->assertForbidden();
+        $this->put($update, $changes + ['revision' => $draftRevision])->assertForbidden();
+
+        $this->actingAs($admin)->get($workspace)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/finance/Tariffs')->where('filters.year', $entry->academic_year_id)
+            ->has('tariffs.data', 1)->where('tariffs.data.0.valid_from', '2026-10-01')
+            ->where('tariffs.data.0.revision', $draftRevision));
+        $this->put($update, array_replace($changes, ['schedule' => [['amount' => '150.00', 'due_at' => '2027-10-01']]]) + ['revision' => $draftRevision])
+            ->assertSessionHasErrors('schedule');
+        $this->put($update, $changes + ['revision' => $draftRevision])->assertRedirect($workspace);
+        $this->assertDatabaseCount('finance_tariffs', 1);
+        $this->assertSame(15000, $draft->refresh()->schedule[0]['amount_cents']);
+        $this->put($update, $original + ['revision' => $draftRevision])->assertSessionHasErrors('revision');
+
+        $activate = route('dashboard.admin.finance.tariffs.activate', ['tariff' => $draft->id]);
+        $this->post($activate, ['reason' => 'Activation avant confirmation du nouveau montant.', 'revision' => $draftRevision])->assertSessionHasErrors('revision');
+        $this->post($activate, ['reason' => 'Validation du nouveau montant du barème.', 'revision' => $service->revision($draft, 1)])->assertSessionHasNoErrors();
+        $service->bill($draft, $entry, $admin, 'Émission des frais déjà validés.');
+        $active = $draft->refresh();
+        $activeRevision = $service->revision($active, 1);
+        $next = array_replace($changes, ['reason' => 'Nouvelle version pour les inscriptions suivantes.', 'schedule' => [['amount' => '185.00', 'due_at' => '2027-01-15']]]);
+        $updateActive = route('dashboard.admin.finance.tariffs.update', ['tariff' => $active->id, 'level' => $entry->level_id, 'status' => 'active']);
+        $this->put($updateActive, $next + ['revision' => $activeRevision])->assertRedirect(route('dashboard.admin.finance.tariffs.index', ['year' => $entry->academic_year_id, 'level' => $entry->level_id]));
+        $this->put($updateActive, $next + ['revision' => $activeRevision])->assertSessionHasErrors('revision');
+
+        $replacement = FinanceTariff::where('version', 2)->sole();
+        $this->assertSame('draft', $replacement->status);
+        $this->assertSame('active', $active->refresh()->status);
+        $this->assertSame(18500, $replacement->schedule[0]['amount_cents']);
+        $this->get($workspace)->assertInertia(fn (Assert $page) => $page
+            ->where('tariffs.data.0.id', $replacement->id)->where('tariffs.data.0.replace_id', $active->id));
+        $this->post(route('dashboard.admin.finance.tariffs.activate', $replacement), ['reason' => 'Activation explicite de la version révisée.', 'replace_id' => $active->id, 'revision' => $service->revision($replacement, 2)])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('archived', $active->refresh()->status);
+        $this->assertSame(15000, $entry->obligations()->where('installment', 1)->sole()->amount_cents);
+        $this->assertSame($active->id, $entry->obligations()->where('installment', 1)->sole()->finance_tariff_id);
+
+        $foreign = $service->create($admin, array_replace($scope, ['category' => 'foreign']) + $original);
+        $service->activate($foreign, $admin, 'Activation du barème des étudiants étrangers.');
+        $this->post(route('dashboard.admin.finance.bill', ['academic' => $entry->id]), ['tariff_id' => $foreign->id, 'reason' => 'Contrôle de la catégorie avant facturation.'])
+            ->assertSessionHasErrors('tariff');
+
+        $otherFaculty = DB::table('faculties')->insertGetId(['name' => 'Faculté hors périmètre', 'code' => 'TARIF-AUTRE']);
+        $scopedAdmin = User::factory()->create();
+        $scopedAdmin->assignRole('admin');
+        $scopedAdmin->academicFaculties()->attach($otherFaculty);
+        $this->actingAs($scopedAdmin)->get(route('dashboard.admin.finance.tariffs.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('filters.year', $entry->academic_year_id)->has('tariffs.data', 0));
+        $this->get($workspace)->assertForbidden();
+        $this->put($updateActive, $next + ['revision' => $activeRevision])->assertForbidden();
+    }
+
+    public function test_financial_access_tracks_overdue_installments_and_staff_confirmed_payments(): void
+    {
+        [$admin, $student, $entry, $finance] = $this->context();
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 23:00', 'Africa/Kinshasa'));
+        $this->obligation($entry, due: '2026-11-10');
+        $entry->obligations()->create(['kind' => 'tuition', 'title' => 'Deuxième échéance', 'installment' => 2, 'amount_cents' => 15000, 'currency' => 'USD', 'due_at' => '2027-02-01']);
+        $this->actingAs($admin)->post(route('dashboard.admin.student-academic.rules'), [
+            'feature' => 'materials_download', 'fee_kind' => 'tuition', 'mode' => 'due_installments',
+            'academic_year_id' => $entry->academic_year_id, 'level_id' => $entry->level_id, 'reason' => 'Accès défini selon les échéances de l’année.',
+        ])->assertSessionHasNoErrors();
+        $access = app(AcademicAccessService::class);
+        $this->assertTrue($access->decision($entry, 'materials_download')['allowed']);
+        $this->travel(2)->hours();
+        $this->assertFalse($access->decision($entry, 'materials_download')['allowed']);
+        $this->assertTrue($access->decision($entry, 'payments_view')['allowed']);
+        $pending = $finance->record($entry, $admin, ['amount' => '100.00', 'kind' => 'tuition', 'method' => 'cash', 'reference' => 'PREUVE-ANNUELLE', 'note' => 'Bordereau déposé au service financier.']);
+        $this->assertFalse($access->decision($entry, 'materials_download')['allowed']);
+        $finance->transition($pending, $admin, 'confirmed', 'Bordereau vérifié par le service financier.');
+        $this->assertTrue($access->decision($entry, 'materials_download')['allowed']);
+        $this->actingAs($student)->get(route('dashboard.student.index', ['section' => 'fees', 'academic' => $entry->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('balance.balance_cents', 15000)->where('balance.overdue_cents', 0));
+    }
+
     public function test_csv_reconciliation_requires_exact_match_and_explicit_commit(): void
     {
         [$admin,,$entry,$finance] = $this->context();
@@ -270,29 +554,29 @@ class UniversityFinanceTest extends TestCase
         $p = $this->pay($entry, $admin, '100.00');
         $snapshot = $p->receipt_snapshot;
         $student->update(['first_name' => 'Nom ultérieurement corrigé']);
-        $this->actingAs($student)->get('/dashboard/student/payments/'.$p->uuid.'/receipt')->assertOk()->assertSee($snapshot['name'])->assertDontSee('Nom ultérieurement corrigé');
+        $this->actingAs($student)->get('/app/dashboard/student/payments/'.$p->uuid.'/receipt')->assertOk()->assertSee($snapshot['name'])->assertDontSee('Nom ultérieurement corrigé');
         $url = URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid]);
         $this->get($url)->assertOk()->assertJson(['state' => 'valid'])->assertJsonMissingPath('amount_cents')->assertJsonMissingPath('name')->assertJsonMissingPath('email');
         $this->get('/finance/receipts/'.$p->uuid.'/verify')->assertForbidden();
         $other = User::factory()->create();
         $other->assignRole('student');
-        $this->actingAs($other)->get('/dashboard/student/payments/'.$p->uuid.'/receipt')->assertForbidden();
+        $this->actingAs($other)->get('/app/dashboard/student/payments/'.$p->uuid.'/receipt')->assertForbidden();
     }
 
     public function test_finance_dashboard_export_and_mutations_enforce_roles_and_faculty_scope(): void
     {
         [$admin,$student,$entry] = $this->context();
         $this->obligation($entry);
-        $this->actingAs($student)->get('/dashboard/admin/finance')->assertForbidden();
-        $this->post('/dashboard/admin/student-academic/'.$entry->id.'/payments', ['amount' => '1.00', 'kind' => 'tuition', 'method' => 'cash', 'reference' => 'HACK', 'note' => 'Tentative cliente interdite.'])->assertForbidden();
+        $this->actingAs($student)->get('/app/dashboard/admin/finance')->assertForbidden();
+        $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/payments', ['amount' => '1.00', 'kind' => 'tuition', 'method' => 'cash', 'reference' => 'HACK', 'note' => 'Tentative cliente interdite.'])->assertForbidden();
         $account = route('dashboard.admin.finance.index', ['academic' => $entry->id]);
         $this->actingAs($admin)->get($account)->assertInertia(fn (Assert $p) => $p->component('dashboard/finance/Index')->where('statement.balance.balance_cents', 10000)->where('totals.0.balance_cents', 10000));
-        $this->get('/dashboard/admin/finance/export')->assertOk()->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
+        $this->get('/app/dashboard/admin/finance/export')->assertOk()->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
             ->assertSessionHas('_previous.url', $account);
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'OTHER']);
         $admin->academicFaculties()->attach($faculty);
-        $this->get('/dashboard/admin/finance')->assertInertia(fn (Assert $p) => $p->has('entries.data', 0)->has('totals', 0));
-        $this->get('/dashboard/admin/finance?academic='.$entry->id)->assertForbidden();
+        $this->get('/app/dashboard/admin/finance')->assertInertia(fn (Assert $p) => $p->has('entries.data', 0)->has('totals', 0));
+        $this->get('/app/dashboard/admin/finance?academic='.$entry->id)->assertForbidden();
     }
 
     public function test_two_currencies_are_never_aggregated_and_checker_can_be_required(): void
@@ -446,13 +730,13 @@ class UniversityFinanceTest extends TestCase
         $this->obligation($entry);
         $p = $finance->record($entry, $admin, ['amount' => '20.00', 'reference' => 'HTTP-BANK', 'method' => 'bank_transfer', 'note' => 'Versement avec référence bancaire.']);
         $csv = "bank_reference,payment_reference,amount,currency,date\nHTTP-OP,HTTP-BANK,20.00,USD,".today()->toDateString()."\n";
-        $this->actingAs($admin)->post('/dashboard/admin/finance/reconciliation/preview', ['file' => UploadedFile::fake()->createWithContent('bank.csv', $csv), 'account' => 'Journal banque'])->assertStatus(303);
+        $this->actingAs($admin)->post('/app/dashboard/admin/finance/reconciliation/preview', ['file' => UploadedFile::fake()->createWithContent('bank.csv', $csv), 'account' => 'Journal banque'])->assertStatus(303);
         $this->assertSame('pending', $p->fresh()->status);
         $this->assertDatabaseCount('finance_bank_lines', 0);
-        $this->post('/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Rapprochement explicitement contrôlé.'])->assertStatus(303);
+        $this->post('/app/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Rapprochement explicitement contrôlé.'])->assertStatus(303);
         $this->assertSame('confirmed', $p->fresh()->status);
         $this->assertDatabaseCount('finance_bank_lines', 1);
-        $this->post('/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Prévisualisation déjà consommée.'])->assertStatus(422);
+        $this->post('/app/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Prévisualisation déjà consommée.'])->assertStatus(422);
     }
 
     public function test_refund_records_cannot_be_edited_outside_audited_workflow(): void

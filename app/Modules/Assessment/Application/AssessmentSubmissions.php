@@ -57,6 +57,9 @@ final class AssessmentSubmissions
                 if (isset($input['expected_version'])) {
                     AssessmentRules::revision($submission->exists ? (int) $submission->version : 0, $input['expected_version']);
                 }
+                if ($file) {
+                    AssessmentDraftOptions::checkSubmission($facts, $assessment);
+                }
 
                 $previousVersion = $submission->exists ? $submission->versions()->where('number', $submission->version)->first() : null;
                 if ($submission->exists && ! $previousVersion) {

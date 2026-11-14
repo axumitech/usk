@@ -8,8 +8,10 @@ use App\Models\Student\AcademicSession;
 use App\Modules\Student\Application\Services\Audit;
 use App\Modules\Teaching\Application\Services\AttendanceAccess;
 use App\Modules\Teaching\Application\Services\CourseAudience;
+use App\Modules\Teaching\Application\Services\TeacherDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -17,31 +19,35 @@ class AttendanceController extends Controller
 {
     public function __construct(private AttendanceAccess $access, private CourseAudience $audience) {}
 
-    public function show(Request $request, AcademicSession $session)
+    public function show(Request $request, AcademicSession $session, TeacherDashboard $dashboard)
     {
         $actor = $request->user();
         $this->access->authorize($actor, $session);
-        $session->load(['offering.course', 'offering.curriculumItem', 'offering.level', 'offering.academicYear']);
+        $session->load(['offering.course', 'offering.curriculumItem', 'offering.level', 'offering.academicYear', 'registeredRoom:id,name,building']);
         $students = $this->audience->roster($session->offering, $session->starts_at)->with('profile.user')->orderBy('matricule')->orderBy('id')
             ->paginate(50)->withQueryString();
         $records = AcademicAttendance::where('academic_session_id', $session->id)
             ->whereIn('academic_enrollment_id', $students->getCollection()->pluck('id'))->pluck('status', 'academic_enrollment_id');
         $data = $students->through(fn ($e) => ['id' => $e->id, 'name' => $e->profile->user->full_name, 'matricule' => $e->matricule, 'status' => $records[$e->id] ?? '']);
         $admin = $actor->hasRole('admin');
+        $room = $session->room ?: $session->registeredRoom?->name;
+        $location = collect([$session->registeredRoom?->building, $room])->filter()->unique()->join(' · ');
+        $context = $admin ? [] : $this->scheduleContext($request, $session, $dashboard);
 
         return Inertia::render('dashboard/schedule/Attendance', [
             'session' => ['id' => $session->id, 'title' => $session->offering->curriculumItem?->name ?? $session->offering->course->title,
-                'level' => $session->offering->level->title, 'year' => $session->offering->academicYear->title, 'starts_at' => $session->starts_at, 'ends_at' => $session->ends_at, 'room' => $session->room],
-            'canRecord' => $session->is_published && ! $session->cancelled_at && $session->starts_at->lte(now())
-                && ($admin || (! $session->attendance_closed_at && $session->offering->academicYear->status === 'open')),
+                'level' => $session->offering->level->title, 'year' => $session->offering->academicYear->title, 'starts_at' => $session->starts_at, 'ends_at' => $session->ends_at, 'room' => $location],
+            'canRecord' => $this->access->canRecord($actor, $session),
             'closed' => (bool) $session->attendance_closed_at || $session->offering->academicYear->status === 'closed',
             'revision' => $session->attendance_revision,
             'students' => $data->items(), 'pagination' => ['links' => $data->linkCollection()],
             'teacher' => ! $admin,
+            'returnUrl' => isset($context['week']) ? $dashboard->scheduleSessionUrl($session, array_diff_key($context, ['page' => true])) : null,
+            'saveUrl' => $admin ? null : route('dashboard.teaching.attendance.save', ['session' => $session->id] + $context, false),
         ]);
     }
 
-    public function save(Request $request, AcademicSession $session)
+    public function save(Request $request, AcademicSession $session, TeacherDashboard $dashboard)
     {
         $this->access->authorize($request->user(), $session);
         $input = $request->validate([
@@ -54,8 +60,8 @@ class AttendanceController extends Controller
             $actor = $request->user();
             $this->access->authorize($actor, $session);
             abort_if(! $session->is_published || $session->cancelled_at || $session->starts_at->isFuture(), 422, 'L’appel exige une séance publiée et commencée.');
+            abort_unless($this->access->canRecord($actor, $session), 403);
             $closed = $session->attendance_closed_at || $session->offering->academicYear->status === 'closed';
-            abort_if($closed && ! $actor->hasRole('admin'), 403);
             if ($closed && (! isset($input['reason'], $input['revision']))) {
                 throw ValidationException::withMessages(['reason' => 'Une correction après clôture exige un motif et une version à jour.']);
             }
@@ -93,6 +99,30 @@ class AttendanceController extends Controller
             Audit::record($actor->id, 'attendance_recorded', $session, $input['reason'] ?? null, ['count' => count($changes)]);
         }, 3);
 
-        return back()->with('success', 'Présences enregistrées.');
+        $redirect = $request->user()->hasRole('admin') ? back() : to_route('dashboard.teaching.attendance',
+            ['session' => $session->id] + $this->scheduleContext($request, $session, $dashboard, acceptPrevious: true), 303);
+
+        return $redirect->with('success', 'Présences enregistrées.');
+    }
+
+    private function scheduleContext(Request $request, AcademicSession $session, TeacherDashboard $dashboard, bool $acceptPrevious = false): array
+    {
+        $query = $request->query();
+        if ($acceptPrevious && ! $query) {
+            $previous = parse_url(url()->previous());
+            if (($previous['path'] ?? null) === route('dashboard.teaching.attendance', $session->id, false)) {
+                parse_str($previous['query'] ?? '', $query);
+            }
+        }
+        $validator = Validator::make($query, [
+            'week' => 'nullable|date_format:Y-m-d', 'day' => 'nullable|date_format:Y-m-d',
+            'semester' => 'nullable|in:all,1,2', 'page' => 'nullable|integer|min:1',
+        ]);
+        if ($validator->fails()) {
+            return [];
+        }
+        $context = $validator->validated();
+
+        return $dashboard->attendanceScheduleContext($session, $context) + (isset($context['page']) ? ['page' => (int) $context['page']] : []);
     }
 }

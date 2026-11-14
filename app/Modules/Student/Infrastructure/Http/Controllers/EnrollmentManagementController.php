@@ -20,6 +20,7 @@ use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\AcademicProgressionService;
 use App\Modules\Student\Application\Services\AnnualEnrollmentClosure;
 use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentPortalContext;
 use App\Modules\Student\Infrastructure\Http\Requests\ChangeAcademicEnrollmentRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -118,7 +119,7 @@ final class EnrollmentManagementController extends Controller
         ]);
     }
 
-    public function student(Request $request, AcademicEnrollmentReadService $read, AcademicProgressionService $progressions)
+    public function student(Request $request, AcademicEnrollmentReadService $read, AcademicProgressionService $progressions, StudentPortalContext $context)
     {
         abort_unless($request->user()->hasRole('student'), 403);
         $profile = $request->user()->studentProfile;
@@ -152,6 +153,7 @@ final class EnrollmentManagementController extends Controller
         });
 
         return Inertia::render('dashboard/studentAcademic/MyEnrollments', [
+            'studentChrome' => fn () => $context->forAccount($request->user(), $request->integer('academic') ?: null),
             'entries' => $entries,
             'changes' => EnrollmentChange::whereIn('academic_enrollment_id', $profile->enrollments()->select('id'))
                 ->latest('id')->paginate(15, ['id', 'academic_enrollment_id', 'action', 'after', 'effective_at', 'ends_at'], 'changes_page')->withQueryString(),

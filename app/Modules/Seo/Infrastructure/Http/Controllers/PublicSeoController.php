@@ -22,7 +22,7 @@ class PublicSeoController extends Controller
     public function robots(PublicPage $page, SeoRepository $repository)
     {
         $enabled = app()->environment('production') && ($repository->settings()['indexable'] ?? config('seo.indexable'));
-        $text = "User-agent: *\n".($enabled ? "Disallow: /dashboard\nDisallow: /login\nDisallow: /register\nDisallow: /auth/\nDisallow: /email/\nDisallow: /forgot-password\nDisallow: /reset-password\nDisallow: /test\nDisallow: /api/\nDisallow: /analytics/\n" : "Disallow: /\n");
+        $text = "User-agent: *\n".($enabled ? "Disallow: /app/\nDisallow: /dashboard\nDisallow: /login\nDisallow: /register\nDisallow: /auth/\nDisallow: /email/\nDisallow: /forgot-password\nDisallow: /reset-password\nDisallow: /test\nDisallow: /api/\nDisallow: /analytics/\n" : "Disallow: /\n");
 
         return response($text.'Sitemap: '.$page->origin()."/sitemap.xml\n")->header('Content-Type', 'text/plain; charset=UTF-8');
     }

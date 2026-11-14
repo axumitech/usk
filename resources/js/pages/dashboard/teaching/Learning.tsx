@@ -1,5 +1,6 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import TeacherModuleHeading from '@/components/teaching/TeacherModuleHeading';
 import { dateTime } from '@/pages/dashboard/teaching/types';
 import { Head, Link, router } from '@inertiajs/react';
 import {
@@ -107,6 +108,7 @@ export default function Learning({
     const [message, setMessage] = useState('');
     const index = route(prefix + 'index');
     const admin = downloads !== null;
+    const teacher = prefix === 'dashboard.teaching.learning.';
     const open = (title: string, description: string, action: string, fields: Field[], values?: FormSpec['values']) =>
         setModal({ title, description, action, fields, values });
     const edit = (item?: Item) => {
@@ -226,23 +228,40 @@ export default function Learning({
                     }}
                 />
             )}
-            <main className="student-portal academic-administration learning-library">
-                <header className="learning-header">
-                    <div>
-                        <Link
-                            className="learning-back"
-                            href={route(admin ? 'dashboard.admin.teaching.index' : 'dashboard.teaching.index', offering ? { offering } : {})}
-                        >
-                            <ArrowLeft size={16} aria-hidden="true" /> Retour aux enseignements
-                        </Link>
-                        <h1>Ressources pédagogiques</h1>
-                    </div>
-                    {canManage && (
-                        <button type="button" className="learning-button is-primary" onClick={() => edit()}>
-                            <Plus size={17} aria-hidden="true" /> Ajouter une ressource
-                        </button>
-                    )}
-                </header>
+            <div className={`student-portal academic-administration learning-library${teacher ? 'teacher-module-page' : ''}`}>
+                {teacher ? (
+                    <TeacherModuleHeading
+                        title="Supports de cours"
+                        description="Organisez et publiez les ressources de vos enseignements."
+                        icon={FolderOpen}
+                        home={route('dashboard.teaching.index', { year: filters.year })}
+                        action={
+                            canManage ? (
+                                <button id="learning-create" type="button" className="teacher-module-action" onClick={() => edit()}>
+                                    <Plus size={17} aria-hidden="true" /> Ajouter une ressource
+                                </button>
+                            ) : offers.total > 0 ? (
+                                <a className="teacher-module-action" href="#learning-offers">
+                                    <BookOpen size={17} aria-hidden="true" /> Choisir un cours
+                                </a>
+                            ) : undefined
+                        }
+                    />
+                ) : (
+                    <header className="learning-header">
+                        <div>
+                            <Link className="learning-back" href={route('dashboard.admin.teaching.index', offering ? { offering } : {})}>
+                                <ArrowLeft size={16} aria-hidden="true" /> Retour aux enseignements
+                            </Link>
+                            <h1>Ressources pédagogiques</h1>
+                        </div>
+                        {canManage && (
+                            <button type="button" className="learning-button is-primary" onClick={() => edit()}>
+                                <Plus size={17} aria-hidden="true" /> Ajouter une ressource
+                            </button>
+                        )}
+                    </header>
+                )}
                 <div className="learning-metrics" aria-label="Résultats dans le périmètre actuel">
                     <div>
                         <span className="learning-metric-icon">
@@ -259,7 +278,7 @@ export default function Learning({
                         </span>
                         <div>
                             <strong>{number.format(offers.total)}</strong>
-                            <span>Offres de cours</span>
+                            <span>{teacher ? 'Cours assignés' : 'Offres de cours'}</span>
                         </div>
                     </div>
                     {downloads !== null && (
@@ -327,6 +346,7 @@ export default function Learning({
                                 ))}
                             </select>
                         </div>
+                        {teacher && filters.year != null && <input type="hidden" name="year" value={filters.year} />}
                         {admin && (
                             <details
                                 className="learning-advanced"
@@ -351,7 +371,10 @@ export default function Learning({
                         )}
                         {offering && <input type="hidden" name="offering" value={offering} />}
                         <div className="learning-actions learning-search-actions">
-                            <Link className="learning-button" href={route(prefix + 'index', offering ? { offering } : {})}>
+                            <Link
+                                className="learning-button"
+                                href={route(prefix + 'index', { ...(offering ? { offering } : {}), ...(teacher ? { year: filters.year } : {}) })}
+                            >
                                 Réinitialiser les filtres
                             </Link>
                             <button className="learning-button is-primary" type="submit">
@@ -361,9 +384,9 @@ export default function Learning({
                     </form>
                 </section>
                 <div className="learning-workspace">
-                    <aside className="portal-panel learning-panel learning-offers" aria-labelledby="learning-offers-heading">
+                    <aside className="portal-panel learning-panel learning-offers" id="learning-offers" aria-labelledby="learning-offers-heading">
                         <h2 id="learning-offers-heading">
-                            <BookOpen size={18} aria-hidden="true" /> Offres de cours
+                            <BookOpen size={18} aria-hidden="true" /> {teacher ? 'Mes cours' : 'Offres de cours'}
                         </h2>
                         {offering && (
                             <Link className="learning-all" href={route(prefix + 'index', { ...filters, resource: undefined, offering: undefined })}>
@@ -380,7 +403,7 @@ export default function Learning({
                                         >
                                             <span>
                                                 <strong>{offer.title}</strong>
-                                                <small>Offre n°{offer.id}</small>
+                                                {admin && <small>Offre n°{offer.id}</small>}
                                             </span>
                                             <ChevronRight size={16} aria-hidden="true" />
                                         </Link>
@@ -388,7 +411,7 @@ export default function Learning({
                                 ))}
                             </ul>
                         ) : (
-                            <p className="learning-empty">Aucune offre dans ce périmètre.</p>
+                            <p className="learning-empty">{teacher ? 'Aucun cours dans ce périmètre.' : 'Aucune offre dans ce périmètre.'}</p>
                         )}
                         <Pagination value={offers} />
                     </aside>
@@ -622,7 +645,7 @@ export default function Learning({
                         </section>
                     </div>
                 </div>
-            </main>
+            </div>
         </Dashboard>
     );
 }

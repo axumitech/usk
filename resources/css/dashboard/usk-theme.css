@@ -87,7 +87,7 @@
 .usk-auth-form form > .flex.flex-wrap { font-size: 13px; }
 .usk-auth-form form > .flex.flex-wrap label { min-height: 44px; }
 .usk-auth-form .grid > div { min-width: 0; }
-.usk-auth-form .grid.grid-cols-3 > button { min-height: 44px; }
+.usk-auth-form .grid.grid-cols-2 > button { min-height: 44px; }
 .usk-auth-form h1 { font-size: clamp(28px, 5vw, 36px); line-height: 1.2; }
 @media (max-width: 1100px) {
     .usk-auth-page > header :is(nav, div:has(> input[type='search'])) { display: none; }

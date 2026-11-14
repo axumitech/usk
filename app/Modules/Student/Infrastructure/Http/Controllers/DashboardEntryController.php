@@ -16,13 +16,13 @@ class DashboardEntryController
             ]);
         }
         if ($request->user()->hasRole('student') && $request->user()->studentProfile()->exists()) {
-            return redirect('/dashboard/student');
+            return redirect('/app/dashboard/student');
         }
         if ($request->user()->hasRole('professor')) {
             return to_route('dashboard.teaching.index');
         }
         if ($request->user()->hasAnyRole(['user', 'candidate'])) {
-            return redirect('/dashboard/enrollments');
+            return redirect('/app/dashboard/enrollments');
         }
 
         return Inertia::render('dashboard/index/Index');

@@ -1,7 +1,9 @@
 import PageHeading from '@/components/admin/PageHeading';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import { money } from '@/components/student/types';
 import { usePanelFade } from '@/hooks/use-panel-fade';
+import { formatDate } from '@/lib/studentEnrollment';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowUpRight, BookOpen, Building2, Layers3, Plus } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
@@ -9,13 +11,85 @@ import '../../../../css/dashboard/academic-structure.css';
 import CurriculumEditor from './CurriculumEditor';
 import ReferenceEditor from './ReferenceEditor';
 import { AnnualDrafts, GenerateSchedule, NewVersion, ScheduleReport, Transition } from './VersionDialogs';
-import { messages, statusLabels, type Props, type ReferenceKind, type Row, type Student, type Version } from './types';
+import { messages, statusLabels, type AnnualFinance, type Props, type ReferenceKind, type Row, type Student, type Version } from './types';
 
 const referenceHeadings = {
     cohort: 'Cohortes d’admission',
     promotion: 'Promotions annuelles',
     cycle: 'Cycles académiques',
 };
+
+function AnnualFeeReport({ data, year, generated }: { data: AnnualFinance; year?: string; generated: boolean }) {
+    const created = data.rows.filter(({ status }) => status === 'created').length;
+    const missing = data.rows.filter(({ status }) => status === 'missing_amounts').length;
+    return (
+        <details className="as-panel as-disclosure as-finance-report" open={generated || undefined}>
+            <summary>Barèmes de frais par niveau{year && ` · ${year}`}</summary>
+            <div className="as-finance-report-actions">
+                {generated && (
+                    <p role="status">
+                        {created} {created === 1 ? 'brouillon créé' : 'brouillons créés'}
+                        {missing > 0 && ` · ${missing} ${missing === 1 ? 'tarif à renseigner' : 'tarifs à renseigner'}`}
+                    </p>
+                )}
+                <Link className="as-establishment-link" href={data.url}>
+                    Ouvrir les barèmes dans Finances <ArrowUpRight size={16} aria-hidden="true" />
+                </Link>
+            </div>
+            {data.rows.length > 0 ? (
+                <div className="as-scroll">
+                    <table className="as-table">
+                        <thead>
+                            <tr>
+                                <th>Niveau</th>
+                                <th>Catégorie</th>
+                                <th>Échéances</th>
+                                <th>État</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.rows.map((row) => (
+                                <tr key={`${row.level_id}-${row.category}`}>
+                                    <td>
+                                        <strong>{row.level}</strong>
+                                        <br />
+                                        {row.faculty}
+                                    </td>
+                                    <td>{row.category === 'national' ? 'Nationaux' : 'Étrangers'}</td>
+                                    <td>
+                                        {row.schedule?.length && row.currency ? (
+                                            <ul className="as-finance-installments">
+                                                {row.schedule.map(({ due_at, amount_cents }, index) => (
+                                                    <li key={`${due_at}-${index}`}>
+                                                        <time dateTime={due_at}>{formatDate(due_at)}</time>
+                                                        <strong>{money(amount_cents, row.currency)}</strong>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </td>
+                                    <td>
+                                        {row.status === 'missing_amounts'
+                                            ? 'Montants à renseigner'
+                                            : row.status === 'not_generated'
+                                              ? 'À générer'
+                                              : row.tariff_status === 'active'
+                                                ? 'Actif'
+                                                : 'Brouillon'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <p className="as-note">Aucun barème disponible pour cette sélection.</p>
+            )}
+        </details>
+    );
+}
 
 function StudentRows({ rows, queryKeys }: { rows: Student[]; queryKeys: string }) {
     return (
@@ -104,6 +178,8 @@ export default function AcademicStructure() {
     const [studentSearch, setStudentSearch] = useState(context.filters.student_q ?? '');
     const selected = context.selectedVersion;
     const selectedProgram = context.selectedProgram;
+    const generatedFees = context.annualBatch?.finance ?? context.feeGeneration;
+    const feeReport = generatedFees ?? context.annualFinance;
     const faculty = context.facultyPack.find((entry) => entry.versions.some((version) => version.program_id === context.selectedProgram?.id));
     const versionPeriod = selected?.academic_year_id
         ? context.years.find((year) => year.id === selected.academic_year_id)?.title
@@ -494,6 +570,14 @@ export default function AcademicStructure() {
                 )}
                 {tab === 'curriculum' && (
                     <div ref={tabPanel} className="as-stack">
+                        {feeReport && (
+                            <AnnualFeeReport
+                                key={`${feeReport.year_id}-${Boolean(generatedFees)}`}
+                                data={feeReport}
+                                year={context.years.find(({ id }) => id === feeReport.year_id)?.title}
+                                generated={Boolean(generatedFees)}
+                            />
+                        )}
                         {context.annualBatch && (
                             <details className="as-panel as-disclosure">
                                 <summary>Bilan de génération · {context.annualBatch.year}</summary>
@@ -821,7 +905,14 @@ export default function AcademicStructure() {
                     />
                 )}
                 {selected && generatingSchedule && <GenerateSchedule version={selected} onClose={() => setGeneratingSchedule(false)} />}
-                {generating && <AnnualDrafts years={context.years} onClose={() => setGenerating(false)} />}
+                {generating && (
+                    <AnnualDrafts
+                        years={context.years}
+                        yearId={context.packYear}
+                        canGenerateFees={Boolean(context.abilities.finance)}
+                        onClose={() => setGenerating(false)}
+                    />
+                )}
                 {creating && (
                     <NewVersion
                         context={context}
