@@ -3,26 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\AcademicYear;
-use App\Models\AdmissionCondition;
 use App\Models\Courses;
-use App\Models\Enrollment;
-use App\Models\EnrollmentDocument;
-use App\Models\EnrollmentEvent;
 use App\Models\Faculty;
 use App\Models\Level;
 use App\Models\LevelDetail;
 use App\Models\Professor;
-use App\Models\Student\AcademicAttendance;
-use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\AcademicResource;
 use App\Models\Student\AcademicSemester;
-use App\Models\Student\AcademicSubmission;
-use App\Models\Student\StudentPayment;
 use App\Models\User;
-use App\Modules\Enrollment\Domain\Services\MatriculeGenerator;
-use App\Modules\Student\Application\Services\StudentAdmissionService;
-use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Teaching\Application\Services\DemoYearSchedule;
 use App\Modules\Teaching\Application\Services\TeachingAssignmentService;
 use Carbon\CarbonImmutable as Date;
@@ -40,12 +29,13 @@ class CompleteAcademicYearSeeder extends Seeder
     public function run(): void
     {
         $this->call([RolePermissionSeeder::class, LevelCodeSeeder::class]);
-        $password = config('academic_demo.password') ?: Str::password(24);
-        $newAccounts = 0;
-        $summary = DB::transaction(function () use ($password, &$newAccounts) {
+        $adminPassword = config('academic_demo.password') ?: Str::password(24);
+        $newAdministrator = false;
+        $summary = DB::transaction(function () use ($adminPassword, &$newAdministrator) {
             AcademicYear::orderBy('id')->lockForUpdate()->get();
             $year = $this->year();
-            $actor = $this->account('demo.admin@usk.example.test', 'Administration', 'Démonstration', $password, 'admin', $newAccounts);
+            $actor = $this->administrator($adminPassword);
+            $newAdministrator = $actor->wasRecentlyCreated;
             $levels = $this->catalog();
             $this->callWith(ProposedCurriculaSeeder::class, ['levelIds' => $levels->modelKeys()]);
             $programs = json_decode(file_get_contents(__DIR__.'/data/course-teaching-specialities.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -70,22 +60,14 @@ class CompleteAcademicYearSeeder extends Seeder
             foreach ($offerings as $offering) {
                 $this->resources($offering, $year);
             }
-            $students = 0;
-            foreach ($levels as $level) {
-                foreach (range(1, (int) config('academic_demo.students_per_level', 3)) as $number) {
-                    $entry = $this->student($level, $year, $actor, $number, $password, $newAccounts);
-                    $this->tracking($entry, $actor, $number);
-                    $students++;
-                }
-            }
 
-            return ['année' => $year->title, 'niveaux' => $levels->count(), 'cours' => $courses->count(), 'affectations' => $offerings->count(), 'séances ajoutées' => $added, 'étudiants' => $students];
+            return ['année' => $year->title, 'niveaux' => $levels->count(), 'cours' => $courses->count(), 'affectations' => $offerings->count(), 'séances ajoutées' => $added];
         });
         foreach ($summary as $label => $value) {
             $this->command?->info($label.' : '.$value);
         }
-        if ($newAccounts && ! config('academic_demo.password')) {
-            $this->command?->warn('Mot de passe généré pour les nouveaux comptes de démonstration (à conserver) : '.$password);
+        if ($newAdministrator && ! config('academic_demo.password')) {
+            $this->command?->warn('Mot de passe généré pour le compte d’administration de démonstration (à conserver) : '.$adminPassword);
         }
         $this->command?->info('Comptes réservés .example.test. Aucun email, débit réel ni publication des niveaux de démonstration.');
     }
@@ -118,15 +100,18 @@ class CompleteAcademicYearSeeder extends Seeder
         return AcademicYear::create(['title' => $match[1].'-'.$match[2], 'start_date' => $start->toDateString(), 'end_date' => $end->toDateString(), 'status' => ! AcademicYear::where('status', 'open')->exists() && $today->betweenIncluded($start, $end->endOfDay()) ? 'open' : 'draft']);
     }
 
-    private function account(string $email, string $first, string $last, string $password, string $role, int &$count): User
+    private function administrator(string $password): User
     {
+        $email = 'demo.admin@usk.example.test';
         $user = User::where('email', $email)->first();
         if (! $user) {
-            $user = (new User)->forceFill(['first_name' => $first, 'last_name' => $last, 'email' => $email, 'password' => $password, 'email_verified_at' => now()]);
+            $user = (new User)->forceFill([
+                'first_name' => 'Administration', 'last_name' => 'Démonstration', 'email' => $email,
+                'password' => $password, 'email_verified_at' => now(),
+            ]);
             $user->save();
-            $count++;
         }
-        $user->assignRole($role);
+        $user->assignRole('admin');
 
         return $user;
     }
@@ -185,74 +170,6 @@ class CompleteAcademicYearSeeder extends Seeder
         $period = AcademicSemester::where('academic_year_id', $year->id)->where('number', $offering->course->semester)->firstOrFail();
         foreach (['assignment' => 'Travail de synthèse', 'evaluation' => 'Évaluation formative'] as $kind => $label) {
             AcademicResource::firstOrCreate(['academic_offering_id' => $offering->id, 'kind' => $kind, 'title' => '[DÉMO] '.$label], ['body' => 'Exercice fictif : présenter les notions fondamentales du cours « '.$offering->course->title.' » et les appliquer à une étude de cas. Aucune note ou décision officielle n’est attribuée.', 'opens_at' => Date::parse($period->start_date->toDateString(), 'Africa/Kinshasa')->utc(), 'closes_at' => Date::parse($period->end_date->toDateString(), 'Africa/Kinshasa')->endOfDay()->utc(), 'is_published' => true]);
-        }
-    }
-
-    private function student(Level $level, AcademicYear $year, User $actor, int $number, string $password, int &$newAccounts): AcademicEnrollment
-    {
-        $firstNames = ['Grâce', 'Patrick', 'Chantal'];
-        $lastNames = ['Kabeya', 'Ilunga', 'Mbuyi', 'Lukusa', 'Kanku', 'Mbala', 'Nzuzi', 'Lutete', 'Kabasele', 'Bolamba', 'Mukeba', 'Mbemba', 'Tshilombo', 'Kambale', 'Nkulu'];
-        $email = 'demo.student.'.strtolower($level->faculty->code).'.'.strtolower($level->code).'.'.$number.'@usk.example.test';
-        $user = $this->account($email, $firstNames[($number - 1) % 3], $lastNames[($level->id + $number) % count($lastNames)].' (Démo)', $password, 'student', $newAccounts);
-        $application = Enrollment::where('student_id', $user->id)->where('level_id', $level->id)->where('academic_year_id', $year->id)->first();
-        if (! $application) {
-            $matricule = $user->studentProfile?->matricule ?: app(MatriculeGenerator::class)->generate($level, $year)->toString();
-            $application = Enrollment::create(['student_id' => $user->id, 'level_id' => $level->id, 'academic_year_id' => $year->id, 'matricule' => $matricule, 'status' => 'validated', 'payment_status' => 'unpaid', 'enrolled_at' => $year->start_date, 'notes' => 'DOSSIER FICTIF DE DÉMONSTRATION — aucune décision réelle.', 'meta' => ['demo' => true]]);
-            $conditions = AdmissionCondition::where('is_required', true)->whereIn('section', ['personal_info', 'academic_info'])->where(fn ($q) => $q->where('level_id', $level->id)->orWhere(fn ($q) => $q->whereNull('level_id')->where('faculty_id', $level->faculty_id)))->get();
-            if ($conditions->isEmpty()) {
-                $conditions = collect([(object) ['title' => 'Pièce illustrative de démonstration']]);
-            }
-            foreach ($conditions as $condition) {
-                $key = Str::slug($condition->title, '_');
-                $path = 'academic-demo/'.$year->id.'/applications/'.$application->id.'/'.$key.'.txt';
-                $text = 'DOCUMENT FICTIF DE DÉMONSTRATION — '.$condition->title.'. Ce fichier ne constitue pas un justificatif réel.';
-                Storage::disk('local')->put($path, $text);
-                EnrollmentDocument::create(['enrollment_id' => $application->id, 'type' => 'document', 'key' => $key, 'disk' => 'local', 'path' => $path, 'filename' => 'demo-'.$key.'.txt', 'mime' => 'text/plain', 'size_bytes' => strlen($text), 'sha256' => hash('sha256', $text), 'review_status' => 'accepted', 'verified' => true, 'verified_by' => $actor->id, 'verified_at' => now(), 'is_temp' => false]);
-            }
-            EnrollmentEvent::create(['enrollment_id' => $application->id, 'event' => 'demo_created', 'actor_id' => $actor->id, 'payload' => ['demo' => true], 'occurred_at' => now()]);
-        }
-        $entry = $application->academicEnrollment ?: app(StudentAdmissionService::class)->activate($application, $actor->id, false, historicalImport: true);
-        $finance = app(StudentFinanceService::class);
-        if (! $entry->obligations()->exists()) {
-            $finance->assess($entry, $actor, $number === 3 ? 'foreign' : 'national', [$year->start_date, AcademicSemester::where('academic_year_id', $year->id)->where('number', 2)->firstOrFail()->start_date->toDateString()], 'Barème du scénario fictif de démonstration.');
-        }
-        foreach ($entry->obligations()->where('kind', 'tuition')->orderBy('installment')->get() as $obligation) {
-            if ($number === 3 || ($number === 2 && $obligation->installment === 2)) {
-                continue;
-            }
-            $reference = 'DEMO-Y'.$year->id.'-E'.$entry->id.'-T'.$obligation->installment;
-            if (! StudentPayment::where('reference', $reference)->exists() && $obligation->amount_cents > 0) {
-                $payment = $finance->record($entry, $actor, ['amount' => \App\Modules\Student\Application\Services\Money::decimal((int)$obligation->amount_cents), 'method' => 'other', 'reference' => $reference, 'note' => 'VERSEMENT FICTIF — aucun mouvement bancaire réel.']);
-                $finance->transition($payment, $actor, 'confirmed', 'Confirmation fictive du scénario de démonstration.', notify: false);
-            }
-        }
-        if ($number === 3) {
-            $first = $entry->obligations()->where('kind', 'tuition')->orderBy('installment')->first();
-            $reference = 'DEMO-Y'.$year->id.'-E'.$entry->id.'-PENDING';
-            if ($first && $first->amount_cents > 0 && ! StudentPayment::where('reference', $reference)->exists()) {
-                $finance->record($entry, $actor, ['amount' => \App\Modules\Student\Application\Services\Money::decimal((int)$first->amount_cents), 'method' => 'other', 'reference' => $reference, 'note' => 'VERSEMENT FICTIF EN ATTENTE — aucun mouvement bancaire réel.']);
-            }
-        }
-
-        return $entry;
-    }
-
-    private function tracking(AcademicEnrollment $entry, User $actor, int $number): void
-    {
-        $offerings = AcademicOffering::where('level_id', $entry->level_id)->where('academic_year_id', $entry->academic_year_id)->get();
-        foreach ($offerings as $offering) {
-            foreach ($offering->sessions()->where('ends_at', '<=', now())->orderBy('starts_at')->limit(3)->get() as $index => $session) {
-                AcademicAttendance::firstOrCreate(['academic_session_id' => $session->id, 'academic_enrollment_id' => $entry->id], ['status' => ['present', 'late', 'absent'][($number + $index - 1) % 3], 'recorded_by' => $actor->id]);
-            }
-            if ($number === 1) {
-                $assignment = $offering->resources()->where('kind', 'assignment')->where('title', '[DÉMO] Travail de synthèse')->where('opens_at', '<=', now())->first();
-                if ($assignment) {
-                    AcademicResource::firstOrCreate(['academic_offering_id' => $offering->id, 'student_profile_id' => $entry->student_profile_id, 'kind' => 'result', 'title' => '[DÉMO] Appréciation formative'], ['body' => 'Résultat fictif : compréhension satisfaisante des premières notions. Ce contenu n’est ni une note ni un relevé officiel.', 'is_published' => true]);
-                }
-                if ($assignment) {
-                    AcademicSubmission::firstOrCreate(['academic_enrollment_id' => $entry->id, 'academic_resource_id' => $assignment->id], ['body' => 'Remise fictive de démonstration : synthèse et application des premières notions du cours.', 'version' => 1]);
-                }
-            }
         }
     }
 }

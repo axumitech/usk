@@ -157,6 +157,25 @@ export type StudentPayment = {
     refunded_cents?: number;
     receipt_url: string | null;
 };
+export type StudentPaymentProofs = {
+    submit_url: string | null;
+    max_kb: number;
+    methods: string[];
+    kinds: { id: string; label: string; balance_cents?: number; overdue_cents?: number; currency?: string }[];
+    selected_kind?: string | null;
+    submissions: {
+        id: number;
+        kind_label: string;
+        amount_cents: number;
+        currency: string;
+        method: string;
+        reference: string;
+        status: 'pending' | 'confirmed' | 'rejected';
+        submitted_at: string;
+        review_note: string | null;
+        download_url: string | null;
+    }[];
+};
 export type Session = {
     id: number;
     course: string;
@@ -173,18 +192,36 @@ export type Session = {
     resource_url?: string | null;
 };
 
+export type StudentProfileCompletion = {
+    missing: {
+        key: string;
+        label: string;
+        section: 'identity' | 'contact' | 'address' | 'emergency' | 'diploma' | 'photo';
+        href: string;
+    }[];
+    href: string;
+    completed: number;
+    total: number;
+};
+
 export type PortalProps = {
     studentChrome?: import('./StudentChrome').StudentChromeData | null;
     profile_view?: 'overview' | 'personal' | 'photo' | 'settings' | null;
+    profile_edit_field?: string | null;
+    profile_completion?: StudentProfileCompletion | null;
     finance_schedule?: FinanceDueLine[];
     finance_details?: {
         obligations: FinanceObligation[];
-        recent_payments: StudentPayment[];
-        receipt_payments: StudentPayment[];
-        history_url: string;
-        receipts_url: string;
+        kinds?: Record<string, Balance>;
+        kind_titles?: Record<string, string>;
+        can_submit_proof?: boolean;
+        recent_payments?: StudentPayment[];
+        receipt_payments?: StudentPayment[];
+        history_url?: string;
+        receipts_url?: string;
     } | null;
     finance_view?: 'history' | 'receipts' | null;
+    payment_proofs?: StudentPaymentProofs | null;
     payments_pagination?: { links: { url: string | null; label: string; active: boolean }[] };
     card_eligibility?: {
         ready: boolean;

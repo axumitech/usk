@@ -7,6 +7,7 @@ import {
     ArrowLeft,
     ArrowUpRight,
     BookOpen,
+    ChevronDown,
     ChevronRight,
     Download,
     FileText,
@@ -22,10 +23,11 @@ import '../../../../css/dashboard/learning-library.css';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
 import AcademicForm, { type Field, type FormSpec } from '../studentAcademic/AcademicForm';
+import TeacherLearningChapters, { type LearningChapter, type LearningChapterSelection } from './TeacherLearningChapters';
+import TeacherLearningResource from './TeacherLearningResource';
 
-type Page<T> = { data: T[]; total: number };
+type Page<T> = { data: T[]; total: number; current_page?: number };
 type Reference = { id: number; title: string };
-type Section = Reference & { position: number; revision: number };
 type Item = Reference & {
     kind: string;
     course: string;
@@ -67,7 +69,9 @@ type Props = {
     offers: Page<Reference>;
     selected: Item | null;
     downloads: number | null;
-    sections: Section[];
+    sections: LearningChapter[];
+    selected_offering: { id: number; title: string | null; year: string | null } | null;
+    chapter_counts: { all: number; unassigned: number } | null;
     sessions: Page<{ id: number; starts_at: string; room: string }> | null;
     works: Page<Work> | null;
     file_status: 'available' | 'missing' | 'unavailable' | null;
@@ -99,6 +103,8 @@ export default function Learning({
     selected,
     downloads,
     sections,
+    selected_offering: selectedOffering,
+    chapter_counts: chapterCounts,
     sessions,
     works,
     versions,
@@ -109,8 +115,12 @@ export default function Learning({
     const index = route(prefix + 'index');
     const admin = downloads !== null;
     const teacher = prefix === 'dashboard.teaching.learning.';
+    const chapter: LearningChapterSelection = filters.section === 'unassigned' ? 'unassigned' : Number(filters.section) || null;
+    const chapterTitle = chapter === 'unassigned' ? 'Sans chapitre' : sections.find((section) => section.id === chapter)?.title;
+    const libraryUrl = (params: Props['filters'] = {}) =>
+        route(prefix + 'index', { ...filters, offering: offering ?? undefined, resource: undefined, ...params });
     const open = (title: string, description: string, action: string, fields: Field[], values?: FormSpec['values']) =>
-        setModal({ title, description, action, fields, values });
+        setModal({ title, description, action, fields, values, eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined });
     const edit = (item?: Item) => {
         if (!offering) return;
         const fields: Field[] = [
@@ -118,7 +128,12 @@ export default function Learning({
             { name: 'body', label: 'Texte pédagogique', type: 'textarea', value: item?.body },
             { name: 'url', label: 'Lien externe HTTP ou HTTPS', type: 'url', value: item?.url },
             { name: 'file', label: item?.filename ? `Remplacer ${item.filename}` : 'Fichier privé', type: 'file' },
-            placement('academic_content_section_id', 'Section', sections, item?.academic_content_section_id),
+            placement(
+                'academic_content_section_id',
+                teacher ? 'Chapitre' : 'Section',
+                sections,
+                item ? item.academic_content_section_id : teacher && typeof chapter === 'number' ? chapter : null,
+            ),
             placement(
                 'academic_session_id',
                 'Séance',
@@ -131,7 +146,7 @@ export default function Learning({
         if (item) fields.push(reason);
         else fields.unshift({ name: 'kind', label: 'Type', required: true, type: 'select', options: options(kinds) });
         open(
-            item ? 'Modifier la ressource' : 'Ajouter une ressource',
+            teacher ? (item ? 'Modifier le support' : 'Ajouter un support') : item ? 'Modifier la ressource' : 'Ajouter une ressource',
             item
                 ? 'Une modification du titre, du texte, du lien ou du fichier crée une version à republier.'
                 : 'Le support est enregistré en brouillon.',
@@ -140,11 +155,11 @@ export default function Learning({
             item ? { revision: item.revision } : { operation_key: crypto.randomUUID() },
         );
     };
-    const sectionForm = (section?: Section) => {
+    const sectionForm = (section?: LearningChapter) => {
         if (!offering) return;
         open(
-            section ? 'Modifier la section' : 'Ajouter une section',
-            'La position fixe l’ordre des sections dans le cours.',
+            teacher ? (section ? 'Modifier le chapitre' : 'Ajouter un chapitre') : section ? 'Modifier la section' : 'Ajouter une section',
+            teacher ? 'La position fixe l’ordre des chapitres dans le cours.' : 'La position fixe l’ordre des sections dans le cours.',
             route(prefix + 'section', section ? [offering, section.id] : [offering]),
             [
                 { name: 'title', label: 'Titre', value: section?.title, required: true },
@@ -159,7 +174,7 @@ export default function Learning({
             'Le dépôt et les consignes restent gérés dans leur rubrique habituelle.',
             route(prefix + 'work-placement', work.id),
             [
-                placement('academic_content_section_id', 'Section', sections, work.academic_content_section_id),
+                placement('academic_content_section_id', teacher ? 'Chapitre' : 'Section', sections, work.academic_content_section_id),
                 placement(
                     'academic_session_id',
                     'Séance',
@@ -191,7 +206,10 @@ export default function Learning({
             [
                 {
                     name: 'destination',
-                    label: 'Identifiant de l’offre de destination (visible dans la liste des offres)',
+                    label: 'Identifiant de l’offre de destination',
+                    help: teacher
+                        ? 'Ouvrez le cours de destination et relevez le numéro après « offering= » dans son adresse.'
+                        : 'L’identifiant est visible dans la liste des offres.',
                     type: 'number',
                     required: true,
                 },
@@ -214,10 +232,154 @@ export default function Learning({
             )}
         </div>
     );
+    const activeFilters = [filters.q, filters.kind, filters.status].filter(Boolean).length;
+    const libraryPage = resources.current_page && resources.current_page > 1 ? resources.current_page : undefined;
+    const searchForm = (
+        <form
+            key={JSON.stringify(filters)}
+            className="academic-admin-form learning-search"
+            onSubmit={(event) => {
+                event.preventDefault();
+                const fields = new FormData(event.currentTarget);
+                router.get(index, Object.fromEntries([...fields].filter(([, value]) => value !== '').map(([name, value]) => [name, String(value)])));
+            }}
+        >
+            <div className="academic-field">
+                <label htmlFor="learning-query">Titre du support</label>
+                <input id="learning-query" name="q" type="search" defaultValue={filters.q} placeholder="Ex. Introduction à l’algorithmique" />
+            </div>
+            <div className="academic-field">
+                <label htmlFor="learning-kind">Type</label>
+                <select id="learning-kind" name="kind" defaultValue={filters.kind}>
+                    <option value="">Tous</option>
+                    {options(kinds).map((kind) => (
+                        <option key={kind.value} value={kind.value}>
+                            {kind.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div className="academic-field">
+                <label htmlFor="learning-status">État</label>
+                <select id="learning-status" name="status" defaultValue={filters.status}>
+                    <option value="">Tous</option>
+                    {options(statuses).map((state) => (
+                        <option key={state.value} value={state.value}>
+                            {state.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {teacher && filters.year != null && <input type="hidden" name="year" value={filters.year} />}
+            {teacher && chapter !== null && <input type="hidden" name="section" value={chapter} />}
+            {admin && (
+                <details
+                    className="learning-advanced"
+                    open={['year', 'faculty', 'program', 'course', 'teacher'].some((key) => !!filters[key]) || undefined}
+                >
+                    <summary>Filtres avancés</summary>
+                    <div className="learning-advanced-grid">
+                        {Object.entries({
+                            year: 'Année',
+                            faculty: 'Faculté',
+                            program: 'Programme',
+                            course: 'Cours',
+                            teacher: 'Enseignant',
+                        }).map(([name, label]) => (
+                            <div key={name} className="academic-field">
+                                <label htmlFor={`learning-${name}`}>{label}</label>
+                                <input id={`learning-${name}`} name={name} type="number" min="1" defaultValue={filters[name]} />
+                            </div>
+                        ))}
+                    </div>
+                </details>
+            )}
+            {offering && <input type="hidden" name="offering" value={offering} />}
+            <div className="learning-actions learning-search-actions">
+                <Link
+                    className="learning-button"
+                    href={route(prefix + 'index', {
+                        ...(offering ? { offering } : {}),
+                        ...(teacher ? { year: filters.year, section: chapter ?? undefined } : {}),
+                    })}
+                >
+                    Réinitialiser les filtres
+                </Link>
+                <button className="learning-button is-primary" type="submit">
+                    <Search size={16} aria-hidden="true" /> Appliquer les filtres
+                </button>
+            </div>
+        </form>
+    );
+    const courseSwitcher = (
+        <aside className="portal-panel learning-panel learning-offers" id="learning-offers" aria-labelledby="learning-offers-heading">
+            <h2 id="learning-offers-heading">
+                <BookOpen size={18} aria-hidden="true" /> {teacher ? 'Mes cours' : 'Offres de cours'}
+            </h2>
+            {offering && (
+                <Link className="learning-all" href={libraryUrl({ offering: undefined, section: undefined })}>
+                    {teacher ? 'Tous mes cours' : 'Afficher toutes les offres'}
+                </Link>
+            )}
+            {offers.data.length ? (
+                <ul className="learning-offer-list">
+                    {offers.data.map((offer) => (
+                        <li key={offer.id}>
+                            <Link
+                                aria-current={offering === offer.id ? 'true' : undefined}
+                                href={libraryUrl({ offering: offer.id, section: offering === offer.id ? filters.section : undefined })}
+                            >
+                                <span>
+                                    <strong>{offer.title}</strong>
+                                    {admin && <small>Offre n°{offer.id}</small>}
+                                </span>
+                                <ChevronRight size={16} aria-hidden="true" />
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="learning-empty">{teacher ? 'Aucun cours dans ce périmètre.' : 'Aucune offre dans ce périmètre.'}</p>
+            )}
+            <Pagination value={offers} />
+        </aside>
+    );
+    const workOrganisation = canManage && (
+        <details className={teacher ? 'portal-panel learning-panel learning-work-organisation' : undefined}>
+            <summary>{teacher ? 'Organiser les devoirs et les évaluations' : 'Séances et travaux à organiser'}</summary>
+            {works?.data.length ? (
+                <ul className={teacher ? 'learning-section-list' : undefined}>
+                    {works.data.map((work) => (
+                        <li key={work.id}>
+                            <span>{work.title}</span>
+                            {work.assessment_exists ? (
+                                <Link
+                                    className="learning-button"
+                                    href={route(admin ? 'dashboard.admin.assessments.index' : 'dashboard.teaching.assessments.index', {
+                                        resource: work.id,
+                                    })}
+                                >
+                                    Ouvrir l’évaluation
+                                </Link>
+                            ) : (
+                                <button type="button" className="learning-button" onClick={() => placeWork(work)}>
+                                    {teacher ? 'Associer à un chapitre ou une séance' : 'Associer à une section ou une séance'}
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="learning-empty">Aucun devoir ou évaluation dans cette offre.</p>
+            )}
+            <Pagination value={sessions} />
+            <Pagination value={works} />
+        </details>
+    );
 
     return (
         <Dashboard hideAppsNavigation>
-            <Head title="Ressources pédagogiques" />
+            <Head title={teacher ? (selected?.title ?? 'Supports de cours') : 'Ressources pédagogiques'} />
             {modal && (
                 <AcademicForm
                     spec={modal}
@@ -228,19 +390,31 @@ export default function Learning({
                     }}
                 />
             )}
-            <div className={`student-portal academic-administration learning-library${teacher ? 'teacher-module-page' : ''}`}>
+            <div
+                className={['student-portal academic-administration learning-library', teacher && 'teacher-module-page teacher-learning-library']
+                    .filter(Boolean)
+                    .join(' ')}
+            >
                 {teacher ? (
                     <TeacherModuleHeading
                         title="Supports de cours"
-                        description="Organisez et publiez les ressources de vos enseignements."
+                        description={selectedOffering ? [selectedOffering.title, selectedOffering.year].filter(Boolean).join(' · ') : undefined}
                         icon={FolderOpen}
-                        home={route('dashboard.teaching.index', { year: filters.year })}
+                        home={
+                            selected
+                                ? undefined
+                                : route(
+                                      'dashboard.teaching.index',
+                                      offering ? { view: 'courses', offering, tab: 'resources' } : { year: filters.year },
+                                  )
+                        }
+                        homeLabel={offering ? 'Retour au cours' : undefined}
                         action={
-                            canManage ? (
+                            selected ? undefined : canManage ? (
                                 <button id="learning-create" type="button" className="teacher-module-action" onClick={() => edit()}>
-                                    <Plus size={17} aria-hidden="true" /> Ajouter une ressource
+                                    <Plus size={17} aria-hidden="true" /> Ajouter un support
                                 </button>
-                            ) : offers.total > 0 ? (
+                            ) : !offering && offers.total > 0 ? (
                                 <a className="teacher-module-action" href="#learning-offers">
                                     <BookOpen size={17} aria-hidden="true" /> Choisir un cours
                                 </a>
@@ -262,389 +436,306 @@ export default function Learning({
                         )}
                     </header>
                 )}
-                <div className="learning-metrics" aria-label="Résultats dans le périmètre actuel">
-                    <div>
-                        <span className="learning-metric-icon">
-                            <FileText size={20} aria-hidden="true" />
-                        </span>
-                        <div>
-                            <strong>{number.format(resources.total)}</strong>
-                            <span>Ressources</span>
-                        </div>
-                    </div>
-                    <div>
-                        <span className="learning-metric-icon">
-                            <BookOpen size={20} aria-hidden="true" />
-                        </span>
-                        <div>
-                            <strong>{number.format(offers.total)}</strong>
-                            <span>{teacher ? 'Cours assignés' : 'Offres de cours'}</span>
-                        </div>
-                    </div>
-                    {downloads !== null && (
+                {!teacher && (
+                    <div className="learning-metrics" aria-label="Résultats dans le périmètre actuel">
                         <div>
                             <span className="learning-metric-icon">
-                                <Download size={20} aria-hidden="true" />
+                                <FileText size={20} aria-hidden="true" />
                             </span>
                             <div>
-                                <strong>{number.format(downloads)}</strong>
-                                <span>Téléchargements autorisés</span>
+                                <strong>{number.format(resources.total)}</strong>
+                                <span>Ressources</span>
                             </div>
                         </div>
-                    )}
-                </div>
+                        <div>
+                            <span className="learning-metric-icon">
+                                <BookOpen size={20} aria-hidden="true" />
+                            </span>
+                            <div>
+                                <strong>{number.format(offers.total)}</strong>
+                                <span>Offres de cours</span>
+                            </div>
+                        </div>
+                        {downloads !== null && (
+                            <div>
+                                <span className="learning-metric-icon">
+                                    <Download size={20} aria-hidden="true" />
+                                </span>
+                                <div>
+                                    <strong>{number.format(downloads)}</strong>
+                                    <span>Téléchargements autorisés</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
                 {message && (
                     <p role="status" className="portal-alert">
                         {message}
                     </p>
                 )}
-                <section className="portal-panel learning-panel learning-filters" aria-labelledby="learning-filter-heading">
-                    <h2 id="learning-filter-heading">
-                        <Search size={18} aria-hidden="true" /> Rechercher des ressources
-                    </h2>
-                    <form
-                        key={JSON.stringify(filters)}
-                        className="academic-admin-form learning-search"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            const fields = new FormData(event.currentTarget);
-                            router.get(
-                                index,
-                                Object.fromEntries([...fields].filter(([, value]) => value !== '').map(([name, value]) => [name, String(value)])),
-                            );
-                        }}
-                    >
-                        <div className="academic-field">
-                            <label htmlFor="learning-query">Titre du support</label>
-                            <input
-                                id="learning-query"
-                                name="q"
-                                type="search"
-                                defaultValue={filters.q}
-                                placeholder="Ex. Introduction à l’algorithmique"
-                            />
-                        </div>
-                        <div className="academic-field">
-                            <label htmlFor="learning-kind">Type</label>
-                            <select id="learning-kind" name="kind" defaultValue={filters.kind}>
-                                <option value="">Tous</option>
-                                {options(kinds).map((kind) => (
-                                    <option key={kind.value} value={kind.value}>
-                                        {kind.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="academic-field">
-                            <label htmlFor="learning-status">État</label>
-                            <select id="learning-status" name="status" defaultValue={filters.status}>
-                                <option value="">Tous</option>
-                                {options(statuses).map((state) => (
-                                    <option key={state.value} value={state.value}>
-                                        {state.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        {teacher && filters.year != null && <input type="hidden" name="year" value={filters.year} />}
-                        {admin && (
-                            <details
-                                className="learning-advanced"
-                                open={['year', 'faculty', 'program', 'course', 'teacher'].some((key) => !!filters[key]) || undefined}
-                            >
-                                <summary>Filtres avancés</summary>
-                                <div className="learning-advanced-grid">
-                                    {Object.entries({
-                                        year: 'Année',
-                                        faculty: 'Faculté',
-                                        program: 'Programme',
-                                        course: 'Cours',
-                                        teacher: 'Enseignant',
-                                    }).map(([name, label]) => (
-                                        <div key={name} className="academic-field">
-                                            <label htmlFor={`learning-${name}`}>{label}</label>
-                                            <input id={`learning-${name}`} name={name} type="number" min="1" defaultValue={filters[name]} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </details>
-                        )}
-                        {offering && <input type="hidden" name="offering" value={offering} />}
-                        <div className="learning-actions learning-search-actions">
-                            <Link
-                                className="learning-button"
-                                href={route(prefix + 'index', { ...(offering ? { offering } : {}), ...(teacher ? { year: filters.year } : {}) })}
-                            >
-                                Réinitialiser les filtres
-                            </Link>
-                            <button className="learning-button is-primary" type="submit">
-                                <Search size={16} aria-hidden="true" /> Appliquer les filtres
-                            </button>
-                        </div>
-                    </form>
-                </section>
-                <div className="learning-workspace">
-                    <aside className="portal-panel learning-panel learning-offers" id="learning-offers" aria-labelledby="learning-offers-heading">
-                        <h2 id="learning-offers-heading">
-                            <BookOpen size={18} aria-hidden="true" /> {teacher ? 'Mes cours' : 'Offres de cours'}
+                {teacher && selected && (
+                    <TeacherLearningResource
+                        key={selected.id}
+                        resource={selected}
+                        libraryHref={libraryUrl({ offering: filters.offering, page: libraryPage })}
+                        fileStatus={fileStatus}
+                        canManage={canManage}
+                        versions={versions}
+                        onEdit={() => edit(selected)}
+                        onPublish={(action) => publish(selected, action)}
+                        onReuse={(version) => reuse(selected, version)}
+                    />
+                )}
+                {teacher && !selected && chapterCounts && (
+                    <TeacherLearningChapters
+                        sections={sections}
+                        selection={chapter}
+                        total={chapterCounts.all}
+                        unassignedCount={chapterCounts.unassigned}
+                        href={(selection) => libraryUrl({ section: selection ?? undefined })}
+                        onCreate={canManage ? () => sectionForm() : undefined}
+                        onEdit={canManage ? sectionForm : undefined}
+                    />
+                )}
+                {!teacher && (
+                    <section className="portal-panel learning-panel learning-filters" aria-labelledby="learning-filter-heading">
+                        <h2 id="learning-filter-heading">
+                            <Search size={18} aria-hidden="true" /> Rechercher des ressources
                         </h2>
-                        {offering && (
-                            <Link className="learning-all" href={route(prefix + 'index', { ...filters, resource: undefined, offering: undefined })}>
-                                Afficher toutes les offres
-                            </Link>
-                        )}
-                        {offers.data.length ? (
-                            <ul className="learning-offer-list">
-                                {offers.data.map((offer) => (
-                                    <li key={offer.id}>
-                                        <Link
-                                            aria-current={offering === offer.id ? 'true' : undefined}
-                                            href={route(prefix + 'index', { ...filters, resource: undefined, offering: offer.id })}
-                                        >
-                                            <span>
-                                                <strong>{offer.title}</strong>
-                                                {admin && <small>Offre n°{offer.id}</small>}
-                                            </span>
-                                            <ChevronRight size={16} aria-hidden="true" />
-                                        </Link>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="learning-empty">{teacher ? 'Aucun cours dans ce périmètre.' : 'Aucune offre dans ce périmètre.'}</p>
-                        )}
-                        <Pagination value={offers} />
-                    </aside>
-                    <div className="learning-main">
-                        {offering && (
-                            <section className="portal-panel learning-panel learning-sections">
-                                <div className="learning-section-heading">
-                                    <h2>
-                                        <FolderOpen size={18} aria-hidden="true" /> Sections de l’offre n°{offering}
-                                    </h2>
-                                    {canManage && (
-                                        <button className="learning-button" onClick={() => sectionForm()}>
-                                            <Plus size={16} aria-hidden="true" /> Ajouter une section
-                                        </button>
+                        {searchForm}
+                    </section>
+                )}
+                {(!teacher || !selected) && (
+                    <div className="learning-workspace">
+                        {!teacher && courseSwitcher}
+                        <div className="learning-main">
+                            {!teacher && offering && (
+                                <section className="portal-panel learning-panel learning-sections">
+                                    <div className="learning-section-heading">
+                                        <h2>
+                                            <FolderOpen size={18} aria-hidden="true" /> Sections de l’offre n°{offering}
+                                        </h2>
+                                        {canManage && (
+                                            <button className="learning-button" onClick={() => sectionForm()}>
+                                                <Plus size={16} aria-hidden="true" /> Ajouter une section
+                                            </button>
+                                        )}
+                                    </div>
+                                    {sections.length ? (
+                                        <ul className="learning-section-list">
+                                            {sections.map((section) => (
+                                                <li key={section.id}>
+                                                    <span>
+                                                        {section.title} <small>· Position {section.position}</small>
+                                                    </span>
+                                                    {canManage && (
+                                                        <button className="learning-button" onClick={() => sectionForm(section)}>
+                                                            Modifier
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>Aucune section. Les ressources peuvent rester dans la liste générale.</p>
                                     )}
-                                </div>
-                                {sections.length ? (
-                                    <ul className="learning-section-list">
-                                        {sections.map((section) => (
-                                            <li key={section.id}>
-                                                <span>
-                                                    {section.title} <small>· Position {section.position}</small>
-                                                </span>
-                                                {canManage && (
-                                                    <button className="learning-button" onClick={() => sectionForm(section)}>
+                                    {workOrganisation}
+                                </section>
+                            )}
+                            {selected && (
+                                <section
+                                    id="learning-selected"
+                                    className="portal-panel learning-panel learning-selected"
+                                    aria-label="Ressource sélectionnée"
+                                    data-resource-id={selected.id}
+                                >
+                                    <div className="learning-section-heading">
+                                        <h2 tabIndex={-1}>
+                                            <FileText size={18} aria-hidden="true" /> {selected.title}
+                                        </h2>
+                                        <span className="learning-state" data-state={stateOf(selected)}>
+                                            {status(selected)}
+                                        </span>
+                                    </div>
+                                    <p className="learning-muted">
+                                        {selected.course} · {selected.section ?? 'Sans section'}
+                                        {selected.current_version ? ` · Version ${selected.current_version}` : ' · Édition historique'}
+                                    </p>
+                                    <p>
+                                        Mis à jour le {dateTime(selected.updated_at)}
+                                        {selected.published_at && ` · Publié le ${dateTime(selected.published_at)}`}
+                                        {selected.archived_at && ` · Archivé le ${dateTime(selected.archived_at)}`}
+                                    </p>
+                                    {selected.body && <p style={{ whiteSpace: 'pre-wrap' }}>{selected.body}</p>}
+                                    {fileStatus && fileStatus !== 'available' ? (
+                                        <p role="status">Fichier indisponible dans le stockage configuré.</p>
+                                    ) : (
+                                        fileLinks(selected)
+                                    )}
+                                    {selected.size_bytes !== null && (
+                                        <p>Taille du fichier : {new Intl.NumberFormat('fr').format(selected.size_bytes)} octets.</p>
+                                    )}
+                                    {canManage && (
+                                        <div className="learning-actions">
+                                            {!selected.archived_at && (
+                                                <>
+                                                    <button className="learning-button" onClick={() => edit(selected)}>
                                                         Modifier
                                                     </button>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p>Aucune section. Les ressources peuvent rester dans la liste générale.</p>
-                                )}
-                                {canManage && (
-                                    <details>
-                                        <summary>Séances et travaux à organiser</summary>
-                                        {works?.data.length ? (
-                                            <ul>
-                                                {works.data.map((work) => (
-                                                    <li key={work.id}>
-                                                        {work.title}{' '}
-                                                        {work.assessment_exists ? (
-                                                            <Link
-                                                                className="learning-button"
-                                                                href={route(
-                                                                    admin
-                                                                        ? 'dashboard.admin.assessments.index'
-                                                                        : 'dashboard.teaching.assessments.index',
-                                                                    { resource: work.id },
+                                                    <button
+                                                        className="learning-button is-primary"
+                                                        onClick={() => publish(selected, selected.is_published ? 'withdraw' : 'publish')}
+                                                    >
+                                                        {selected.is_published ? 'Retirer' : 'Publier'}
+                                                    </button>
+                                                    <button className="learning-button" onClick={() => publish(selected, 'archive')}>
+                                                        Archiver
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button className="learning-button" onClick={() => reuse(selected)}>
+                                                Réutiliser
+                                            </button>
+                                        </div>
+                                    )}
+                                    {versions && (
+                                        <>
+                                            <h3 className="learning-versions-heading">Historique des versions</h3>
+                                            {versions.data.length ? (
+                                                <ul>
+                                                    {versions.data.map((version) => (
+                                                        <li key={version.number}>
+                                                            <details>
+                                                                <summary>
+                                                                    Version {version.number} · {version.edition.title} ·{' '}
+                                                                    {dateTime(version.created_at)}
+                                                                </summary>
+                                                                {version.author_id && <p>Auteur n°{version.author_id}</p>}
+                                                                {version.reason && <p>{version.reason}</p>}
+                                                                {version.edition.body && (
+                                                                    <p style={{ whiteSpace: 'pre-wrap' }}>{version.edition.body}</p>
                                                                 )}
-                                                            >
-                                                                Ouvrir l’évaluation
-                                                            </Link>
-                                                        ) : (
-                                                            <button className="learning-button" onClick={() => placeWork(work)}>
-                                                                Associer à une section ou une séance
-                                                            </button>
-                                                        )}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p>Aucun devoir ou évaluation dans cette offre.</p>
-                                        )}
-                                        <Pagination value={sessions} />
-                                        <Pagination value={works} />
-                                    </details>
-                                )}
-                            </section>
-                        )}
-                        {selected && (
-                            <section
-                                id="learning-selected"
-                                className="portal-panel learning-panel learning-selected"
-                                aria-label="Ressource sélectionnée"
-                                data-resource-id={selected.id}
-                            >
+                                                                {httpLink(version.edition.url) && (
+                                                                    <a
+                                                                        href={httpLink(version.edition.url)!}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                    >
+                                                                        Ouvrir le lien de cette version
+                                                                    </a>
+                                                                )}
+                                                                {version.download_url && (
+                                                                    <a href={version.download_url}>
+                                                                        Télécharger {version.edition.filename || 'cette version'}
+                                                                    </a>
+                                                                )}
+                                                                {canManage && (
+                                                                    <button
+                                                                        className="learning-button"
+                                                                        onClick={() => reuse(selected, version.number)}
+                                                                    >
+                                                                        Réutiliser cette version
+                                                                    </button>
+                                                                )}
+                                                            </details>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p>L’édition historique sera enregistrée lors du premier remplacement.</p>
+                                            )}
+                                            <Pagination value={versions} />
+                                        </>
+                                    )}
+                                </section>
+                            )}
+                            <section className="portal-panel learning-panel" aria-labelledby="learning-results-heading">
                                 <div className="learning-section-heading">
-                                    <h2 tabIndex={-1}>
-                                        <FileText size={18} aria-hidden="true" /> {selected.title}
-                                    </h2>
-                                    <span className="learning-state" data-state={stateOf(selected)}>
-                                        {status(selected)}
+                                    <div>
+                                        <h2 id="learning-results-heading">
+                                            {teacher && <FolderOpen size={18} aria-hidden="true" />}
+                                            Bibliothèque de supports
+                                        </h2>
+                                        {teacher && chapterTitle && <p className="learning-library-scope">{chapterTitle}</p>}
+                                    </div>
+                                    <span className="learning-count">
+                                        {number.format(resources.total)} {teacher ? 'support' : 'résultat'}
+                                        {resources.total !== 1 ? 's' : ''}
                                     </span>
                                 </div>
-                                <p className="learning-muted">
-                                    {selected.course} · {selected.section ?? 'Sans section'}
-                                    {selected.current_version ? ` · Version ${selected.current_version}` : ' · Édition historique'}
-                                </p>
-                                <p>
-                                    Mis à jour le {dateTime(selected.updated_at)}
-                                    {selected.published_at && ` · Publié le ${dateTime(selected.published_at)}`}
-                                    {selected.archived_at && ` · Archivé le ${dateTime(selected.archived_at)}`}
-                                </p>
-                                {selected.body && <p style={{ whiteSpace: 'pre-wrap' }}>{selected.body}</p>}
-                                {fileStatus && fileStatus !== 'available' ? (
-                                    <p role="status">Fichier indisponible dans le stockage configuré.</p>
+                                {teacher && (
+                                    <details className="learning-library-filters" open={activeFilters > 0 || undefined}>
+                                        <summary>
+                                            <Search size={16} aria-hidden="true" /> Rechercher et filtrer
+                                            {activeFilters > 0 && <span className="learning-count">{activeFilters}</span>}
+                                            <ChevronDown size={16} aria-hidden="true" />
+                                        </summary>
+                                        {searchForm}
+                                    </details>
+                                )}
+                                {resources.data.length ? (
+                                    <ul className="learning-resource-list">
+                                        {resources.data.map((item) => {
+                                            const Icon = kindIcons[item.kind as keyof typeof kinds] ?? FileText;
+                                            return (
+                                                <li key={item.id}>
+                                                    <Link
+                                                        aria-current={selected?.id === item.id ? 'true' : undefined}
+                                                        href={libraryUrl({
+                                                            offering: teacher ? (offering ?? undefined) : item.academic_offering_id,
+                                                            resource: item.id,
+                                                            page: teacher ? libraryPage : undefined,
+                                                        })}
+                                                        preserveScroll={!teacher}
+                                                        onSuccess={() => {
+                                                            requestAnimationFrame(() => {
+                                                                const panel = document.getElementById('learning-selected');
+                                                                if (panel?.dataset.resourceId !== String(item.id)) return;
+
+                                                                panel.querySelector('h2')?.focus({ preventScroll: true });
+                                                                if (teacher) return;
+                                                                panel.scrollIntoView({
+                                                                    block: 'start',
+                                                                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                                                                        ? 'instant'
+                                                                        : 'smooth',
+                                                                });
+                                                            });
+                                                        }}
+                                                    >
+                                                        <span className="learning-item-icon">
+                                                            <Icon size={20} aria-hidden="true" />
+                                                        </span>
+                                                        <span className="learning-resource-copy">
+                                                            <strong>{item.title}</strong>
+                                                            <small>
+                                                                {kinds[item.kind as keyof typeof kinds] ?? item.kind} · {item.course}
+                                                                {item.section && ` · ${item.section}`}
+                                                            </small>
+                                                        </span>
+                                                        <span className="learning-state" data-state={stateOf(item)}>
+                                                            {status(item)}
+                                                        </span>
+                                                        <ArrowUpRight className="learning-resource-arrow" size={16} aria-hidden="true" />
+                                                    </Link>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 ) : (
-                                    fileLinks(selected)
-                                )}
-                                {selected.size_bytes !== null && (
-                                    <p>Taille du fichier : {new Intl.NumberFormat('fr').format(selected.size_bytes)} octets.</p>
-                                )}
-                                {canManage && (
-                                    <div className="learning-actions">
-                                        {!selected.archived_at && (
-                                            <>
-                                                <button className="learning-button" onClick={() => edit(selected)}>
-                                                    Modifier
-                                                </button>
-                                                <button
-                                                    className="learning-button is-primary"
-                                                    onClick={() => publish(selected, selected.is_published ? 'withdraw' : 'publish')}
-                                                >
-                                                    {selected.is_published ? 'Retirer' : 'Publier'}
-                                                </button>
-                                                <button className="learning-button" onClick={() => publish(selected, 'archive')}>
-                                                    Archiver
-                                                </button>
-                                            </>
-                                        )}
-                                        <button className="learning-button" onClick={() => reuse(selected)}>
-                                            Réutiliser
-                                        </button>
+                                    <div className="learning-empty learning-library-empty">
+                                        <FolderOpen size={24} aria-hidden="true" />
+                                        <p>Aucun support ne correspond à ces critères.</p>
                                     </div>
                                 )}
-                                {versions && (
-                                    <>
-                                        <h3 className="learning-versions-heading">Historique des versions</h3>
-                                        {versions.data.length ? (
-                                            <ul>
-                                                {versions.data.map((version) => (
-                                                    <li key={version.number}>
-                                                        <details>
-                                                            <summary>
-                                                                Version {version.number} · {version.edition.title} · {dateTime(version.created_at)}
-                                                            </summary>
-                                                            {version.author_id && <p>Auteur n°{version.author_id}</p>}
-                                                            {version.reason && <p>{version.reason}</p>}
-                                                            {version.edition.body && <p style={{ whiteSpace: 'pre-wrap' }}>{version.edition.body}</p>}
-                                                            {httpLink(version.edition.url) && (
-                                                                <a href={httpLink(version.edition.url)!} target="_blank" rel="noopener noreferrer">
-                                                                    Ouvrir le lien de cette version
-                                                                </a>
-                                                            )}
-                                                            {version.download_url && (
-                                                                <a href={version.download_url}>
-                                                                    Télécharger {version.edition.filename || 'cette version'}
-                                                                </a>
-                                                            )}
-                                                            {canManage && (
-                                                                <button className="learning-button" onClick={() => reuse(selected, version.number)}>
-                                                                    Réutiliser cette version
-                                                                </button>
-                                                            )}
-                                                        </details>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <p>L’édition historique sera enregistrée lors du premier remplacement.</p>
-                                        )}
-                                        <Pagination value={versions} />
-                                    </>
-                                )}
+                                <Pagination value={resources} />
                             </section>
-                        )}
-                        <section className="portal-panel learning-panel" aria-labelledby="learning-results-heading">
-                            <div className="learning-section-heading">
-                                <h2 id="learning-results-heading">Bibliothèque de supports</h2>
-                                <span className="learning-count">
-                                    {number.format(resources.total)} résultat{resources.total !== 1 ? 's' : ''}
-                                </span>
-                            </div>
-                            {resources.data.length ? (
-                                <ul className="learning-resource-list">
-                                    {resources.data.map((item) => {
-                                        const Icon = kindIcons[item.kind as keyof typeof kinds] ?? FileText;
-                                        return (
-                                            <li key={item.id}>
-                                                <Link
-                                                    aria-current={selected?.id === item.id ? 'true' : undefined}
-                                                    href={route(prefix + 'index', {
-                                                        ...filters,
-                                                        offering: item.academic_offering_id,
-                                                        resource: item.id,
-                                                    })}
-                                                    preserveScroll
-                                                    onSuccess={() => {
-                                                        requestAnimationFrame(() => {
-                                                            const panel = document.getElementById('learning-selected');
-                                                            if (panel?.dataset.resourceId !== String(item.id)) return;
-
-                                                            panel.querySelector('h2')?.focus({ preventScroll: true });
-                                                            panel.scrollIntoView({
-                                                                block: 'start',
-                                                                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                                                                    ? 'instant'
-                                                                    : 'smooth',
-                                                            });
-                                                        });
-                                                    }}
-                                                >
-                                                    <span className="learning-item-icon">
-                                                        <Icon size={20} aria-hidden="true" />
-                                                    </span>
-                                                    <span className="learning-resource-copy">
-                                                        <strong>{item.title}</strong>
-                                                        <small>
-                                                            {kinds[item.kind as keyof typeof kinds] ?? item.kind} · {item.course}
-                                                            {item.section && ` · ${item.section}`}
-                                                        </small>
-                                                    </span>
-                                                    <span className="learning-state" data-state={stateOf(item)}>
-                                                        {status(item)}
-                                                    </span>
-                                                    <ArrowUpRight className="learning-resource-arrow" size={16} aria-hidden="true" />
-                                                </Link>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            ) : (
-                                <div className="learning-empty learning-library-empty">
-                                    <FolderOpen size={24} aria-hidden="true" />
-                                    <p>Aucun support ne correspond à ces critères.</p>
-                                </div>
-                            )}
-                            <Pagination value={resources} />
-                        </section>
+                            {teacher && workOrganisation}
+                        </div>
+                        {teacher && courseSwitcher}
                     </div>
-                </div>
+                )}
             </div>
         </Dashboard>
     );

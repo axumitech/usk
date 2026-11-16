@@ -56,8 +56,9 @@ final class TeacherWorkspaceController
         }
 
         $instructor = $selected && $this->learning->instructor($selected, $teacher);
-        $canPublish = $selected && $this->learning->canManage($actor, $selected);
         $isCourseDetail = $view === 'courses' && $selected;
+        $restriction = $selected ? $this->learning->teacherManagementRestriction($actor, $selected, $teacher) : null;
+        $canPublish = $selected !== null && $restriction === null;
         $period = $dashboard->parameters($periods);
         $courseDetails = $isCourseDetail ? $details->read($actor, $teacher, $selected, $input, $canPublish, $period) : [];
         $week = $periods['week_start'];
@@ -86,6 +87,7 @@ final class TeacherWorkspaceController
             }),
             'selected' => $selected ? $this->courseRow($selected, $dashboard) : null,
             'canPublish' => $canPublish,
+            'courseManagementRestriction' => $isCourseDetail ? $restriction : null,
         ] + $courseDetails + [
             'courseTab' => null, 'canSeeCourseStudents' => false, 'canSeeCourseAssessments' => false, 'canSeeCourseGrades' => false,
             'courseLinks' => null, 'courseOverview' => null, 'gradebook' => null,

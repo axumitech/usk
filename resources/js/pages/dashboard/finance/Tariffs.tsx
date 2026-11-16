@@ -4,7 +4,7 @@ import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { money } from '@/components/student/types';
 import { formatDate } from '@/lib/studentEnrollment';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, FilePlus2, Filter, Landmark, Pencil, Receipt, Users } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ClipboardList, FilePlus2, Filter, Landmark, LibraryBig, Pencil, Receipt, Users } from 'lucide-react';
 import { useState } from 'react';
 import '../../../../css/dashboard/finance.css';
 import '../../../../css/dashboard/student-academic.css';
@@ -26,9 +26,13 @@ type Tariff = {
     valid_from: string;
     valid_until: string | null;
     academic_year: { id: number; title: string } | null;
+    faculty?: Choice | null;
+    faculty_id?: number | null;
+    level_id?: number | null;
     level: Level | null;
     program: Program | null;
-    schedule: { amount_cents: number; due_at: string }[];
+    automatic?: boolean;
+    schedule: { amount_cents: number; due_at: string | null }[];
     can_apply: boolean;
     replace_id: number | null;
 };
@@ -42,13 +46,20 @@ type Props = {
     programs: Program[];
     cycles: Choice[];
     currencies: string[];
+    canScopeUniversity: boolean;
 };
 
 const categoryLabels: Record<string, string> = {
+    all: 'Tous les étudiants',
     national: 'Étudiants nationaux · RDC',
     foreign: 'Étudiants étrangers',
 };
+const tuitionCategories = [
+    { value: 'national', label: categoryLabels.national },
+    { value: 'foreign', label: categoryLabels.foreign },
+];
 const statusLabels: Record<string, string> = { draft: 'Brouillon', active: 'Actif', archived: 'Archivé' };
+const enrollmentFormFee = { title: 'Fiche d’enrôlement', kind: 'fiche_enrolement' };
 const reason: Field = { name: 'reason', label: 'Justification', type: 'textarea', required: true };
 const scheduleField: Field = {
     name: 'schedule',
@@ -58,7 +69,31 @@ const scheduleField: Field = {
     scheduleCurrencyField: 'currency',
     allowZeroScheduleAmount: true,
 };
+const additionalScheduleField: Field = {
+    ...scheduleField,
+    label: 'Montants à payer',
+    help: 'Laissez la date limite vide pour facturer le montant sans échéance.',
+    optionalScheduleDueDates: true,
+};
+const validityFields = (ancillary: boolean, tariff?: Pick<Tariff, 'valid_from' | 'valid_until'>): Field[] => [
+    {
+        name: 'valid_from',
+        label: ancillary ? 'Date de début d’application' : 'Début de validité',
+        type: 'date',
+        required: true,
+        value: tariff?.valid_from,
+    },
+    { name: 'valid_until', label: 'Fin de validité', type: 'date', value: tariff?.valid_until },
+];
 const indexRoute = 'dashboard.admin.finance.tariffs.index';
+const levelLabel = (level: Level) => [level.faculty?.name, level.title].filter(Boolean).join(' · ');
+const tariffTotal = (tariff: Tariff) =>
+    money(
+        tariff.schedule.reduce((sum, row) => sum + row.amount_cents, 0),
+        tariff.currency,
+    );
+const automaticTariff = (tariff: Tariff) =>
+    tariff.automatic || (tariff.kind === 'tuition' && tuitionCategories.some(({ value }) => value === tariff.category));
 
 export default function Tariffs(props: Props) {
     const { tariffs, filters, years } = props;
@@ -67,9 +102,16 @@ export default function Tariffs(props: Props) {
     const year = years.find((item) => item.id === Number(filters.year));
     const activeFilters = Boolean(filters.faculty || filters.level || filters.category || filters.status);
     const financeUrl = route('dashboard.admin.finance.index', { year: filters.year });
-    const scope = (tariff: Tariff) =>
-        [tariff.level?.faculty?.name ?? tariff.program?.faculty?.name, tariff.program?.name, tariff.level?.title].filter(Boolean).join(' · ') ||
-        'Périmètre institutionnel';
+    const scope = (tariff: Tariff) => {
+        const level = tariff.level ?? props.levels.find(({ id }) => id === tariff.level_id);
+        const faculty = tariff.faculty ?? props.faculties.find(({ id }) => id === tariff.faculty_id);
+        const name = [level?.faculty?.name ?? tariff.program?.faculty?.name ?? faculty?.name, tariff.program?.name, level?.title]
+            .filter(Boolean)
+            .join(' · ');
+
+        if (!name && (tariff.faculty_id || tariff.level_id)) return 'Périmètre à vérifier';
+        return name || (tariff.automatic ? 'Toute l’université' : 'Périmètre institutionnel');
+    };
     const tariffRoute = (action: 'update' | 'activate' | 'apply', tariff: Tariff) =>
         route(`dashboard.admin.finance.tariffs.${action}`, { tariff: tariff.id, ...filters });
 
@@ -85,15 +127,98 @@ export default function Tariffs(props: Props) {
             values: { revision: tariff.revision, currency: tariff.currency },
             fields: [
                 { name: 'title', label: 'Libellé', required: true, value: tariff.title },
-                { name: 'valid_from', label: 'Début de validité', type: 'date', required: true, value: tariff.valid_from },
-                { name: 'valid_until', label: 'Fin de validité', type: 'date', value: tariff.valid_until },
+                ...validityFields(Boolean(tariff.automatic), tariff),
                 {
-                    ...scheduleField,
-                    value: tariff.schedule.map(({ amount_cents, due_at }) => ({ amount: (amount_cents / 100).toFixed(2), due_at })),
+                    ...(tariff.automatic ? additionalScheduleField : scheduleField),
+                    value: tariff.schedule.map(({ amount_cents, due_at }) => ({ amount: (amount_cents / 100).toFixed(2), due_at: due_at ?? '' })),
                 },
                 reason,
             ],
             submitLabel: draft ? 'Enregistrer le barème' : 'Créer le brouillon',
+        });
+    };
+
+    const yearField: Field = {
+        name: 'academic_year_id',
+        label: 'Année académique',
+        type: 'select',
+        required: true,
+        options: years.map((item) => ({ value: item.id, label: item.title })),
+        value: filters.year,
+    };
+    const paymentFields = (ancillary: boolean): Field[] => [
+        {
+            name: 'currency',
+            label: 'Devise',
+            type: 'select',
+            required: true,
+            options: props.currencies.map((value) => ({ value, label: value })),
+            value: props.currencies[0],
+        },
+        ...validityFields(ancillary),
+        { ...(ancillary ? additionalScheduleField : scheduleField), value: [{ amount: '', due_at: '' }] },
+        reason,
+    ];
+    const scopes = [
+        ...(props.canScopeUniversity ? [{ value: 'university', label: 'Toute l’université' }] : []),
+        ...(props.faculties.length ? [{ value: 'faculty', label: 'Une faculté' }] : []),
+        ...(props.levels.length ? [{ value: 'level', label: 'Un niveau' }] : []),
+    ];
+
+    const createAdditional = (preset?: typeof enrollmentFormFee) => {
+        setSpec({
+            title: 'Ajouter des frais complémentaires',
+            description:
+                'Choisissez les étudiants concernés et le montant. Les frais apparaissent dans leurs comptes à partir de la date d’application du barème actif.',
+            action: route('dashboard.admin.finance.tariffs', { category: 'all' }),
+            values: { category: 'all', automatic: true },
+            fields: [
+                {
+                    name: 'title',
+                    label: 'Intitulé affiché aux étudiants',
+                    required: true,
+                    value: preset?.title,
+                    help: 'Par exemple, Frais de bibliothèque ou Fiche d’enrôlement.',
+                },
+                {
+                    name: 'kind',
+                    label: 'Identifiant du frais',
+                    required: true,
+                    value: preset?.kind,
+                    pattern: '[a-z][a-z0-9_]{0,49}',
+                    help: 'Ex. bibliotheque. Utilisez des minuscules sans accent, des chiffres et des tirets bas. Un même identifiant désigne le même frais dans tous les périmètres.',
+                },
+                yearField,
+                {
+                    name: 'fee_scope',
+                    label: 'Étudiants concernés',
+                    type: 'select',
+                    required: true,
+                    options: scopes,
+                    value: filters.level ? 'level' : filters.faculty ? 'faculty' : '',
+                    clears: ['faculty_id', 'level_id'],
+                },
+                {
+                    name: 'faculty_id',
+                    label: 'Faculté',
+                    type: 'select',
+                    required: true,
+                    visibleFor: (values) => values.fee_scope === 'faculty',
+                    options: props.faculties.map(({ id, name }) => ({ value: id, label: name })),
+                    value: filters.level ? undefined : filters.faculty,
+                },
+                {
+                    name: 'level_id',
+                    label: 'Niveau et faculté',
+                    type: 'select',
+                    required: true,
+                    visibleFor: (values) => values.fee_scope === 'level',
+                    options: props.levels.map((level) => ({ value: level.id, label: levelLabel(level) })),
+                    value: filters.level,
+                },
+                ...paymentFields(true),
+            ],
+            submitLabel: 'Créer le brouillon',
         });
     };
 
@@ -104,19 +229,12 @@ export default function Tariffs(props: Props) {
             action: route('dashboard.admin.finance.tariffs', filters),
             fields: [
                 { name: 'title', label: 'Libellé', required: true },
-                {
-                    name: 'academic_year_id',
-                    label: 'Année académique',
-                    type: 'select',
-                    required: true,
-                    options: years.map((item) => ({ value: item.id, label: item.title })),
-                    value: filters.year,
-                },
+                yearField,
                 {
                     name: 'level_id',
                     label: 'Niveau',
                     type: 'select',
-                    options: props.levels.map((item) => ({ value: item.id, label: [item.faculty?.name, item.title].filter(Boolean).join(' · ') })),
+                    options: props.levels.map((item) => ({ value: item.id, label: levelLabel(item) })),
                     value: filters.level,
                 },
                 {
@@ -136,8 +254,8 @@ export default function Tariffs(props: Props) {
                     label: 'Catégorie tarifaire',
                     type: 'select',
                     required: true,
-                    options: Object.entries(categoryLabels).map(([value, label]) => ({ value, label })),
-                    value: filters.category,
+                    options: tuitionCategories,
+                    value: filters.category === 'all' ? undefined : filters.category,
                 },
                 {
                     name: 'kind',
@@ -146,31 +264,22 @@ export default function Tariffs(props: Props) {
                     value: 'tuition',
                     help: 'Utilisez tuition pour les frais académiques.',
                 },
-                {
-                    name: 'currency',
-                    label: 'Devise',
-                    type: 'select',
-                    required: true,
-                    options: props.currencies.map((value) => ({ value, label: value })),
-                    value: props.currencies[0],
-                },
-                { name: 'valid_from', label: 'Début de validité', type: 'date', required: true },
-                { name: 'valid_until', label: 'Fin de validité', type: 'date' },
-                { ...scheduleField, value: [{ amount: '', due_at: '' }] },
-                reason,
+                ...paymentFields(false),
             ],
             submitLabel: 'Créer le brouillon',
         });
     };
 
     const activate = (tariff: Tariff) => {
-        const automatic = tariff.kind === 'tuition' && tariff.category in categoryLabels;
+        const automatic = automaticTariff(tariff);
+        const impact = [scope(tariff), tariff.academic_year?.title, `${tariffTotal(tariff)} par inscription`].filter(Boolean).join(' · ');
         setSpec({
             title: 'Activer le barème',
             description: [
+                automatic && `${impact}.`,
                 tariff.replace_id && 'Cette version remplace le barème actif pour ce périmètre.',
-                automatic && 'Dès son entrée en vigueur, le barème ajoute les échéances aux inscriptions validées qui attendent leurs frais.',
-                'Les frais déjà affectés sont conservés.',
+                automatic && 'Dès son entrée en vigueur, le barème ajoute les frais aux inscriptions concernées.',
+                'Les montants sont facturés une seule fois par inscription.',
             ]
                 .filter(Boolean)
                 .join(' '),
@@ -184,8 +293,9 @@ export default function Tariffs(props: Props) {
     const apply = (tariff: Tariff) => {
         setSpec({
             title: 'Affecter le barème aux inscriptions',
-            description:
-                'L’échéancier sera créé pour les inscriptions admissibles de cette année et de cette catégorie qui attendent leurs frais académiques.',
+            description: tariff.automatic
+                ? `Les frais seront ajoutés aux inscriptions admissibles qui attendent ce barème. ${scope(tariff)}.`
+                : 'L’échéancier sera créé pour les inscriptions admissibles de cette année et de cette catégorie qui attendent leurs frais académiques.',
             action: tariffRoute('apply', tariff),
             fields: [reason],
             submitLabel: 'Affecter le barème',
@@ -214,7 +324,7 @@ export default function Tariffs(props: Props) {
                             <ArrowLeft size={16} aria-hidden="true" /> Finances
                         </Link>
                         <h1>Barèmes des frais</h1>
-                        <p>Montants et échéances par année académique, niveau et catégorie d’étudiant.</p>
+                        <p>Gérez la scolarité et les frais complémentaires par année académique.</p>
                         <div className="finance-hero-context">
                             {year && (
                                 <span>
@@ -228,9 +338,25 @@ export default function Tariffs(props: Props) {
                         </div>
                     </div>
                     {years.length > 0 && (
-                        <button className="finance-export" type="button" onClick={create}>
-                            <FilePlus2 size={18} aria-hidden="true" /> Créer un barème
-                        </button>
+                        <div className="finance-export-actions tariff-hero-actions">
+                            {scopes.length > 0 && (
+                                <>
+                                    <button className="finance-export" type="button" onClick={() => createAdditional()}>
+                                        <LibraryBig size={18} aria-hidden="true" /> Ajouter des frais complémentaires
+                                    </button>
+                                    <button
+                                        className="finance-export finance-export-csv"
+                                        type="button"
+                                        onClick={() => createAdditional(enrollmentFormFee)}
+                                    >
+                                        <ClipboardList size={18} aria-hidden="true" /> Ajouter une fiche d’enrôlement
+                                    </button>
+                                </>
+                            )}
+                            <button className="finance-export finance-export-csv" type="button" onClick={create}>
+                                <FilePlus2 size={18} aria-hidden="true" /> Créer un barème
+                            </button>
+                        </div>
                     )}
                 </header>
 
@@ -243,10 +369,16 @@ export default function Tariffs(props: Props) {
                                 <header className="tariff-card-header">
                                     <div className="tariff-card-identity">
                                         <span className="tariff-category" data-category={tariff.category}>
-                                            <Users size={15} aria-hidden="true" /> {categoryLabels[tariff.category] ?? tariff.category}
+                                            {tariff.automatic ? <LibraryBig size={15} aria-hidden="true" /> : <Users size={15} aria-hidden="true" />}{' '}
+                                            {tariff.automatic ? 'Frais complémentaires' : (categoryLabels[tariff.category] ?? tariff.category)}
                                         </span>
                                         <h2>{tariff.title}</h2>
                                         <p>{scope(tariff)}</p>
+                                        {tariff.automatic && (
+                                            <p>
+                                                {categoryLabels[tariff.category]} · Identifiant <code>{tariff.kind}</code>
+                                            </p>
+                                        )}
                                     </div>
                                     <span className="tariff-status" data-status={tariff.status}>
                                         {statusLabels[tariff.status] ?? tariff.status} · V{tariff.version}
@@ -255,19 +387,18 @@ export default function Tariffs(props: Props) {
 
                                 <div className="tariff-total">
                                     <span>Total du barème</span>
-                                    <strong>
-                                        {money(
-                                            tariff.schedule.reduce((sum, row) => sum + row.amount_cents, 0),
-                                            tariff.currency,
-                                        )}
-                                    </strong>
+                                    <strong>{tariffTotal(tariff)}</strong>
                                 </div>
                                 <ol className="finance-tariff-installments">
                                     {tariff.schedule.map(({ due_at, amount_cents }, index) => (
                                         <li key={`${due_at}-${index}`}>
                                             <CalendarDays size={15} aria-hidden="true" />
-                                            <span>Échéance {index + 1}</span>
-                                            <time dateTime={due_at}>{formatDate(due_at)}</time>
+                                            <span>{due_at ? `Échéance ${index + 1}` : `Montant ${index + 1}`}</span>
+                                            {due_at ? (
+                                                <time dateTime={due_at}>{formatDate(due_at)}</time>
+                                            ) : (
+                                                <span className="finance-tariff-no-deadline">Sans date limite</span>
+                                            )}
                                             <strong>{money(amount_cents, tariff.currency)}</strong>
                                         </li>
                                     ))}
@@ -306,7 +437,7 @@ export default function Tariffs(props: Props) {
                         <p>
                             {activeFilters
                                 ? 'Modifiez les filtres pour afficher d’autres versions.'
-                                : 'Les barèmes générés avec la maquette apparaîtront ici.'}
+                                : 'Créez un barème ou ajoutez des frais complémentaires pour cette année.'}
                         </p>
                     </section>
                 )}

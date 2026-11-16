@@ -53,16 +53,16 @@ php artisan db:seed --class=CompleteAcademicYearSeeder --force
 
 Le seeder utilise l’année ouverte couvrant la date courante à Kinshasa. À défaut, il retrouve ou crée l’année d’octobre à septembre correspondante. Une année déjà clôturée ne sera pas rouverte automatiquement ; une année future ou concurrençant une autre année ouverte reste en brouillon.
 
-Pour choisir une autre année ou un mot de passe de démonstration, renseigner les paramètres avant le lancement et vider un éventuel cache de configuration :
+Pour choisir une autre année ou définir le mot de passe du compte d’administration de démonstration, renseigner les paramètres avant le lancement et vider un éventuel cache de configuration :
 
 ```dotenv
 DEMO_ACADEMIC_YEAR=2026-2027
 DEMO_ACCOUNTS_PASSWORD=
 ```
 
-Mot de passe vide : un mot de passe aléatoire est généré pour les **nouveaux** comptes et affiché une fois dans la sortie CLI. Une relance ne modifie pas les mots de passe existants.
+Si le mot de passe est vide, le seeder en génère un pour le nouveau compte d’administration et l’affiche une fois dans la sortie CLI.
 
-En local/testing, le `DatabaseSeeder` appelle également ce scénario. En production, le scénario fictif nécessite l’appel explicite de sa classe ; le seeder par défaut se limite aux rôles/permissions et codes de niveaux. Les anciens comptes à mot de passe générique ne sont plus créés automatiquement.
+En local/testing, le `DatabaseSeeder` appelle également ce scénario. Dans ces environnements, les nouveaux comptes des enseignants fictifs se connectent avec leur adresse `@enseignants.example.test` et le mot de passe initial `password`. En production, le seeder par défaut se limite aux rôles/permissions et codes de niveaux. Un appel explicite au scénario de démonstration y crée les fiches des enseignants sans compte de connexion.
 
 ### Contenu du scénario
 
@@ -72,20 +72,19 @@ En local/testing, le `DatabaseSeeder` appelle également ce scénario. En produc
 - 20 enseignants fictifs et leurs affectations aux spécialités correspondantes. Les affectations existantes sont conservées.
 - Planning de toute l’année, du lundi au samedi, blocs à 8 h, 10 h, 13 h et 15 h. Les occurrences sont réparties sur le semestre ; la dernière séance peut durer une heure pour respecter exactement le volume encadré. Le calcul contrôle salles, enseignants et promotions.
 - Sur une base neuve avec les volumes proposés : 15 000 heures encadrées et 7 560 séances. Les séances déjà présentes sont conservées et leur durée est déduite avant de compléter le planning. Une relance n’en ajoute pas lorsque le volume est déjà couvert.
-- 45 étudiants fictifs, trois par niveau : dossiers, justificatifs illustratifs privés, activation des espaces, matricules et inscriptions académiques.
-- Deux tranches de frais par étudiant, en conservant les tarifs déjà renseignés ; scénarios soldé, première tranche payée et paiement en attente. Les tarifs de référence importés correspondent au jeu de démonstration 2026–2027, sans inventer un tarif officiel pour une année future.
-- Présences, retards et absences sur des séances passées uniquement ; fiches pédagogiques privées, travaux, évaluations formatives, remises et appréciations fictives liées à l’étudiant concerné.
+- Tarifs de référence du jeu de démonstration 2026–2027 pour les niveaux sans tarif renseigné.
+- Fiches pédagogiques privées, travaux et évaluations formatives disponibles dans les cours.
 - Traçabilité des opérations ; aucun email ni notification envoyé, aucun débit bancaire ni document académique officiel produit.
 
 Compte d’administration fictif : `demo.admin@usk.example.test`.
-Exemple d’étudiant : `demo.student.med.l1.1@usk.example.test`.
-Les noms, adresses `.example.test`, notes de paiement, salles et documents identifient explicitement le scénario fictif.
+Exemple d’enseignant : `jean-pierre.kabeya@enseignants.example.test`.
+Le scénario laisse les inscriptions étudiantes à la saisie et conserve les dossiers présents lors d’une relance.
 
 Les cours personnalisés et niveaux hors du catalogue proposé sont ignorés. Un plafond de crédits incompatible ou une période ne permettant pas de placer les séances sans conflit provoque un échec explicite et une annulation des écritures de la transaction, sans suppression des données existantes.
 
 ### Exécution locale et validation
 
-La base locale 2026–2027 a été remplie : 15 niveaux, 180 cours et affectations, 45 étudiants fictifs et **7 518 nouvelles séances**, en complément du planning déjà présent. La relance a ajouté **0 séance**.
+Lors de la validation initiale de la version précédente, la base locale 2026–2027 a été remplie avec 15 niveaux, 180 cours et affectations et **7 518 nouvelles séances**, en complément du planning déjà présent. La relance a ajouté **0 séance**.
 
 - Test intégral sur base vierge et relance : volumes horaires, plafonds, absence de conflits, conservation des modifications, fichiers privés et absence de notifications.
 - Tests ciblés des réponses HTTP, de la clé, des années/semestres, du planning, des affectations et du SEO.

@@ -1046,6 +1046,16 @@
     text-decoration: underline;
 }
 
+.tariff-hero-actions button {
+    max-width: 100%;
+    cursor: pointer;
+    text-align: left;
+}
+
+.tariff-hero-actions svg {
+    flex-shrink: 0;
+}
+
 .finance-workspace .tariff-filters {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.4rem), 1fr));
 }
@@ -1169,7 +1179,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-.finance-tariff-installments time {
+.finance-tariff-installments :is(time, .finance-tariff-no-deadline) {
     grid-column: 2;
     color: var(--finance-muted);
 }
@@ -1206,7 +1216,8 @@
 }
 
 @media (max-width: 480px) {
-    .tariff-card-actions button {
+    .tariff-card-actions button,
+    .tariff-hero-actions button {
         flex: 1 1 10rem;
     }
 }

@@ -27,8 +27,13 @@ class AttendanceController extends Controller
         $students = $this->audience->roster($session->offering, $session->starts_at)->with('profile.user')->orderBy('matricule')->orderBy('id')
             ->paginate(50)->withQueryString();
         $records = AcademicAttendance::where('academic_session_id', $session->id)
-            ->whereIn('academic_enrollment_id', $students->getCollection()->pluck('id'))->pluck('status', 'academic_enrollment_id');
-        $data = $students->through(fn ($e) => ['id' => $e->id, 'name' => $e->profile->user->full_name, 'matricule' => $e->matricule, 'status' => $records[$e->id] ?? '']);
+            ->whereIn('academic_enrollment_id', $students->getCollection()->pluck('id'))
+            ->get(['academic_enrollment_id', 'status', 'source', 'checked_in_at'])->keyBy('academic_enrollment_id');
+        $data = $students->through(fn ($entry) => CourseAudience::studentRow($entry) + [
+            'status' => $records->get($entry->id)?->status ?? '',
+            'source' => $records->get($entry->id)?->source,
+            'checked_in_at' => $records->get($entry->id)?->checked_in_at,
+        ]);
         $admin = $actor->hasRole('admin');
         $room = $session->room ?: $session->registeredRoom?->name;
         $location = collect([$session->registeredRoom?->building, $room])->filter()->unique()->join(' · ');
@@ -38,6 +43,10 @@ class AttendanceController extends Controller
             'session' => ['id' => $session->id, 'title' => $session->offering->curriculumItem?->name ?? $session->offering->course->title,
                 'level' => $session->offering->level->title, 'year' => $session->offering->academicYear->title, 'starts_at' => $session->starts_at, 'ends_at' => $session->ends_at, 'room' => $location],
             'canRecord' => $this->access->canRecord($actor, $session),
+            'checkIn' => ! $admin && $this->access->checkInIsOpen($session) ? [
+                'qr_url' => route('dashboard.teaching.attendance.qr', $session, false),
+                'nfc_url' => route('dashboard.teaching.attendance.nfc', $session, false),
+            ] : null,
             'closed' => (bool) $session->attendance_closed_at || $session->offering->academicYear->status === 'closed',
             'revision' => $session->attendance_revision,
             'students' => $data->items(), 'pagination' => ['links' => $data->linkCollection()],

@@ -361,7 +361,17 @@ export default function Portal(props: PortalProps) {
         previousAccess.current = { academic: academic.id, permissions };
     }, [permissions, academic.id]);
     const sectionPollProps: Record<string, string[]> = {
-        overview: ['overview', 'courses', 'calendar_events', 'resources', 'progression', 'sessions', 'upcoming_sessions', 'schedule_week'],
+        overview: [
+            'overview',
+            'profile_completion',
+            'courses',
+            'calendar_events',
+            'resources',
+            'progression',
+            'sessions',
+            'upcoming_sessions',
+            'schedule_week',
+        ],
         academics: ['progression'],
         schedule: ['sessions', 'schedule_week', 'schedule_day', 'schedule_view', 'calendar_events'],
         courses: ['courses', 'course_credits'],
@@ -370,7 +380,8 @@ export default function Portal(props: PortalProps) {
         evaluations: ['resources', 'work_pagination', 'evaluation_counts', 'evaluation_view'],
         results: ['resources', 'official_results'],
         documents: ['document_library', 'document_center'],
-        fees: ['progression', 'finance_details', 'finance_schedule', 'adjustments'],
+        fees: ['progression', 'finance_details', 'finance_schedule', 'payment_proofs', 'adjustments'],
+        'annual-fees': ['finance_details', 'finance_schedule'],
         transactions: ['finance_view', 'payments', 'payments_pagination'],
         services: ['scolarite'],
         requests: ['scolarite'],
@@ -484,6 +495,7 @@ export default function Portal(props: PortalProps) {
                                         profile={props.profile_form}
                                         onFeedback={notify}
                                         initialEditSection={view === 'photo' ? 'photo' : undefined}
+                                        initialEditField={view === 'personal' ? props.profile_edit_field : undefined}
                                     />
                                 )
                             )}
@@ -493,12 +505,18 @@ export default function Portal(props: PortalProps) {
             </Dashboard>
         );
     }
-    if (section === 'fees' || section === 'transactions') {
+    if (section === 'fees' || section === 'annual-fees' || section === 'transactions') {
+        const title =
+            section === 'fees'
+                ? 'Finances'
+                : section === 'annual-fees'
+                  ? 'Frais de l’année'
+                  : props.finance_view === 'receipts'
+                    ? 'Reçus et attestations'
+                    : 'Historique des paiements';
         return (
             <Dashboard>
-                <Head
-                    title={section === 'fees' ? 'Finances' : props.finance_view === 'receipts' ? 'Reçus et attestations' : 'Historique des paiements'}
-                />
+                <Head title={title} />
                 {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
                 <StudentFinance key={`${academic.id}-${section}`} {...props} />
                 {props.progression && <Renewal key={props.progression.id} decision={props.progression} academic={academic.id} />}
@@ -561,6 +579,7 @@ export default function Portal(props: PortalProps) {
                                 alerts={props.overview?.alerts ?? []}
                                 announcements={props.overview?.announcements ?? []}
                                 permissions={permissions}
+                                profile={props.profile_completion}
                             />
                         </div>
                         <StudentShortcuts academic={academic.id} permissions={permissions} onGuide={() => setGuideRequest((value) => value + 1)} />

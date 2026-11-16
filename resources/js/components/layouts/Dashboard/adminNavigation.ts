@@ -125,6 +125,7 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
             ['Demandes et éligibilité', destination('card-requests', access)],
             ['Génération et impression', destination('card-issuance/printing', access)],
             ['Délivrance', destination('card-issuance/delivery', access)],
+            ['Cartes NFC', destination('card-issuance/nfc', access)],
             ['Cartes officielles et vérification', documents('?kind=card')],
         ],
     },
@@ -182,6 +183,7 @@ export const adminNavigation: { id: string; title: string; shortLabel: string; i
         icon: Wallet,
         items: [
             ['Comptes étudiants, paiements et échéanciers', destination('finance', finance)],
+            ['Justificatifs de paiement', destination('finance/payment-proofs', finance)],
             ['Confirmation des inscriptions', destination('finance/confirmations', finance)],
             ['Barèmes des frais', destination('finance/tariffs', finance)],
             ['Rapprochements', destination('finance#reconciliation', finance)],

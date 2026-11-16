@@ -4,6 +4,7 @@ namespace App\Models\Student;
 
 use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\AcademicYear;
+use App\Models\Faculty;
 use App\Models\Level;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,7 @@ class FinanceTariff extends Model
 
     protected $guarded = ['id'];
 
-    protected $casts = ['schedule' => 'array', 'valid_from' => 'date', 'valid_until' => 'date'];
+    protected $casts = ['schedule' => 'array', 'valid_from' => 'date', 'valid_until' => 'date', 'automatic' => 'boolean'];
 
     public function academicYear()
     {
@@ -24,6 +25,11 @@ class FinanceTariff extends Model
     public function level()
     {
         return $this->belongsTo(Level::class);
+    }
+
+    public function faculty()
+    {
+        return $this->belongsTo(Faculty::class);
     }
 
     public function program()

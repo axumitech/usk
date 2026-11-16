@@ -25,6 +25,7 @@ const groups = [
         color: 'sky',
         items: [
             ['Emploi du temps', 'schedule'],
+            ['Mes présences', 'attendance'],
             ['Justifier une absence', 'absences'],
         ],
     },

@@ -30,9 +30,145 @@ async function load(path, imports = {}) {
 const charts = await load('pages/dashboard/finance/FinanceCharts.tsx');
 const overview = await load('pages/dashboard/finance/FinanceOverview.tsx', { './FinanceCharts': charts });
 const enrollment = await load('lib/studentEnrollment.ts');
-const Finance = (await load('pages/dashboard/finance/Index.tsx', { './FinanceOverview': overview, '@/lib/studentEnrollment': enrollment })).default;
+const accountOverview = await load('pages/dashboard/finance/FinanceAccountOverview.tsx', { '@/lib/studentEnrollment': enrollment });
+const account = await load('pages/dashboard/finance/FinanceAccount.tsx', { './FinanceAccountOverview': accountOverview });
+let capturedPaymentForm;
+const AccountActions = (await load('pages/dashboard/finance/FinanceAccount.tsx', {
+    './FinanceAccountOverview': accountOverview,
+    react: { useState: (value) => [value, (updated) => { capturedPaymentForm = updated; }] },
+})).default;
+const Finance = (await load('pages/dashboard/finance/Index.tsx', { './FinanceOverview': overview, './FinanceAccount': account })).default;
+const AcademicForm = (await load('pages/dashboard/studentAcademic/AcademicForm.tsx', {
+    '@/components/admin/AdminModal': { default: ({ children }) => children },
+})).default;
+let capturedTariffForm;
+const TariffActions = (await load('pages/dashboard/finance/Tariffs.tsx', {
+    '@/lib/studentEnrollment': enrollment,
+    react: { useState: (value) => [value, (updated) => { capturedTariffForm = updated; }] },
+})).default;
+
+function findButton(element, text) {
+    if (!React.isValidElement(element)) return undefined;
+    const children = React.Children.toArray(element.props.children);
+    if (element.type === 'button' && children.some((child) => typeof child === 'string' && child.trim() === text)) {
+        return element;
+    }
+    return children.map((child) => findButton(child, text)).find(Boolean);
+}
+
+test('Les frais complémentaires exigent un périmètre et ciblent une seule faculté ou un seul niveau', () => {
+    const faculty = { id: 2, name: 'Médecine' };
+    const level = { id: 3, title: 'Première Licence', faculty_id: 2, faculty };
+    const props = {
+        tariffs: { data: [], total: 0 },
+        filters: { year: 1 },
+        years: [{ id: 1, title: '2026-2027' }],
+        faculties: [faculty],
+        levels: [level],
+        programs: [],
+        cycles: [],
+        currencies: ['USD'],
+    };
+
+    const buttonLabel = 'Ajouter des frais complémentaires';
+    findButton(TariffActions({ ...props, canScopeUniversity: true }), buttonLabel).props.onClick();
+    assert.equal(capturedTariffForm.values.automatic, true);
+    assert.equal(capturedTariffForm.values.category, 'all');
+    const fields = Object.fromEntries(capturedTariffForm.fields.map((field) => [field.name, field]));
+    assert.equal(fields.fee_scope.required, true);
+    assert.equal(fields.fee_scope.value, '');
+    assert.deepEqual(Array.from(fields.fee_scope.options, ({ value }) => value), ['university', 'faculty', 'level']);
+    assert.deepEqual(Array.from(fields.fee_scope.clears), ['faculty_id', 'level_id']);
+    assert.equal(fields.faculty_id.required, true);
+    assert.equal(fields.faculty_id.visibleFor({ fee_scope: 'faculty' }), true);
+    assert.equal(fields.faculty_id.visibleFor({ fee_scope: 'university' }), false);
+    assert.equal(fields.level_id.required, true);
+    assert.equal(fields.level_id.visibleFor({ fee_scope: 'level' }), true);
+    assert.equal(fields.level_id.visibleFor({ fee_scope: 'faculty' }), false);
+    assert.equal(fields.valid_from.label, 'Date de début d’application');
+    assert.equal(fields.valid_from.required, true);
+
+    const ancillary = renderToStaticMarkup(React.createElement(AcademicForm, { spec: capturedTariffForm }));
+    assert.match(ancillary, /Date limite \(facultative\)<input type="date" value=""/);
+    assert.match(ancillary, /Montant \(USD\)<input type="number" min="0" step="0\.01" required/);
+
+    findButton(TariffActions({ ...props, canScopeUniversity: true }), 'Créer un barème').props.onClick();
+    const tuition = renderToStaticMarkup(React.createElement(AcademicForm, { spec: capturedTariffForm }));
+    assert.match(tuition, /Échéance 1<input type="date" required/);
+
+    findButton(TariffActions({ ...props, canScopeUniversity: false }), buttonLabel).props.onClick();
+    assert.deepEqual(Array.from(capturedTariffForm.fields.find(({ name }) => name === 'fee_scope').options, ({ value }) => value), ['faculty', 'level']);
+
+    findButton(TariffActions({ ...props, canScopeUniversity: true }), 'Ajouter une fiche d’enrôlement').props.onClick();
+    const enrollmentFee = Object.fromEntries(capturedTariffForm.fields.map((field) => [field.name, field]));
+    assert.equal(enrollmentFee.title.value, 'Fiche d’enrôlement');
+    assert.equal(enrollmentFee.kind.value, 'fiche_enrolement');
+    assert.equal(enrollmentFee.fee_scope.value, '');
+    assert.equal(enrollmentFee.schedule.value[0].amount, '');
+});
+
+test('L’activation d’un frais complémentaire annonce son périmètre', () => {
+    const faculty = { id: 2, name: 'Faculté de Médecine' };
+    const tariff = {
+        id: 2, faculty, title: 'Bibliothèque', kind: 'bibliotheque', category: 'all',
+        currency: 'USD', automatic: true, status: 'draft', schedule: [{ amount_cents: 1000, due_at: null }],
+        valid_from: '2026-11-16', revision: 'revision',
+    };
+    const page = TariffActions({
+        tariffs: { data: [tariff], total: 1 },
+        filters: { year: 1 },
+        years: [{ id: 1, title: '2026-2027' }],
+        faculties: [faculty],
+        levels: [],
+        programs: [],
+        cycles: [],
+        currencies: ['USD'],
+        canScopeUniversity: true,
+    });
+    findButton(page, 'Activer le barème').props.onClick();
+    assert.match(capturedTariffForm.description, /^Faculté de Médecine · 1000 USD par inscription\./);
+    assert.match(renderToStaticMarkup(page), /Montant 1<\/span><span class="finance-tariff-no-deadline">Sans date limite/);
+    findButton(page, 'Modifier').props.onClick();
+    const edited = renderToStaticMarkup(React.createElement(AcademicForm, { spec: capturedTariffForm }));
+    assert.match(edited, /Date limite \(facultative\)<input type="date" value=""/);
+    assert.match(edited, /value="10\.00"/);
+});
+
 const page = { entries: {data: []}, selected: null, filters: {}, statement: null, totals: [], cashflow: {start_month: '2025-12', end_month: '2026-11', series: []}, breakdowns: {faculties: [], fee_kinds: []}, obligations: [], adjustments: null, payments: null, refunds: null, tariffs: {data: []}, years: [], faculties: [], programs: [], levels: [], cycles: [], currencies: ['USD', 'CDF'], methods: ['cash', 'bank_transfer'], dualControl: false, preview: null };
 const total = (currency, amount) => ({currency, billed_cents: amount, waived_cents: 0, due_cents: amount, gross_cents: 0, refunded_cents: 0, net_cents: 0, balance_cents: amount, overdue_cents: 0, pending_cents: 0, cancelled_cents: 0, legacy_reversal_cents: 0});
+test('Le versement permet de choisir les frais facturés et indique le solde de chacun', () => {
+    const statement = {
+        balance: { currency: 'USD', assessed: true },
+        kind_titles: { tuition: 'Frais académiques', fiche_enrolement: 'Fiche d’enrôlement', library: 'Bibliothèque' },
+        kinds: {
+            tuition: { currency: 'USD', balance_cents: 45000 },
+            fiche_enrolement: { currency: 'USD', balance_cents: 1500 },
+            library: { currency: 'USD', balance_cents: 0 },
+        },
+        schedules: {},
+        obligations: [],
+    };
+    const accountPage = AccountActions({
+        ...page,
+        selected: { id: 1, name: 'Étudiant', year: '2026-2027' },
+        accountBackUrl: '/finance',
+        accountBackLabel: 'Comptes étudiants',
+        enrollmentConfirmation: { status: 'confirmed', canConfirm: false },
+        pendingPaymentCount: 0,
+        statement,
+        obligations: [{ kind: 'tuition' }, { kind: 'tuition' }, { kind: 'fiche_enrolement' }, { kind: 'library' }],
+    });
+    findButton(accountPage, 'Saisir un versement').props.onClick();
+    const fields = Object.fromEntries(capturedPaymentForm.fields.map((field) => [field.name, field]));
+    assert.equal(fields.kind.value, '');
+    assert.equal(fields.amount.value, '');
+    assert.deepEqual(Array.from(fields.kind.options, ({ value, label }) => [value, label]), [
+        ['tuition', 'Frais académiques · 45000 USD restant à payer'],
+        ['fiche_enrolement', 'Fiche d’enrôlement · 1500 USD restant à payer'],
+        ['library', 'Bibliothèque · Soldé'],
+        ['unallocated', 'Versement général à affecter après confirmation'],
+    ]);
+});
 test('L’export CSV utilise un lien navigateur et conserve les filtres', () => {
     const html = renderToStaticMarkup(React.createElement(Finance, { ...page, filters: { year: 4, currency: 'USD' } }));
     assert.match(html, /<a[^>]*href="\/route\/dashboard\.admin\.finance\.export\?year=4&amp;currency=USD">\s*Exporter les totaux CSV<\/a>/);
@@ -85,9 +221,62 @@ test('Le relevé est prévisualisé et exige une sélection explicite avant rapp
     assert.match(html, /Prévisualiser sans modifier les paiements/); assert.match(html, /Confirmer les correspondances sélectionnées/);
     assert.doesNotMatch(html, /checked=""/); assert.match(html, /disabled=""/);
 });
-test('Un paiement en vérification propose un contrôle et ne possède pas de reçu payé', () => {
-    const balance = {currency: 'USD', due_cents: 10000, paid_cents: 0, balance_cents: 10000, credit_cents: 0};
-    const html = renderToStaticMarkup(React.createElement(Finance, {...page, selected: {id: 1, name: 'Étudiant', year: '2026-2027'}, statement: {balance, schedules: {}, kinds: {}}, payments: {data: [{id: 1, reference: 'PENDING', amount_cents: 1000, currency: 'USD', kind: 'tuition', method: 'cash', status: 'pending', confirmed_at: null}]}}));
-    assert.match(html, /Confirmer<\/button>/); assert.doesNotMatch(html, /Reçu et état actuel<\/a>/);
-    assert.doesNotMatch(html, /Demander un remboursement<\/button>/);
+test('Le compte ouvre sur les tranches détaillées et la confirmation du versement', () => {
+    const balance = {currency: 'USD', assessed: true, total_cents: 10000, due_cents: 10000, paid_cents: 1500, pending_cents: 1000, waived_cents: 0, balance_cents: 8500, credit_cents: 0};
+    const first = {id: 1, kind: 'tuition', title: 'Première tranche', currency: 'USD', amount_cents: 6000, remaining_cents: 4500, due_at: '2026-12-10', status: 'partial'};
+    const second = {...first, id: 2, title: 'Deuxième tranche', amount_cents: 4000, remaining_cents: 4000, due_at: '2027-02-10', status: 'upcoming'};
+    const html = renderToStaticMarkup(React.createElement(Finance, {
+        ...page,
+        selected: {id: 1, name: 'Étudiant', year: '2026-2027'},
+        accountBackUrl: '/confirmations?q=Nom',
+        accountBackLabel: 'Inscriptions en attente',
+        filters: {from_confirmations: 1},
+        enrollmentConfirmation: {status: 'pending_confirmation', canConfirm: false, blocker: 'Première tranche à couvrir'},
+        pendingPaymentCount: 1,
+        statement: {balance, schedules: {tuition: [first, second]}, obligations: [], kinds: {tuition: balance}, kind_titles: {tuition: 'Frais académiques'}},
+        payments: {data: [{id: 1, reference: 'PENDING', amount_cents: 1000, currency: 'USD', kind: 'tuition', method: 'cash', status: 'pending', can_confirm: true, confirmed_at: null}]},
+    }));
+    assert.match(html, /href="\/confirmations\?q=Nom"/);
+    assert.match(html, /Première tranche/);
+    assert.match(html, /Deuxième tranche/);
+    assert.match(html, /4500 USD/);
+    assert.match(html, /1500 USD/);
+    assert.match(html, /Confirmer le versement<\/button>/);
+    assert.doesNotMatch(html, /Finances universitaires|Consulter le reçu|Demander un remboursement/);
+});
+test('Le compte distingue les justificatifs à contrôler des versements déjà saisis et explique le solde à établir', () => {
+    const proof = {
+        kind_label: 'Frais académiques',
+        amount_cents: 10000,
+        currency: 'USD',
+        method: 'bank_transfer',
+        status: 'pending',
+        submitted_at: '2026-11-16T10:00:00Z',
+        review_note: null,
+    };
+    const html = renderToStaticMarkup(React.createElement(Finance, {
+        ...page,
+        selected: {id: 1, name: 'Étudiant', year: '2026-2027'},
+        accountBackUrl: '/payment-proofs',
+        accountBackLabel: 'Justificatifs de paiement',
+        filters: {from_proofs: 1},
+        enrollmentConfirmation: {status: 'pending_confirmation', canConfirm: false, blocker: 'Première tranche à couvrir'},
+        pendingPaymentCount: 1,
+        statement: {
+            balance: {currency: 'USD', assessed: false, due_cents: 0, balance_cents: 0, credit_cents: 0},
+            schedules: {}, obligations: [], kinds: {}, kind_titles: {},
+        },
+        paymentProofs: [
+            {...proof, id: 1, reference: 'EN-ATTENTE', download_url: '/account/proof/1/download', review_url: '/account/proof/1/review', payment_id: null},
+            {...proof, id: 2, reference: 'DEJA-SAISI', download_url: '/account/proof/2/download', review_url: null, payment_id: 21},
+        ],
+    }));
+    assert.match(html, /href="\/payment-proofs"/);
+    assert.match(html, /À établir/);
+    assert.match(html, /Aucun barème actif applicable/);
+    assert.match(html, /<a class="admin-secondary" href="\/account\/proof\/1\/download"/);
+    assert.match(html, /aria-label="Valider le justificatif EN-ATTENTE"/);
+    assert.match(html, /aria-label="Refuser le justificatif EN-ATTENTE"/);
+    assert.doesNotMatch(html, /aria-label="Valider le justificatif DEJA-SAISI"/);
+    assert.match(html, /Versement à confirmer/);
 });

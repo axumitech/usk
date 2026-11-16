@@ -1,0 +1,232 @@
+.finance-account-workspace .finance-focused-back {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--finance-ink);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.finance-account-workspace .finance-focused-hero {
+    padding: clamp(1.4rem, 3.5vw, 2.7rem);
+}
+
+.usk-dashboard .finance-account-workspace .finance-focused-hero h1 {
+    font-size: clamp(2.35rem, 4.4vw, 4.3rem);
+    overflow-wrap: anywhere;
+}
+
+.finance-focused-hero .finance-focused-kicker {
+    margin: 0 0 0.55rem;
+    color: var(--usk-night-gold, #eee1a7);
+    font-size: 0.8rem;
+    font-weight: 750;
+}
+
+.finance-focused-hero button {
+    cursor: pointer;
+}
+
+.finance-enrollment-decision {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.finance-enrollment-decision p {
+    margin: 0.35rem 0 0;
+    color: var(--finance-muted);
+}
+
+.finance-enrollment-decision button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.finance-focused-payments .finance-payment-table {
+    min-width: 38rem;
+}
+
+.finance-payment-table td {
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.finance-payment-table .finance-payment-amount {
+    white-space: nowrap;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+.finance-payment-status {
+    display: inline-flex;
+    padding: 0.24rem 0.62rem;
+    border-radius: 999px;
+    color: var(--finance-muted);
+    background: var(--usk-night-raised, #eef2ee);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.finance-payment-status[data-status='pending'] {
+    color: var(--usk-night-gold, #755111);
+    background: var(--usk-night-warm, #fbefce);
+}
+
+.finance-payment-status[data-status='confirmed'] {
+    color: var(--usk-night-text, #206043);
+    background: var(--usk-night-positive, #e7f5ec);
+}
+
+.finance-payment-status[data-status='rejected'] {
+    color: var(--usk-night-danger, #8b302a);
+    background: var(--usk-night-danger-surface, #feeeeb);
+}
+
+.finance-unassessed-action,
+.finance-proof-entry,
+.finance-proof-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.finance-unassessed-action,
+.finance-proof-entry {
+    justify-content: space-between;
+}
+
+.finance-unassessed-action p {
+    flex-basis: min(34rem, 100%);
+    margin: 0;
+    color: var(--finance-muted);
+}
+
+.finance-unassessed-action a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+}
+
+.finance-proof-list {
+    display: grid;
+    gap: 0.68rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.finance-proof-entry {
+    min-width: 0;
+    padding: clamp(0.8rem, 1.8vw, 1.3rem);
+    border: 1px solid var(--finance-line);
+    border-radius: 0.85rem;
+    background: var(--finance-paper);
+}
+
+.finance-proof-entry :is(h3, p) {
+    margin: 0;
+}
+
+.finance-proof-entry:target {
+    outline: 2px solid var(--finance-green);
+    outline-offset: 3px;
+}
+
+.finance-proof-entry h3 {
+    margin-block: 0.22rem;
+    font-size: 1.1rem;
+    font-weight: 760;
+    font-variant-numeric: tabular-nums;
+}
+
+.finance-proof-facts {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.finance-proof-category {
+    font-size: 0.82rem;
+    font-weight: 710;
+}
+
+.finance-proof-meta,
+.finance-proof-review-note {
+    color: var(--finance-muted);
+    font-size: 0.84rem;
+}
+
+.finance-proof-entry .finance-proof-review-note {
+    max-width: 38rem;
+    margin-top: 0.5rem;
+    white-space: pre-wrap;
+}
+
+.finance-proof-controls {
+    display: grid;
+    justify-items: start;
+    gap: 0.6rem;
+}
+
+.finance-proof-actions {
+    gap: 0.4rem;
+}
+
+.finance-proof-actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.finance-payment-actions,
+.finance-payment-more > div {
+    display: grid;
+    justify-items: start;
+    gap: 0.45rem;
+}
+
+.finance-payment-actions > a,
+.finance-payment-proof > summary,
+.finance-payment-more > summary {
+    color: var(--finance-ink);
+    font-size: 0.83rem;
+    font-weight: 650;
+}
+
+.finance-payment-more[open] > summary {
+    margin-bottom: 0.45rem;
+}
+
+.finance-payment-proof {
+    max-width: 28rem;
+    margin-top: 0.5rem;
+}
+
+.finance-payment-proof p {
+    margin: 0.45rem 0 0;
+    color: var(--finance-muted);
+    white-space: pre-wrap;
+}
+
+.finance-account-options > summary {
+    color: var(--finance-ink);
+    font-weight: 750;
+}
+
+.finance-account-options[open] > summary {
+    margin-bottom: 1rem;
+}
+
+.finance-account-workspace summary {
+    cursor: pointer;
+}
+
+.finance-account-workspace summary:focus-visible {
+    outline: 2px solid var(--finance-green);
+    outline-offset: 3px;
+}

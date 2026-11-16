@@ -168,14 +168,14 @@ final class StudentFinanceService
         return $kind === null ? $statement['balance'] : ($statement['kinds'][$kind] ?? ['assessed' => false, 'currency' => $entry->currency, 'total_cents' => 0, 'waived_cents' => 0, 'due_cents' => 0, 'paid_cents' => 0, 'pending_cents' => 0, 'balance_cents' => 0, 'overdue_cents' => 0, 'credit_cents' => 0, 'financial_clearance_status' => 'unassessed']);
     }
 
-    public function firstTuitionInstallmentCovered(AcademicEnrollment $entry): bool
+    public function firstTuitionInstallmentCovered(AcademicEnrollment $entry, ?array $tuitionBalance = null): bool
     {
         $first = $entry->obligations()->where('kind', 'tuition')->where('installment', 1)->first();
         if ($first === null) {
             return false;
         }
 
-        $balance = $this->balance($entry, 'tuition');
+        $balance = $tuitionBalance ?? $this->balance($entry, 'tuition');
 
         return $first->amount_cents <= $balance['paid_cents'] + $balance['waived_cents'];
     }

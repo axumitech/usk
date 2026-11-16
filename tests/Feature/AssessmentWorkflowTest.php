@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicYear;
 use App\Models\Classes;
 use App\Models\Courses;
 use App\Models\Enrollment;
@@ -139,6 +140,26 @@ final class AssessmentWorkflowTest extends TestCase
     {
         return $this->post($prefix.'/'.$resource->id.'/batch', ['action' => $action, 'revision' => $resource->assessment()->sole()->revision,
             'reason' => self::REASON, 'notify' => $notify]);
+    }
+
+    public function test_year_options_are_scoped_and_the_selected_offering_keeps_its_title_outside_the_filter(): void
+    {
+        [, $entry, $teacher, , $offer] = $this->context();
+        $priorYear = AcademicYear::create(['title' => '2025-2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed']);
+        $privateYear = AcademicYear::create(['title' => '2024-2025', 'start_date' => '2024-10-01', 'end_date' => '2025-09-30', 'status' => 'closed']);
+        $offer->replicate()->fill(['academic_year_id' => $priorYear->id])->save();
+        $this->offer($entry, $this->teacher())->update(['academic_year_id' => $privateYear->id]);
+
+        $this->actingAs($teacher)->get(self::TEACHER.'?state=closed&year='.$priorYear->id)
+            ->assertInertia(fn (Assert $page) => $page->has('years', 2)
+                ->where('years.0', ['id' => $entry->academic_year_id, 'title' => '2026-2027'])
+                ->where('years.1', ['id' => $priorYear->id, 'title' => '2025-2026'])
+                ->where('offering_title', null));
+
+        $work = $this->draft($offer);
+        $this->get(self::TEACHER.'?offering='.$offer->id.'&resource='.$work->id.'&year='.$priorYear->id)
+            ->assertInertia(fn (Assert $page) => $page->where('offering_title', 'Méthodes · 2026-2027')
+                ->where('selected.resource_id', $work->id)->has('items.data', 0));
     }
 
     public function test_draft_validates_time_rubric_and_authorization_then_freezes_published_settings(): void

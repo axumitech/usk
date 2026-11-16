@@ -15,7 +15,8 @@
     font-weight: 650;
 }
 .ci-search input,
-.ci-print-toolbar select {
+.ci-print-toolbar select,
+.ci-nfc-field input {
     width: 100%;
     min-height: 40px;
     padding: 7px 9px;
@@ -23,6 +24,17 @@
     border-radius: 7px;
     background: var(--usk-night-background, #fff);
     color: inherit;
+}
+.ci-nfc-field {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+    font-weight: 650;
+}
+.ci-nfc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 .ci-print-toolbar {
     justify-content: space-between;

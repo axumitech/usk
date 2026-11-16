@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class AcademicAttendance extends Model
 {
-    protected $fillable = ['academic_session_id', 'academic_enrollment_id', 'status', 'recorded_by', 'academic_course_registration_id'];
+    protected $fillable = ['academic_session_id', 'academic_enrollment_id', 'status', 'recorded_by', 'academic_course_registration_id', 'source', 'checked_in_at'];
+
+    protected $casts = ['checked_in_at' => 'datetime'];
 
     public function session()
     {

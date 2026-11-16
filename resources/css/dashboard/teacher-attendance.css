@@ -141,6 +141,271 @@
     flex: none;
 }
 
+.teacher-attendance-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 1.25rem;
+}
+
+.teacher-attendance-form-actions .admin-primary {
+    margin-top: 0;
+}
+
+.teacher-attendance-roster-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.teacher-checkin-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 0.75rem;
+}
+
+.teacher-checkin > .teacher-attendance-note {
+    margin-bottom: 0.75rem;
+}
+
+.teacher-checkin-options > article {
+    display: grid;
+    grid-template-columns: min-content minmax(0, 1fr);
+    align-content: start;
+    align-items: center;
+    gap: 0.4rem 0.72rem;
+    padding: 0.85rem;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.8rem;
+    background: var(--teacher-module-surface);
+}
+
+.teacher-checkin-icon {
+    display: grid;
+    width: 2.65rem;
+    aspect-ratio: 1;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-green);
+}
+
+.usk-dashboard .teacher-checkin h3 {
+    margin: 0;
+    color: var(--teacher-module-ink);
+    font: inherit;
+    font-size: 0.97rem;
+    font-weight: 740;
+}
+
+.teacher-checkin-options article > p,
+.teacher-checkin-options article > div {
+    grid-column: 1 / -1;
+}
+
+.teacher-checkin-options article > p,
+.teacher-checkin-reader > p {
+    margin: 0;
+    color: var(--usk-night-muted, #526a5c);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.teacher-checkin-options article > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 0.35rem;
+}
+
+.teacher-checkin-reader {
+    display: grid;
+    gap: 0.35rem;
+    margin-top: 0.55rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--teacher-module-line);
+}
+
+.teacher-checkin-reader label {
+    color: var(--teacher-module-ink);
+    font-size: 0.8rem;
+    font-weight: 690;
+}
+
+.teacher-checkin-reader > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.4rem;
+}
+
+.teacher-checkin-reader input {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.6rem;
+    background: var(--teacher-module-surface);
+    color: var(--teacher-module-ink);
+    font-size: 0.84rem;
+}
+
+.teacher-checkin-reader input:focus-visible {
+    outline: 2px solid var(--teacher-module-gold);
+    outline-offset: 2px;
+}
+
+.teacher-checkin-reader .teacher-checkin-error {
+    color: var(--usk-night-danger-ink, #a03629);
+    font-weight: 650;
+}
+
+.teacher-checkin-reader .teacher-checkin-success {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.52rem;
+    border-radius: 0.52rem;
+    background: var(--usk-night-positive, #e7f2e8);
+    color: var(--teacher-module-green);
+}
+
+.teacher-checkin-success svg {
+    flex: none;
+}
+
+.teacher-checkin-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(92vw, 39rem);
+    max-height: calc(100dvh - 2rem);
+    margin: auto;
+    padding: clamp(1rem, 4vw, 2.1rem);
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 1.25rem;
+    background: var(--teacher-module-surface);
+    color: var(--teacher-module-ink);
+    box-shadow: 0 24px 88px #071c1b50;
+    text-align: center;
+    overscroll-behavior: contain;
+}
+
+.teacher-checkin-dialog[open] {
+    animation: teacher-checkin-appear 200ms ease-out both;
+}
+
+.teacher-checkin-dialog::backdrop {
+    background: #081c1bd2;
+}
+
+.teacher-checkin-dialog > header {
+    margin: 0.65rem 0 0.8rem;
+}
+
+.usk-dashboard .teacher-checkin-dialog h2 {
+    margin: 0;
+    font-family: inherit;
+    font-size: clamp(1.15rem, 3.3vw, 1.8rem);
+    font-weight: 760;
+    line-height: 1.16;
+}
+
+.teacher-checkin-dialog p {
+    margin: 0.45rem 0 0;
+    color: var(--usk-night-muted, #526a5c);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.teacher-checkin-dialog small {
+    display: block;
+    margin-top: 0.6rem;
+    color: var(--teacher-module-green);
+    font-size: 0.78rem;
+}
+
+.teacher-checkin-close {
+    display: grid;
+    width: 2.75rem;
+    margin-left: auto;
+    aspect-ratio: 1;
+    place-items: center;
+    border: 1px solid var(--teacher-module-line);
+    border-radius: 0.7rem;
+    background: var(--teacher-module-soft);
+    color: var(--teacher-module-ink);
+}
+
+.teacher-checkin-close:focus-visible {
+    outline: 2px solid var(--teacher-module-gold);
+    outline-offset: 2px;
+}
+
+.teacher-checkin-qr-image {
+    display: grid;
+    width: min(100%, 30rem, max(11rem, 58dvh));
+    aspect-ratio: 1;
+    margin: 0 auto 0.8rem;
+    place-items: center;
+    border: 1px solid #dce8de;
+    border-radius: 0.85rem;
+    background: #fff;
+    color: #28654e;
+    overflow: hidden;
+}
+
+.teacher-checkin-qr-image img {
+    width: 100%;
+    height: auto;
+}
+
+.teacher-checkin-qr-image > span {
+    display: grid;
+    justify-items: center;
+    gap: 0.6rem;
+    font-size: 0.86rem;
+}
+
+.teacher-checkin-qr-error p {
+    color: var(--usk-night-danger-ink, #a03629);
+    font-weight: 650;
+}
+
+.teacher-checkin-qr-error button {
+    margin-top: 0.65rem;
+}
+
+.teacher-checkin-spinner {
+    animation: teacher-checkin-spin 900ms linear infinite;
+}
+
+@keyframes teacher-checkin-appear {
+    from {
+        opacity: 0;
+        transform: translateY(0.35rem) scale(0.99);
+    }
+}
+
+@keyframes teacher-checkin-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+@media (max-width: 41rem) {
+    .teacher-checkin-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .teacher-checkin-dialog[open],
+    .teacher-checkin-spinner {
+        animation: none;
+    }
+}
+
 @media (max-width: 28rem) {
     .teacher-attendance .course-attendance-list > article {
         grid-template-columns: minmax(0, 1fr) minmax(0, 7.5rem);

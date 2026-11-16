@@ -10,11 +10,14 @@ export type Field = {
     required?: boolean;
     options?: { value: string | number; label: string }[];
     optionsFor?: (values: Record<string, FormValue>) => NonNullable<Field['options']>;
-    clears?: string;
+    visibleFor?: (values: Record<string, FormValue>) => boolean;
+    clears?: string | string[];
     help?: string;
+    pattern?: string;
     value?: FormValue;
     scheduleCurrencyField?: string;
     allowZeroScheduleAmount?: boolean;
+    optionalScheduleDueDates?: boolean;
 };
 export type FormSpec = {
     title: string;
@@ -68,10 +71,13 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
             >
                 <fieldset disabled={form.processing}>
                     {spec.fields.map((field) => {
+                        if (field.visibleFor && !field.visibleFor(form.data)) return null;
+
                         const inputId = `${id}-${field.name}`;
                         if (field.type === 'schedule') {
                             const rows = (Array.isArray(form.data[field.name]) ? form.data[field.name] : []) as { amount: string; due_at: string }[];
                             const currency = field.scheduleCurrencyField ? form.data[field.scheduleCurrencyField] : 'USD';
+                            const optionalDates = field.optionalScheduleDueDates;
                             return (
                                 <section className="academic-plan" key={field.name}>
                                     <h3>{field.label}</h3>
@@ -79,10 +85,10 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                     {rows.map((row, index) => (
                                         <div key={index}>
                                             <label>
-                                                Échéance {index + 1}
+                                                {optionalDates ? 'Date limite (facultative)' : `Échéance ${index + 1}`}
                                                 <input
                                                     type="date"
-                                                    required
+                                                    required={!optionalDates}
                                                     value={row.due_at}
                                                     onChange={(event) =>
                                                         form.setData(
@@ -111,7 +117,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                             <button
                                                 type="button"
                                                 className="academic-icon-button"
-                                                aria-label={`Retirer l’échéance ${index + 1}`}
+                                                aria-label={optionalDates ? `Retirer la ligne ${index + 1}` : `Retirer l’échéance ${index + 1}`}
                                                 onClick={() =>
                                                     form.setData(
                                                         field.name,
@@ -129,7 +135,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                         onClick={() => form.setData(field.name, [...rows, { amount: '', due_at: '' }])}
                                     >
                                         <Plus size={15} />
-                                        Ajouter une échéance
+                                        {optionalDates ? 'Ajouter un montant' : 'Ajouter une échéance'}
                                     </button>
                                 </section>
                             );
@@ -156,8 +162,8 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                         onChange={(event) =>
                                             form.setData((data) => ({
                                                 ...data,
+                                                ...Object.fromEntries([field.clears ?? []].flat().map((name) => [name, ''])),
                                                 [field.name]: event.target.value,
-                                                ...(field.clears ? { [field.clears]: '' } : {}),
                                             }))
                                         }
                                     >
@@ -185,6 +191,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                             type={field.type || 'text'}
                                             value={String(form.data[field.name] ?? '')}
                                             required={field.required}
+                                            pattern={field.pattern}
                                             step={field.type === 'number' ? '0.01' : undefined}
                                             onInput={
                                                 field.type === 'datetime-local'

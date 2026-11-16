@@ -3,8 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\Professor;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 class DemoProfessorsSeeder extends Seeder
 {
@@ -36,16 +38,44 @@ class DemoProfessorsSeeder extends Seeder
         ];
 
         DB::transaction(function () use ($profiles) {
+            $accountRole = null;
+            if (app()->environment(['local', 'testing'])) {
+                $accountRole = Role::where(['name' => 'professor', 'guard_name' => 'web'])->first();
+                if (! $accountRole) {
+                    $this->call(RolePermissionSeeder::class);
+                    $accountRole = Role::findByName('professor', 'web');
+                }
+            }
+
             foreach ($profiles as [$firstName, $lastName, $slug, $speciality, $faculty]) {
                 $email = $slug.'@enseignants.example.test';
-                // Preserve any profile subsequently edited by the administration.
-                if (Professor::where('email', $email)->orWhere(fn ($q) => $q->where('first_name', $firstName)->where('last_name', $lastName))->exists()) continue;
-                Professor::create([
-                    'first_name' => $firstName, 'last_name' => $lastName, 'email' => $email,
-                    'speciality' => $speciality, 'is_active' => true,
-                    'biography' => "Profil fictif de démonstration — {$faculty}. Spécialité proposée : {$speciality}. Identité et coordonnées à remplacer par celles d’un enseignant réel.",
+                $professor = Professor::whereRaw('LOWER(email) = ?', [$email])->lockForUpdate()->first();
+                if (! $professor) {
+                    if (Professor::where(['first_name' => $firstName, 'last_name' => $lastName])->exists()) {
+                        continue;
+                    }
+
+                    $professor = Professor::create([
+                        'first_name' => $firstName, 'last_name' => $lastName, 'email' => $email,
+                        'speciality' => $speciality, 'is_active' => true,
+                        'biography' => "Profil fictif de démonstration — {$faculty}. Spécialité proposée : {$speciality}. Identité et coordonnées à remplacer par celles d’un enseignant réel.",
+                    ]);
+                }
+
+                if (! $accountRole || ! $professor->is_active || $professor->user_id || User::whereRaw('LOWER(email) = ?', [$email])->exists()) {
+                    continue;
+                }
+
+                $user = User::create([
+                    'first_name' => $professor->first_name,
+                    'last_name' => $professor->last_name,
+                    'email' => $email,
+                    'password' => 'password',
                 ]);
+                $user->markEmailAsVerified();
+                $user->assignRole($accountRole);
+                $professor->forceFill(['user_id' => $user->id, 'invitation_hash' => null, 'invitation_expires_at' => null])->save();
             }
-        });
+        }, 3);
     }
 }

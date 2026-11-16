@@ -65,6 +65,10 @@ final class StudentAdmissionService
             }
             $user->assignRole(Role::findOrCreate('student', 'web'));
             if ($existing) {
+                if (! $historicalImport && app(FeeTariffService::class)->applyToEnrollment($existing, $actorId)) {
+                    $existing->refresh();
+                }
+
                 return $existing;
             }
             $year = AcademicYear::lockForUpdate()->findOrFail($application->academic_year_id);
@@ -123,13 +127,8 @@ final class StudentAdmissionService
                 'application_id' => $application->id, 'user_id' => $user->id, 'matricule' => $application->matricule,
                 'fee_category' => $category,
             ]);
-            if ($actorId !== null && $category !== null) {
-                app(FeeTariffService::class)->billResolvedTuition(
-                    $entry,
-                    $actorId,
-                    $category,
-                    'Barème annuel appliqué automatiquement à la validation de l’inscription.',
-                );
+            if (! $historicalImport && app(FeeTariffService::class)->applyToEnrollment($entry, $actorId)) {
+                $entry->refresh();
             }
             if ($notify) {
                 DB::afterCommit(function () use ($entry, $user, $application) {

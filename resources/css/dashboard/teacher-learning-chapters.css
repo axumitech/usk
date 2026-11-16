@@ -1,0 +1,159 @@
+.learning-chapter-nav {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+}
+
+.learning-chapter-views {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.learning-chapter-views > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--lib-line);
+    border-radius: 0.65rem;
+    color: var(--lib-green);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.learning-chapter-views > a span {
+    padding: 0.12rem 0.33rem;
+    border-radius: 0.33rem;
+    background: var(--lib-soft);
+    font-size: 0.69rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+}
+
+.learning-chapter-views > a:hover,
+.learning-chapter-views > a[aria-current='page'] {
+    border-color: color-mix(in srgb, var(--lib-green) 58%, var(--lib-line));
+    background: var(--lib-soft);
+}
+
+.learning-chapter-views > a[aria-current='page'] span {
+    background: var(--lib-card);
+}
+
+.learning-chapter-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    align-items: stretch;
+    gap: 0.48rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.learning-chapter-card {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    border: 1px solid var(--lib-line);
+    border-radius: 0.72rem;
+    background: var(--lib-card);
+}
+
+.learning-chapter-card:hover,
+.learning-chapter-card:focus-within,
+.learning-chapter-card[data-current] {
+    border-color: color-mix(in srgb, var(--lib-green) 58%, var(--lib-line));
+}
+
+.learning-chapter-card[data-current] {
+    background: var(--lib-soft);
+}
+
+.learning-chapter-card > a {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: 0.53rem;
+    min-width: 0;
+    min-height: 3.75rem;
+    padding: 0.5rem 0.55rem;
+    border-radius: inherit;
+    color: var(--lib-ink);
+    text-decoration: none;
+}
+
+.learning-chapter-icon {
+    display: grid;
+    place-items: center;
+    width: 2.12rem;
+    aspect-ratio: 1;
+    border-radius: 0.55rem;
+    background: var(--lib-soft);
+    color: var(--lib-green);
+}
+
+.learning-chapter-card[data-current] .learning-chapter-icon {
+    background: var(--lib-card);
+}
+
+.learning-chapter-copy {
+    display: grid;
+    min-width: 0;
+    gap: 0.15rem;
+    overflow-wrap: anywhere;
+}
+
+.learning-chapter-copy strong {
+    font-size: 0.85rem;
+    font-weight: 720;
+    line-height: 1.2;
+}
+
+.learning-chapter-copy small {
+    font-size: 0.73rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.learning-chapter-arrow {
+    color: var(--lib-green);
+}
+
+.learning-chapter-card > button {
+    display: grid;
+    flex: 0 0 2.75rem;
+    place-items: center;
+    border-inline-start: 1px solid var(--lib-line);
+    border-radius: 0 0.72rem 0.72rem 0;
+    color: var(--lib-green);
+    cursor: pointer;
+}
+
+.learning-chapter-card > button:hover {
+    background: var(--lib-soft);
+}
+
+.learning-chapter-card[data-current] > button:hover {
+    background: var(--lib-card);
+}
+
+.learning-chapters .learning-chapter-empty {
+    display: flex;
+    align-items: center;
+    gap: 0.48rem;
+    margin: 0.7rem 0 0;
+    padding: 0.65rem 0.72rem;
+    border: 1px dashed var(--lib-line);
+    border-radius: 0.62rem;
+    background: var(--lib-soft);
+    color: var(--lib-muted);
+    font-size: 0.84rem;
+}
+
+.learning-chapter-empty svg {
+    flex: none;
+    color: var(--lib-green);
+}

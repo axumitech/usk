@@ -152,6 +152,43 @@ class UniversityFinanceTest extends TestCase
         $this->get(route('dashboard.student.payments.receipt', ['payment' => $payment->uuid, 'academic' => $entry->id]))->assertNotFound();
     }
 
+    public function test_annual_fees_and_proof_choices_belong_to_the_selected_enrollment(): void
+    {
+        [, $student, $entry] = $this->context();
+        $old = $entry->replicate();
+        $old->academic_year_id = AcademicYear::create(['title' => '2025-2026', 'start_date' => '2025-10-01', 'end_date' => '2026-09-30', 'status' => 'closed'])->id;
+        $old->currency = 'CDF';
+        $old->save();
+        $this->obligation($entry, kind: 'tuition', due: '2027-01-15');
+        $this->obligation($old, kind: 'library', amount: 125000);
+
+        $annual = fn ($id) => route('dashboard.student.index', ['section' => 'annual-fees', 'academic' => $id]);
+        $proof = fn ($id, $kind) => route('dashboard.student.index', ['section' => 'fees', 'academic' => $id, 'kind' => $kind]);
+        $this->actingAs($student)->get($annual($entry->id))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('section', 'annual-fees')->where('academic.year', '2026-2027')
+            ->where('balance.balance_cents', 10000)->has('studentChrome.options', 2)
+            ->where('finance_details.kinds.tuition.currency', 'USD')->missing('finance_details.kinds.library'));
+        $this->get($annual($old->id))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('academic.year', '2025-2026')->where('balance.balance_cents', 125000)
+            ->where('finance_details.kinds.library.currency', 'CDF')->missing('finance_details.kinds.tuition')
+            ->where('finance_details.kinds.library.overdue_cents', 0)
+            ->has('finance_schedule', 1)->where('finance_schedule.0.due_at', null));
+
+        $this->get($proof($old->id, 'library'))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('payment_proofs.selected_kind', 'library')->where('payment_proofs.kinds.0.balance_cents', 125000));
+        foreach (['library', ['tuition']] as $invalidKind) {
+            $this->get($proof($entry->id, $invalidKind))->assertOk()->assertInertia(fn (Assert $page) => $page
+                ->where('payment_proofs.selected_kind', null)->has('payment_proofs.kinds', 2)
+                ->where('payment_proofs.kinds.0.id', 'tuition')->where('payment_proofs.kinds.1.id', 'unallocated')
+                ->missing('payment_proofs.kinds.1.balance_cents'));
+        }
+
+        $other = User::factory()->create();
+        $other->assignRole('student');
+        StudentProfile::create(['user_id' => $other->id, 'student_status' => 'active']);
+        $this->actingAs($other)->get($annual($old->id))->assertNotFound();
+    }
+
     public function test_student_finance_does_not_count_unallocated_cash_towards_fee_coverage(): void
     {
         [$admin, $student, $entry] = $this->context();
@@ -271,7 +308,11 @@ class UniversityFinanceTest extends TestCase
         $this->assertSame(3000, $finance->balance($entry)['balance_cents']);
         $this->assertSame('confirmed', $p->fresh()->status);
         $this->actingAs($student)->get('/app/dashboard/student/transactions?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page->where('payments.0.refunded_cents', 3000)->where('payments.0.currency', 'USD'));
+        $verificationUrl = URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid, 'format' => 'html']);
+        $receiptUrl = route('dashboard.student.payments.receipt', ['payment' => $p->uuid, 'academic' => $entry->id]);
         $this->get(URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid]))->assertJson(['state' => 'partially_refunded']);
+        $this->get($receiptUrl)->assertOk()->assertDontSeeText('Montant payé')->assertViewHas('receipt', fn ($receipt) => $receipt['state'] === 'partially_refunded'
+            && $receipt['amount_cents'] === 10000 && $receipt['refunded_cents'] === 3000 && $receipt['net_cents'] === 7000);
         $this->invalid(fn () => $service->request($p, $admin, ['amount' => '80.00', 'operation_key' => (string) Str::uuid(), 'reason' => 'Dépassement du montant remboursable.']), 'amount');
         $this->invalid(fn () => $finance->transition($p, $admin, 'cancelled', 'Annulation incompatible avec remboursement.'), 'payment');
         $remaining = $service->request($p, $admin, ['amount' => '70.00', 'operation_key' => (string) Str::uuid(), 'reason' => 'Solde du remboursement autorisé.']);
@@ -281,6 +322,9 @@ class UniversityFinanceTest extends TestCase
         $this->assertSame(10000, $finance->balance($entry)['refunded_cents']);
         $this->assertSame(0, $finance->balance($entry)['paid_cents']);
         $this->assertSame(10000, (int) $p->fresh()->amount_cents);
+        $this->get($verificationUrl)->assertOk()->assertViewHas('verification.state', 'invalid');
+        $this->get($receiptUrl)->assertOk()->assertDontSeeText('Montant payé')->assertViewHas('receipt', fn ($receipt) => $receipt['state'] === 'refunded'
+            && $receipt['amount_cents'] === 10000 && $receipt['refunded_cents'] === 10000 && $receipt['net_cents'] === 0);
     }
 
     public function test_partial_refund_reverses_explicit_allocations_without_deleting_them(): void
@@ -550,17 +594,36 @@ class UniversityFinanceTest extends TestCase
     public function test_receipt_snapshot_verification_and_ownership_are_safe(): void
     {
         [$admin,$student,$entry] = $this->context();
-        $this->obligation($entry);
-        $p = $this->pay($entry, $admin, '100.00');
+        $this->travelTo(CarbonImmutable::parse('2026-11-15 23:30:00', 'UTC'));
+        $entry->obligations()->create([
+            'kind' => 'library', 'title' => 'Frais de bibliothèque', 'installment' => 1, 'amount_cents' => 10000, 'currency' => $entry->currency,
+        ]);
+        $p = $this->pay($entry, $admin, '100.00', 'library');
         $snapshot = $p->receipt_snapshot;
+        $this->assertSame('Frais de bibliothèque', $snapshot['kind_title']);
+        unset($snapshot['kind_title']);
+        FinanceMutation::run(fn () => $p->update(['receipt_snapshot' => $snapshot]));
         $student->update(['first_name' => 'Nom ultérieurement corrigé']);
-        $this->actingAs($student)->get('/app/dashboard/student/payments/'.$p->uuid.'/receipt')->assertOk()->assertSee($snapshot['name'])->assertDontSee('Nom ultérieurement corrigé');
-        $url = URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid]);
-        $this->get($url)->assertOk()->assertJson(['state' => 'valid'])->assertJsonMissingPath('amount_cents')->assertJsonMissingPath('name')->assertJsonMissingPath('email');
-        $this->get('/finance/receipts/'.$p->uuid.'/verify')->assertForbidden();
+        $url = URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid, 'format' => 'html']);
+        $public = ['receipt' => $p->uuid, 'state' => 'valid', 'issued_at' => $p->confirmed_at->toDateString()];
+        $this->get(URL::signedRoute('finance.receipts.verify', ['payment' => $p->uuid]))->assertOk()->assertExactJson($public);
+        $this->get($url, ['Accept' => 'text/html'])
+            ->assertOk()->assertViewIs('student.receipt-verification')->assertViewHas('verification', array_replace($public, ['issued_at' => '2026-11-16']))
+            ->assertDontSee($snapshot['name'])->assertDontSee($snapshot['reference']);
+        $this->get($url.'&montant=50', ['Accept' => 'text/html'])->assertForbidden();
+        $this->get('/finance/receipts/'.$p->uuid.'/verify', ['Accept' => 'text/html'])->assertForbidden();
+
+        $receiptUrl = route('dashboard.student.payments.receipt', ['payment' => $p->uuid, 'academic' => $entry->id]);
+        $this->actingAs($student)->get($receiptUrl)->assertOk()->assertSee($snapshot['name'])->assertDontSee('Nom ultérieurement corrigé')
+            ->assertSeeText('Payé')->assertSeeText('Montant payé')->assertSeeText('16/11/2026 à 00:30')
+            ->assertSee('assets/usk/logo.png')->assertSee('alt="QR code de vérification du reçu"', false)
+            ->assertViewHas('receipt', fn ($receipt) => $receipt['state'] === 'paid' && $receipt['kind_title'] === 'Frais de bibliothèque'
+                && $receipt['verification_url'] === $url && str_starts_with($receipt['qr_image'], 'data:image/png;base64,'));
+        $this->assertSame($snapshot, $p->fresh()->receipt_snapshot);
         $other = User::factory()->create();
         $other->assignRole('student');
-        $this->actingAs($other)->get('/app/dashboard/student/payments/'.$p->uuid.'/receipt')->assertForbidden();
+        $this->actingAs($other)->get($receiptUrl)->assertForbidden();
+        $this->actingAs($admin)->get(route('dashboard.admin.finance.receipt', $p))->assertOk()->assertViewHas('receipt.verification_url', $url);
     }
 
     public function test_finance_dashboard_export_and_mutations_enforce_roles_and_faculty_scope(): void
@@ -570,13 +633,46 @@ class UniversityFinanceTest extends TestCase
         $this->actingAs($student)->get('/app/dashboard/admin/finance')->assertForbidden();
         $this->post('/app/dashboard/admin/student-academic/'.$entry->id.'/payments', ['amount' => '1.00', 'kind' => 'tuition', 'method' => 'cash', 'reference' => 'HACK', 'note' => 'Tentative cliente interdite.'])->assertForbidden();
         $account = route('dashboard.admin.finance.index', ['academic' => $entry->id]);
-        $this->actingAs($admin)->get($account)->assertInertia(fn (Assert $p) => $p->component('dashboard/finance/Index')->where('statement.balance.balance_cents', 10000)->where('totals.0.balance_cents', 10000));
+        $this->actingAs($admin)->get($account)->assertInertia(fn (Assert $p) => $p
+            ->component('dashboard/finance/Index')->where('selected.id', $entry->id)
+            ->where('statement.balance.balance_cents', 10000)->has('entries.data', 0)->has('totals', 0));
         $this->get('/app/dashboard/admin/finance/export')->assertOk()->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
             ->assertSessionHas('_previous.url', $account);
         $faculty = DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'OTHER']);
         $admin->academicFaculties()->attach($faculty);
         $this->get('/app/dashboard/admin/finance')->assertInertia(fn (Assert $p) => $p->has('entries.data', 0)->has('totals', 0));
         $this->get('/app/dashboard/admin/finance?academic='.$entry->id)->assertForbidden();
+    }
+
+    public function test_financial_account_surfaces_pending_payments_and_authorized_checker(): void
+    {
+        [$admin, , $entry] = $this->context();
+        $this->obligation($entry);
+        $account = route('dashboard.admin.finance.index', ['academic' => $entry->id]);
+        $this->actingAs($admin)->from($account)->post(route('dashboard.admin.student-academic.payments', $entry->id), [
+            'kind' => 'tuition', 'amount' => '25.00', 'method' => 'cash', 'reference' => 'PENDING-ACCOUNT', 'note' => 'Pièce à contrôler au guichet.',
+        ])->assertRedirect($account)->assertSessionHasNoErrors();
+        $pending = StudentPayment::where('reference', 'PENDING-ACCOUNT')->sole();
+        $confirmed = $this->pay($entry, $admin, '10.00');
+        config(['finance.dual_control' => true]);
+
+        $this->actingAs($admin)->get($account)->assertInertia(fn (Assert $page) => $page
+            ->where('pendingPaymentCount', 1)
+            ->where('payments.data.0.id', $pending->id)
+            ->where('payments.data.0.can_confirm', false)
+            ->where('payments.data.0.note', 'Pièce à contrôler au guichet.')
+            ->where('payments.data.0.recorded_at', $pending->created_at->toIso8601String())
+            ->where('payments.data.1.id', $confirmed->id)
+            ->where('statement.balance.balance_cents', 9000));
+
+        $checker = User::factory()->create()->assignRole('admin');
+        $this->actingAs($checker)->get($account)->assertInertia(fn (Assert $page) => $page
+            ->where('payments.data.0.can_confirm', true));
+        $this->from($account)->post(route('dashboard.admin.student-academic.payments.status', $pending->id), [
+            'status' => 'confirmed', 'reason' => 'Pièce de versement vérifiée au guichet.',
+        ])->assertRedirect($account)->assertSessionHasNoErrors();
+        $this->get($account)->assertInertia(fn (Assert $page) => $page
+            ->where('pendingPaymentCount', 0)->where('statement.balance.balance_cents', 6500));
     }
 
     public function test_two_currencies_are_never_aggregated_and_checker_can_be_required(): void

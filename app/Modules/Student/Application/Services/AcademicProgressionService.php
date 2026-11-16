@@ -125,7 +125,12 @@ final class AcademicProgressionService
                 || ($decision->kind === 'resumption' && $source->application?->status?->value === 'validated'
                     && in_array($source->enrollment_status, ['on_leave', 'withdrawn'], true))), 403);
             if ($decision->target_enrollment_id !== null) {
-                return $decision->target;
+                $target = $decision->target;
+                if (app(FeeTariffService::class)->applyToEnrollment($target, $profile->user_id)) {
+                    $target->refresh();
+                }
+
+                return $target;
             }
             if (AcademicLifecycle::interrupted($source)) {
                 throw ValidationException::withMessages(['progression' => 'Une décision de reprise est requise pour ce parcours interrompu.']);

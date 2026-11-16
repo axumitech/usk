@@ -168,6 +168,8 @@ class AcademicAdministrationController extends Controller
                 ]);
         }
 
+        $statement = $entry && $finance ? $this->finance->statement($entry) : null;
+
         return Inertia::render('dashboard/studentAcademic/Index', [
             'programs' => AcademicProgram::orderBy('name')->get(['id', 'name']),
             'departments' => AcademicDepartment::with('faculty:id,name')->orderBy('name')->get(['id', 'name', 'faculty_id']),
@@ -183,9 +185,15 @@ class AcademicAdministrationController extends Controller
                     'declared_category' => $entry->profile->user->feeCategoryFromNationality(),
                 ] : []),
             ] : null,
-            'balance' => $entry && $finance ? $this->finance->balance($entry) : null, 'obligations' => $entry && $finance ? $entry->obligations()->get() : [],
+            'balance' => $statement['balance'] ?? null, 'obligations' => $entry && $finance ? $entry->obligations()->get() : [],
             'fee_kinds' => StudentObligation::distinct()->pluck('kind')->push('tuition')->unique()->values(),
-            'payments' => $entry && $finance ? $entry->payments()->latest()->get()->map(fn ($p) => $p->only(['id', 'reference', 'amount_cents', 'currency', 'status', 'method', 'confirmed_at'])) : [],
+            'payment_fee_kinds' => collect($statement['kinds'] ?? [])->filter(fn ($kind) => $kind['assessed'])
+                ->map(fn ($balance, $kind) => [
+                    'id' => $kind, 'label' => $statement['kind_titles'][$kind], 'balance_cents' => $balance['balance_cents'],
+                ])->values(),
+            'payments' => $entry && $finance ? $entry->payments()->latest()->get()->map(fn ($payment) => $payment->only([
+                'id', 'reference', 'amount_cents', 'currency', 'status', 'method', 'confirmed_at',
+            ]) + ['kind_label' => $statement['kind_titles'][$payment->kind] ?? $payment->kind]) : [],
             'adjustments' => $entry && $finance ? $entry->adjustments()->latest()->get() : [],
             'rules' => $access ? AccessRule::where('is_active', true)->latest()->get() : [],
             'levels' => \App\Models\Level::with(['faculty:id,name', 'departmentOptions' => fn ($q) => $q->where('is_active', true)->orderBy('name')])->get(['id', 'faculty_id', 'title']),

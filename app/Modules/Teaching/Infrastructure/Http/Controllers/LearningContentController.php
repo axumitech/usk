@@ -24,6 +24,7 @@ final class LearningContentController
             'year' => 'nullable|integer', 'faculty' => 'nullable|integer', 'program' => 'nullable|integer',
             'teacher' => 'nullable|integer', 'course' => 'nullable|integer',
             'status' => 'nullable|in:draft,published,archived', 'kind' => ['nullable', Rule::in(AcademicResource::CONTENT_KINDS)],
+            'section' => ['nullable', 'regex:/\A(?:[1-9][0-9]{0,18}|unassigned)\z/'],
         ]);
         $actor = $request->user();
         $prefix = $request->routeIs('dashboard.admin.*') ? 'dashboard.admin.learning.' : 'dashboard.teaching.learning.';
@@ -63,6 +64,31 @@ final class LearningContentController
             default => null,
         };
 
+        $section = $filters['section'] ?? null;
+        $sections = $offer ? ContentSection::where('academic_offering_id', $offer->id)
+            ->orderBy('position')->orderBy('id')->get(['id', 'title', 'position', 'revision']) : collect();
+        $sectionIds = $sections->map(fn (ContentSection $chapter) => (string) $chapter->id);
+        abort_if($section !== null && (! $offer || ($section !== 'unassigned' && ! $sectionIds->containsStrict((string) $section))), 404);
+
+        $chapterCounts = null;
+        if ($offer) {
+            $counts = (clone $query)->selectRaw('academic_content_section_id, COUNT(*) AS total')
+                ->groupBy('academic_content_section_id')->pluck('total', 'academic_content_section_id');
+            foreach ($sections as $chapter) {
+                $chapter->support_count = (int) $counts->get($chapter->id, 0);
+            }
+            $all = (int) $counts->sum();
+            $chapterCounts = ['all' => $all, 'unassigned' => $all - $sections->sum('support_count')];
+        }
+
+        $resources = (clone $query)->when($section !== null, function ($resources) use ($section, $sectionIds) {
+            if ($section === 'unassigned') {
+                $resources->where(fn ($unassigned) => $unassigned->whereNull('academic_content_section_id')
+                    ->orWhereNotIn('academic_content_section_id', $sectionIds));
+            } else {
+                $resources->where('academic_content_section_id', $section);
+            }
+        });
         $canManage = $offer && $this->access->canManage($actor, $offer);
         $canReadHistory = $selected && ($canManage || $actor->hasRole('admin'));
         $serialize = fn (AcademicResource $resource) => $resource->only([
@@ -71,21 +97,25 @@ final class LearningContentController
             'filename', 'size_bytes', 'download_count', 'current_version', 'updated_at',
         ]) + [
             'course' => $resource->offering->course?->title,
-            'section' => $resource->section?->title,
+            'section' => $resource->section?->academic_offering_id === $resource->academic_offering_id ? $resource->section?->title : null,
             'download_url' => $resource->path ? route($prefix.'file', $resource) : null,
             'preview_url' => $resource->path && LearningFiles::previewable($resource->disk, $resource->mime) ? route($prefix.'preview', $resource) : null,
         ];
 
         return Inertia::render('dashboard/teaching/Learning', [
             'prefix' => $prefix, 'filters' => $filters, 'offering' => $offer?->id, 'canManage' => $canManage,
-            'resources' => (clone $query)->with(['offering.course', 'section'])->orderBy('position')->orderBy('id')->paginate(25)->withQueryString()->through($serialize),
-            'downloads' => $actor->hasRole('admin') ? (int) (clone $query)->sum('download_count') : null,
+            'resources' => $resources->with(['offering.course', 'section'])->orderBy('position')->orderBy('id')->paginate(25)->withQueryString()->through($serialize),
+            'downloads' => $actor->hasRole('admin') ? (int) (clone $resources)->sum('download_count') : null,
             'offers' => $offers->with(['course', 'academicYear', 'group.intake'])->orderByDesc('academic_year_id')->orderBy('id')
                 ->paginate(20, ['*'], 'offers_page')->withQueryString()->through(fn ($o) => [
                     'id' => $o->id, 'title' => implode(' · ', array_filter([$o->course?->title, $o->academicYear?->title, $o->group?->intake?->name])),
                 ]),
             'selected' => $selected ? $serialize($selected) : null,
-            'sections' => $offer ? ContentSection::where('academic_offering_id', $offer->id)->orderBy('position')->orderBy('id')->get(['id', 'title', 'position', 'revision']) : [],
+            'selected_offering' => $offer ? [
+                'id' => $offer->id, 'title' => $offer->curriculumItem?->name ?? $offer->course?->title, 'year' => $offer->academicYear?->title,
+            ] : null,
+            'sections' => $sections,
+            'chapter_counts' => $chapterCounts,
             'sessions' => $canManage ? $offer->sessions()->orderByDesc('starts_at')->paginate(30, ['id', 'starts_at', 'room'], 'sessions_page')->withQueryString() : null,
             'works' => $canManage ? $offer->resources()->whereNull('student_profile_id')->whereIn('kind', ['assignment', 'evaluation'])->select(['id', 'title', 'revision', 'position', 'academic_content_section_id', 'academic_session_id'])->withExists('assessment')->orderBy('title')->orderBy('id')->paginate(30, ['*'], 'works_page')->withQueryString() : null,
             'file_status' => $selected?->path && $canReadHistory ? $this->files->status($selected->only(AcademicResource::EDITION_FIELDS)) : null,

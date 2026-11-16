@@ -39,15 +39,19 @@ use App\Modules\Student\Infrastructure\Http\Controllers\DashboardEntryController
 use App\Modules\Student\Infrastructure\Http\Controllers\FinanceController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentAccountController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentAnnouncementsController;
+use App\Modules\Student\Infrastructure\Http\Controllers\StudentAttendanceController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentCourseController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentMaterialsController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentNotificationsController;
+use App\Modules\Student\Infrastructure\Http\Controllers\StudentNfcCardController;
+use App\Modules\Student\Infrastructure\Http\Controllers\StudentPaymentProofController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentPathwayController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentPortalController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentProfileController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentProgramController;
 use App\Modules\Student\Infrastructure\Http\Controllers\StudentRequestController;
 use App\Modules\Teaching\Infrastructure\Http\Controllers\AbsenceController;
+use App\Modules\Teaching\Infrastructure\Http\Controllers\AttendanceCheckInController;
 use App\Modules\Teaching\Infrastructure\Http\Controllers\AttendanceController;
 use App\Modules\Teaching\Infrastructure\Http\Controllers\AttendanceReportController;
 use App\Modules\Teaching\Infrastructure\Http\Controllers\LearningContentController;
@@ -199,6 +203,10 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
         Route::get('/files/{resource}', 'file')->name('file');
         Route::get('/sessions/{session}/attendance', [AttendanceController::class, 'show'])->name('attendance');
         Route::post('/sessions/{session}/attendance', [AttendanceController::class, 'save'])->name('attendance.save');
+        Route::post('/sessions/{session}/attendance/qr', [AttendanceCheckInController::class, 'qr'])
+            ->middleware('throttle:20,1,attendance-qr')->name('attendance.qr');
+        Route::post('/sessions/{session}/attendance/nfc', [AttendanceCheckInController::class, 'nfc'])
+            ->middleware('throttle:180,1,attendance-nfc')->name('attendance.nfc');
     });
 
     Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
@@ -218,6 +226,9 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             Route::post('/printing/{enrollment}', 'printed')->name('printed');
             Route::get('/delivery', 'delivery')->name('delivery');
             Route::patch('/delivery/{issuance}', 'collect')->name('collect');
+            Route::get('/nfc', [StudentNfcCardController::class, 'index'])->name('nfc.index');
+            Route::put('/nfc/{enrollment}', [StudentNfcCardController::class, 'assign'])->whereNumber('enrollment')->name('nfc.assign');
+            Route::delete('/nfc/{enrollment}', [StudentNfcCardController::class, 'remove'])->whereNumber('enrollment')->name('nfc.remove');
         });
 
         Route::prefix('card-requests')->name('card-requests.')->middleware('can:manage academic access')->controller(CardRequestController::class)->group(function () {
@@ -284,6 +295,9 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             Route::post('/tariffs/{tariff}/apply', 'applyTariff')->name('tariffs.apply');
             Route::post('/{academic}/bill', 'bill')->whereNumber('academic')->name('bill');
             Route::get('/payments/{payment}/receipt', 'receipt')->name('receipt');
+            Route::get('/payment-proofs', 'proofs')->name('proofs.index');
+            Route::get('/payment-proofs/{proof}/file', [StudentPaymentProofController::class, 'adminDownload'])->whereNumber('proof')->name('proofs.download');
+            Route::post('/payment-proofs/{proof}/review', [StudentPaymentProofController::class, 'review'])->whereNumber('proof')->name('proofs.review');
             Route::post('/payments/{payment}/allocate', 'allocate')->name('allocate');
             Route::post('/payments/{payment}/refunds', 'refund')->name('refund');
             Route::post('/refunds/{refund}/status', 'refundStatus')->name('refunds.status');
@@ -346,6 +360,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
                 Route::get('/{year}/export', 'export')->whereNumber('year')->name('export');
                 Route::post('/{year}/events', 'save')->whereNumber('year')->name('store');
                 Route::put('/{year}/events/{event}', 'save')->whereNumber(['year', 'event'])->name('update');
+                Route::delete('/{year}/events/{event}', 'destroy')->whereNumber(['year', 'event'])->name('destroy');
             });
             Route::get('/{id}', [AcademicYearController::class, 'show'])->whereNumber('id')->name('show');
             Route::post('/', [AcademicYearController::class, 'store'])->name('store');
@@ -435,6 +450,8 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
         Route::get('/resources/{resource}/feedback', 'assessmentFeedback')->name('assessment.feedback');
         Route::post('/resources/{resource}/review', 'requestAssessmentReview')->name('assessment.review');
         Route::get('/payments/{payment}/receipt', 'receipt')->name('payments.receipt');
+        Route::post('/payments/proofs', [StudentPaymentProofController::class, 'store'])->middleware('throttle:12,1,payment-proofs')->name('payments.proofs.store');
+        Route::get('/payments/proofs/{proof}/file', [StudentPaymentProofController::class, 'studentDownload'])->whereNumber('proof')->name('payments.proofs.download');
         Route::post('/welcome/acknowledge', 'acknowledgeWelcome')->name('welcome.acknowledge');
         Route::get('/enrollments', [App\Modules\Student\Infrastructure\Http\Controllers\EnrollmentManagementController::class, 'student'])->name('enrollments');
         Route::post('/renewals/{progression}', 'startRenewal')->whereNumber('progression')->name('renewals.start');
@@ -444,8 +461,12 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
         Route::get('/absences', [AbsenceController::class, 'student'])->name('absences');
         Route::post('/absences/{attendance}', [AbsenceController::class, 'submit'])->name('absences.submit');
         Route::get('/absences/{case}/file', [AbsenceController::class, 'file'])->name('absences.file');
+        Route::get('/attendance', [StudentAttendanceController::class, 'index'])->name('attendance');
+        Route::get('/attendance/check-in/{session}', [AttendanceCheckInController::class, 'show'])->whereNumber('session')->name('attendance.check-in');
+        Route::post('/attendance/check-in/{session}', [AttendanceCheckInController::class, 'confirm'])->whereNumber('session')
+            ->middleware('throttle:20,1,attendance-confirm')->name('attendance.confirm');
         Route::get('/courses/{course}/{section?}', [StudentCourseController::class, 'show'])->whereNumber('course')->where('section', 'infos|sessions|supports|online|files|evaluations|videos|attendance')->name('courses.show');
-        Route::get('/{section?}', 'show')->where('section', 'overview|profile|card|academics|assessments|services|courses|schedule|materials|assignments|evaluations|results|fees|transactions|documents|requests')->name('index');
+        Route::get('/{section?}', 'show')->where('section', 'overview|profile|card|academics|assessments|services|courses|schedule|materials|assignments|evaluations|results|fees|annual-fees|transactions|documents|requests')->name('index');
     });
 
     Route::prefix('enrollments')->name('enrollments.')->group(function () {

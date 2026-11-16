@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowUpRight,
+    BarChart3,
     BookOpen,
     CalendarCheck,
     CalendarDays,
@@ -313,6 +314,18 @@ export default function StudentSchedule({
                 </header>
             )}
             <div className="student-agenda-body">
+                {!courseId && (
+                    <Link className="student-agenda-attendance" href={studentHref('attendance', academic)}>
+                        <span className="student-agenda-attendance-icon">
+                            <BarChart3 size={20} aria-hidden="true" />
+                        </span>
+                        <span>
+                            <strong>Mes présences</strong>
+                            <small>Taux de présence et historique</small>
+                        </span>
+                        <ChevronRight size={18} aria-hidden="true" />
+                    </Link>
+                )}
                 {courseId ? (
                     <>
                         <div className="student-agenda-course-heading">

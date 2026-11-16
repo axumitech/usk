@@ -59,6 +59,17 @@ class AcademicCalendarController extends Controller
         return back()->with('success', 'Événement enregistré.');
     }
 
+    public function destroy(AcademicYear $year, int $event)
+    {
+        DB::transaction(function () use ($year, $event) {
+            $lockedYear = AcademicYear::whereKey($year->id)->lockForUpdate()->firstOrFail();
+            $this->events($lockedYear->id)->findOrFail($event)->delete();
+        }, 3);
+
+        return redirect()->route('dashboard.admin.academic-years.calendar.index', ['academic_year_id' => $year->id])
+            ->with('success', 'Événement supprimé.');
+    }
+
     public function export(AcademicYear $year, AcademicCalendar $calendar)
     {
         $entries = $this->semesters($year->id)->get()->toBase()->concat($this->events($year->id)->get());

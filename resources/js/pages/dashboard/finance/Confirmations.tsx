@@ -24,7 +24,7 @@ export default function Confirmations({
     filters,
     requiresPayment,
 }: {
-    entries: { data: Entry[]; total: number };
+    entries: { data: Entry[]; total: number; current_page: number };
     filters: { q?: string };
     requiresPayment: boolean;
 }) {
@@ -98,7 +98,15 @@ export default function Confirmations({
                                 </span>
                             </header>
                             <div className="me-actions">
-                                <Link className="me-link" href={route('dashboard.admin.finance.index', { academic: entry.id })}>
+                                <Link
+                                    className="me-link"
+                                    href={route('dashboard.admin.finance.index', {
+                                        academic: entry.id,
+                                        from_confirmations: 1,
+                                        confirmation_q: filters.q,
+                                        confirmation_page: entries.current_page > 1 ? entries.current_page : undefined,
+                                    })}
+                                >
                                     Consulter le compte financier
                                 </Link>
                                 {entry.canConfirm && !entry.blocker && (

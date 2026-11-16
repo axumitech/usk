@@ -46,17 +46,25 @@ final class LearningAccess
 
     public function canManage(User $actor, AcademicOffering $offer): bool
     {
-        if ($offer->archived_at) {
-            return false;
-        }
         if ($actor->hasRole('admin')) {
-            return $actor->can('publish academic content') && TeachingScope::allows($actor, (int) $offer->level->faculty_id)
+            return ! $offer->archived_at && $actor->can('publish academic content') && TeachingScope::allows($actor, (int) $offer->level->faculty_id)
                 && in_array($offer->academicYear->status, ['draft', 'open'], true);
         }
-        $teacher = $this->teacher($actor);
 
-        return $actor->hasRole('professor') && $actor->can('manage courses') && $teacher
-            && $offer->academicYear->status === 'open' && $this->instructor($offer, $teacher);
+        return $this->teacherManagementRestriction($actor, $offer, $this->teacher($actor)) === null;
+    }
+
+    public function teacherManagementRestriction(User $actor, AcademicOffering $offer, ?Professor $teacher): ?string
+    {
+        return match (true) {
+            (bool) $offer->archived_at => 'archived_course',
+            ! $teacher || ! $actor->hasRole('professor') || ! $actor->can('manage courses') => 'permission_required',
+            ! $this->instructor($offer, $teacher) => 'assistant_assignment',
+            $offer->academicYear->status === 'draft' => 'academic_year_draft',
+            $offer->academicYear->status === 'closed' => 'academic_year_closed',
+            $offer->academicYear->status !== 'open' => 'academic_year_not_open',
+            default => null,
+        };
     }
 
     public function content(User $actor, AcademicResource $resource): void

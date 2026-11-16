@@ -46,6 +46,7 @@ const Dashboard = ({
     const profileView = isStudentProfile ? (props.profile_view ?? 'overview') : null;
     const isStudentDocuments = component === 'dashboard/student/Portal' && props.section === 'documents';
     const isStudentSchedule = component === 'dashboard/student/Portal' && props.section === 'schedule';
+    const isStudentAttendance = component === 'dashboard/student/Attendance';
     const isStudentWork = component === 'dashboard/student/Portal' && ['assignments', 'evaluations'].includes(props.section ?? '');
     const isStudentSchoolServices = component === 'dashboard/student/Portal' && ['services', 'requests'].includes(props.section ?? '');
     const isStudentPathway = component === 'dashboard/student/Pathway';
@@ -56,6 +57,7 @@ const Dashboard = ({
     const hasStudentPageHeader =
         isStudentDocuments ||
         isStudentSchedule ||
+        isStudentAttendance ||
         isStudentWork ||
         isStudentSchoolServices ||
         isStudentPathway ||

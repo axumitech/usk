@@ -74,4 +74,10 @@ Artisan::command('student:apply-effective-tuition-tariffs', function () {
 
 Schedule::command('student:apply-effective-tuition-tariffs')->hourly()->withoutOverlapping();
 
+Artisan::command('student:apply-effective-fee-tariffs', function () {
+    app(FeeTariffService::class)->applyEffectiveAncillaryFees();
+})->purpose('Appliquer les barèmes de frais complémentaires en vigueur aux inscriptions éligibles.');
+
+Schedule::command('student:apply-effective-fee-tariffs')->hourly()->withoutOverlapping();
+
 Schedule::command('assessment:publish-scheduled')->everyMinute()->withoutOverlapping(10);

@@ -126,21 +126,23 @@ export default function StudentProfileForm({
     profile,
     onFeedback,
     initialEditSection,
+    initialEditField,
 }: {
     academic: Academic;
     profile: Profile;
     onFeedback: (message: string) => void;
     initialEditSection?: 'photo';
+    initialEditField?: string | null;
 }) {
     const form = useForm<ProfileData>(() => profileData(profile.values));
-    const [editing, setEditing] = useState(Boolean(initialEditSection));
+    const [editing, setEditing] = useState(Boolean(initialEditSection || initialEditField));
     const [preview, setPreview] = useState<string | null>(null);
     const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
     const photoInput = useRef<HTMLInputElement>(null);
     const photoButton = useRef<HTMLButtonElement>(null);
     const editButton = useRef<HTMLButtonElement>(null);
     const formElement = useRef<HTMLFormElement>(null);
-    const pendingFocus = useRef<'identity' | 'photo' | 'edit' | undefined>(initialEditSection);
+    const pendingFocus = useRef<string | undefined>(initialEditField ? `profile-${initialEditField}` : initialEditSection && 'profile-heading-photo');
 
     useEffect(() => {
         const file = form.data.photo;
@@ -161,7 +163,7 @@ export default function StudentProfileForm({
             if (destination === 'edit') {
                 editButton.current?.focus();
             } else {
-                document.getElementById(`profile-heading-${destination}`)?.focus();
+                (document.getElementById(destination) ?? document.getElementById('profile-heading-identity'))?.focus();
             }
         });
         return () => cancelAnimationFrame(frame);
@@ -172,7 +174,7 @@ export default function StudentProfileForm({
         form.setDefaults(data);
         form.setData(data);
         form.clearErrors();
-        pendingFocus.current = 'identity';
+        pendingFocus.current = 'profile-heading-identity';
         setEditing(true);
     };
     const finishEditing = () => {

@@ -179,6 +179,44 @@ final class TeacherDashboardTest extends TestCase
             }));
     }
 
+    public function test_course_shows_why_management_is_unavailable_without_hiding_allowed_read_links(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-10 10:00', 'Africa/Kinshasa'));
+        $entry = $this->studentContext()->studentProfile->enrollments()->sole();
+        [$actor, $professor] = $this->professor();
+        [$assistant, $assistantProfile] = $this->professor();
+        $course = $this->offering($entry, $professor, 'Structures de données');
+        $course->update(['assistant_professor_id' => $assistantProfile->id]);
+        $url = $this->workplace(['view' => 'courses', 'offering' => $course->id]);
+        $parameters = ['offering' => $course->id];
+
+        $this->actingAs($actor)->get($url)->assertInertia(fn (Assert $page) => $page
+            ->where('canPublish', true)->where('courseManagementRestriction', null));
+
+        foreach (['draft' => 'academic_year_draft', 'closed' => 'academic_year_closed'] as $status => $restriction) {
+            $course->academicYear()->update(['status' => $status]);
+            $this->get($url)->assertInertia(fn (Assert $page) => $page
+                ->where('canPublish', false)->where('courseManagementRestriction', $restriction)
+                ->where('courseLinks.resources', fn ($href) => $this->matchesUrl($href, 'dashboard.teaching.learning.index', $parameters))
+                ->where('courseLinks.assessments', fn ($href) => $this->matchesUrl($href, 'dashboard.teaching.assessments.index', $parameters)));
+        }
+
+        $course->academicYear()->update(['status' => 'open']);
+        $course->update(['archived_at' => now()]);
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->where('canPublish', false)->where('courseManagementRestriction', 'archived_course'));
+
+        $course->update(['archived_at' => null]);
+        $this->actingAs($assistant)->get($url)->assertInertia(fn (Assert $page) => $page
+            ->where('canPublish', false)->where('courseManagementRestriction', 'assistant_assignment')
+            ->where('courseLinks.assessments', null));
+
+        $actor->revokePermissionTo('manage courses');
+        $this->actingAs($actor)->get($url)->assertInertia(fn (Assert $page) => $page
+            ->where('canPublish', false)->where('courseManagementRestriction', 'permission_required')
+            ->where('courseLinks.assessments', null));
+    }
+
     public function test_course_overview_shows_its_plan_and_published_schedule_and_allows_only_authorized_changes(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-11-10 10:00', 'Africa/Kinshasa'));

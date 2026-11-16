@@ -90,6 +90,7 @@ type Props = {
     balance: Balance | null;
     obligations: { id: number; title: string; amount_cents: number; due_at: string | null }[];
     fee_kinds: string[];
+    payment_fee_kinds?: { id: string; label: string; balance_cents: number }[];
     payments: {
         id: number;
         reference: string;
@@ -97,6 +98,7 @@ type Props = {
         currency: string;
         status: string;
         method: string;
+        kind_label?: string;
         confirmed_at: string | null;
     }[];
     adjustments: {
@@ -437,6 +439,21 @@ export default function Index(props: Props) {
         required: true,
         value: 'tuition',
         options: props.fee_kinds.map((kind) => ({ value: kind, label: kind === 'tuition' ? 'Frais académiques' : kind })),
+    };
+    const paymentKinds = props.payment_fee_kinds ?? [];
+    const paymentKindField: Field = {
+        name: 'kind',
+        label: 'Frais concernés',
+        type: 'select',
+        required: true,
+        value: paymentKinds.length === 1 ? paymentKinds[0].id : paymentKinds.length === 0 ? 'unallocated' : '',
+        options: [
+            ...paymentKinds.map((kind) => ({
+                value: kind.id,
+                label: `${kind.label} · Reste ${money(kind.balance_cents, props.balance?.currency)}`,
+            })),
+            { value: 'unallocated', label: 'Versement général à affecter' },
+        ],
     };
     const offeringOptions = props.offerings.map((offering) => ({
         value: offering.id,
@@ -1164,8 +1181,13 @@ export default function Index(props: Props) {
                                                 'Ce versement restera en attente jusqu’à une confirmation comptable explicite, après vérification de la pièce justificative.',
                                                 `${base}/${selected.id}/payments`,
                                                 [
-                                                    { ...feeKindField, name: 'kind' },
-                                                    { name: 'amount', label: 'Montant reçu (USD)', type: 'number', required: true },
+                                                    paymentKindField,
+                                                    {
+                                                        name: 'amount',
+                                                        label: `Montant reçu (${props.balance?.currency})`,
+                                                        type: 'number',
+                                                        required: true,
+                                                    },
                                                     {
                                                         name: 'method',
                                                         label: 'Mode de versement',
@@ -1203,7 +1225,7 @@ export default function Index(props: Props) {
                                                     <tr key={payment.id}>
                                                         <td>
                                                             {payment.reference}
-                                                            <small>{payment.method}</small>
+                                                            <small>{[payment.kind_label, payment.method].filter(Boolean).join(' · ')}</small>
                                                         </td>
                                                         <td>
                                                             {money(payment.amount_cents, payment.currency)}

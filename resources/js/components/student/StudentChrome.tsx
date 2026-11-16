@@ -28,9 +28,9 @@ const tabs = [
 
 const tabGroups: Record<string, string[]> = {
     overview: ['announcements', 'notifications', 'services', 'requests'],
-    courses: ['program', 'academics', 'schedule', 'absences', 'materials', 'assignments', 'evaluations', 'course-detail'],
+    courses: ['program', 'academics', 'schedule', 'attendance', 'absences', 'materials', 'assignments', 'evaluations', 'course-detail'],
     results: ['assessments'],
-    fees: ['transactions'],
+    fees: ['annual-fees', 'transactions'],
     profile: ['card', 'documents', 'pathway'],
 };
 
@@ -58,6 +58,7 @@ function yearDestination(section: string) {
         'academics',
         'services',
         'schedule',
+        'attendance',
         'materials',
         'assignments',
         'evaluations',
@@ -66,6 +67,7 @@ function yearDestination(section: string) {
         'enrollments',
         'absences',
         'fees',
+        'annual-fees',
         'transactions',
         'profile',
         'pathway',

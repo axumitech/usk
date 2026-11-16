@@ -315,8 +315,101 @@
     border-top: 1px solid var(--lib-line);
 }
 
+.teacher-learning-library .learning-workspace {
+    grid-template-columns: minmax(0, 2.5fr) minmax(215px, 1fr);
+}
+
+.teacher-learning-library .learning-offers {
+    scroll-margin-top: 95px;
+}
+
+.teacher-learning-library .learning-resource-list > li > a {
+    gap: 12px;
+    min-height: 66px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease;
+}
+
+.teacher-learning-library .learning-resource-list > li > a:hover {
+    border-color: var(--lib-green);
+}
+
+.teacher-learning-library .learning-resource-copy strong {
+    font-size: 0.95rem;
+}
+
+.teacher-learning-library .learning-resource-copy small {
+    display: block;
+    margin-top: 3px;
+    line-height: 1.4;
+}
+
+.teacher-learning-library .learning-library-scope {
+    margin: 4px 0 0;
+    color: var(--lib-muted);
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.learning-library-filters {
+    margin-top: 12px;
+    border: 1px solid var(--lib-line);
+    border-radius: 10px;
+}
+
+.learning-library-filters summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 12px;
+    color: var(--lib-green);
+    font-size: 0.85rem;
+    font-weight: 650;
+    list-style: none;
+    cursor: pointer;
+}
+
+.learning-library-filters summary::-webkit-details-marker {
+    display: none;
+}
+
+.learning-library-filters summary svg:last-child {
+    flex: none;
+    margin-inline-start: auto;
+}
+
+.learning-library-filters[open] summary svg:last-child {
+    rotate: 180deg;
+}
+
+.learning-library .learning-library-filters .learning-search {
+    margin-top: 0;
+    padding: 12px;
+    border-top: 1px solid var(--lib-line);
+}
+
+.learning-work-organisation summary {
+    color: var(--lib-green);
+    font-size: 0.93rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.learning-work-organisation li {
+    flex-wrap: wrap;
+}
+
+.learning-work-organisation li > span {
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
-    .learning-workspace {
+    .learning-workspace,
+    .teacher-learning-library .learning-workspace {
         grid-template-columns: minmax(0, 1fr);
     }
 
@@ -340,5 +433,17 @@
 
     .learning-search-actions > * {
         flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 380px) {
+    .teacher-learning-library .learning-resource-list > li > a {
+        gap: 8px;
+        padding-inline: 8px;
+    }
+
+    .teacher-learning-library .learning-item-icon {
+        width: 34px;
+        height: 34px;
     }
 }

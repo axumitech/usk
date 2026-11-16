@@ -232,6 +232,59 @@ final class LearningContentTest extends TestCase
         $this->get($course.'/online?session='.$foreign->id)->assertNotFound();
     }
 
+    public function test_teacher_library_filters_and_counts_chapters_within_the_visible_offering(): void
+    {
+        [$student, $entry, $teacher, $offer] = $this->fixtures();
+        $assistant = $this->teacher();
+        $offer->update(['assistant_professor_id' => Professor::where('user_id', $assistant->id)->value('id')]);
+        $other = $this->offering($entry, $this->teacher());
+
+        $chapter = ContentSection::create(['academic_offering_id' => $offer->id, 'title' => 'Introduction', 'position' => 1]);
+        $empty = ContentSection::create(['academic_offering_id' => $offer->id, 'title' => 'Conclusion', 'position' => 2]);
+        $foreign = ContentSection::create(['academic_offering_id' => $other->id, 'title' => 'Autre cours', 'position' => 1]);
+        $published = $offer->resources()->create(['kind' => 'material', 'title' => 'Fiche principale',
+            'academic_content_section_id' => $chapter->id, 'is_published' => true]);
+        $draft = $offer->resources()->create(['kind' => 'syllabus', 'title' => 'Fiche en préparation',
+            'academic_content_section_id' => $chapter->id, 'is_published' => false]);
+        $loose = $offer->resources()->create(['kind' => 'material', 'title' => 'Annexe', 'is_published' => true]);
+        $misplaced = $offer->resources()->create(['kind' => 'material', 'title' => 'Annexe historique',
+            'academic_content_section_id' => $foreign->id, 'is_published' => true]);
+        $offer->resources()->create(['kind' => 'material', 'title' => 'Fiche individuelle',
+            'academic_content_section_id' => $empty->id, 'is_published' => true, 'student_profile_id' => $student->studentProfile->id]);
+        $offer->resources()->create(['kind' => 'evaluation', 'title' => 'Examen',
+            'academic_content_section_id' => $empty->id, 'is_published' => true]);
+        $other->resources()->create(['kind' => 'material', 'title' => 'Autre support',
+            'academic_content_section_id' => $foreign->id, 'is_published' => true]);
+
+        $library = self::TEACHER.'?offering='.$offer->id;
+        $this->actingAs($teacher)->get($library.'&section='.$chapter->id.'&resource='.$loose->id)
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('selected_offering.id', $offer->id)->where('selected_offering.title', 'Séminaire')
+                ->where('selected_offering.year', $offer->academicYear->title)
+                ->where('filters.section', (string) $chapter->id)->where('selected.id', $loose->id)
+                ->where('chapter_counts', ['all' => 4, 'unassigned' => 2])
+                ->has('sections', 2)->where('sections.0.id', $chapter->id)->where('sections.0.support_count', 2)
+                ->where('sections.1.id', $empty->id)->where('sections.1.support_count', 0)
+                ->has('resources.data', 2)->where('resources.data.0.id', $published->id)
+                ->where('resources.data.0.section', 'Introduction')->where('resources.data.1.id', $draft->id));
+
+        $this->get($library.'&section=unassigned')->assertInertia(fn (Assert $page) => $page
+            ->where('filters.section', 'unassigned')->has('resources.data', 2)
+            ->where('resources.data.0.id', $loose->id)
+            ->where('resources.data.1.id', $misplaced->id)->where('resources.data.1.section', null));
+        $this->get($library.'&section='.$chapter->id.'&q=Fiche&kind=material&status=published')
+            ->assertInertia(fn (Assert $page) => $page->where('chapter_counts', ['all' => 1, 'unassigned' => 0])
+                ->where('sections.0.support_count', 1)->has('resources.data', 1)->where('resources.data.0.id', $published->id));
+        $this->get($library.'&section='.$foreign->id)->assertNotFound();
+        $this->get(self::TEACHER.'?section='.$foreign->id)->assertNotFound();
+        $this->get(self::TEACHER.'?offering='.$other->id.'&section='.$foreign->id)->assertNotFound();
+
+        $this->actingAs($assistant)->get($library.'&section='.$chapter->id)
+            ->assertInertia(fn (Assert $page) => $page->where('canManage', false)
+                ->where('chapter_counts', ['all' => 3, 'unassigned' => 2])->where('sections.0.support_count', 1)
+                ->has('resources.data', 1)->where('resources.data.0.id', $published->id));
+    }
+
     public function test_reuse_pins_the_original_file_and_requires_rights_on_both_offers(): void
     {
         [, $entry, $teacher, $offer] = $this->fixtures();

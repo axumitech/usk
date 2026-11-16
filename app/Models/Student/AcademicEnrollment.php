@@ -96,6 +96,11 @@ class AcademicEnrollment extends Model
         return $this->hasOne(CardRequest::class);
     }
 
+    public function nfcCard(): HasOne
+    {
+        return $this->hasOne(StudentNfcCard::class);
+    }
+
     public function obligations()
     {
         return $this->hasMany(StudentObligation::class);

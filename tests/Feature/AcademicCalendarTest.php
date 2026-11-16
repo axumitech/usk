@@ -60,4 +60,33 @@ class AcademicCalendarTest extends TestCase
             ->assertDontSee('DTSTART;VALUE=DATE:20271015', false)
             ->assertDontSee('Rattrapages');
     }
+
+    public function test_calendar_deletes_only_events_from_the_selected_year(): void
+    {
+        $student = User::factory()->create();
+        $student->assignRole(Role::findOrCreate('student', 'web'));
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $year = AcademicYear::create(['title' => '2025–2026', 'start_date' => '2025-10-15', 'end_date' => '2026-09-20', 'status' => 'closed']);
+        $other = AcademicYear::create(['title' => '2026–2027', 'start_date' => '2026-10-15', 'end_date' => '2027-09-20', 'status' => 'open']);
+        $semester = AcademicSemester::create(['academic_year_id' => $year->id, 'number' => 1, 'start_date' => '2025-10-15', 'end_date' => '2026-03-31']);
+        $event = AcademicCalendarEvent::create([
+            'academic_year_id' => $year->id, 'title' => 'Cérémonie de rentrée', 'category' => 'other', 'start_date' => '2025-10-21', 'end_date' => '2025-10-21',
+        ]);
+        $prefix = 'dashboard.admin.academic-years.calendar.';
+        $target = route($prefix.'destroy', [$year, $event]);
+        $calendar = route($prefix.'index', ['academic_year_id' => $year->id]);
+
+        $this->actingAs($student)->delete($target)->assertForbidden();
+        $this->actingAs($admin)->delete(route($prefix.'destroy', [$other, $event]))->assertNotFound();
+        $this->assertModelExists($event);
+
+        $this->delete($target, [], ['X-Inertia' => 'true'])
+            ->assertStatus(303)->assertRedirect($calendar)->assertSessionHas('success', 'Événement supprimé.');
+        $this->assertModelMissing($event);
+        $this->assertModelExists($semester);
+        $this->delete($target)->assertNotFound();
+        $this->get($calendar)->assertInertia(fn (Assert $page) => $page->where('year.id', $year->id)->has('events', 0)->has('semesters', 1));
+        $this->get(route($prefix.'export', $year))->assertOk()->assertDontSee('Cérémonie de rentrée');
+    }
 }

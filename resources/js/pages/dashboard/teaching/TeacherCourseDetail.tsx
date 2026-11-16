@@ -16,6 +16,7 @@ import {
     Layers3,
     LayoutDashboard,
     Link2,
+    LockKeyhole,
     MapPin,
     Megaphone,
     NotebookPen,
@@ -62,8 +63,12 @@ type CourseResource = Resource & {
     section: string | null;
 };
 type CourseChapter = { id: number; title: string; count: number };
+type CourseManagementRestriction =
+    'archived_course' | 'permission_required' | 'assistant_assignment' | 'academic_year_draft' | 'academic_year_closed' | 'academic_year_not_open';
+
 export type TeacherCourseData = {
     courseTab: TeacherCourseTab | null;
+    courseManagementRestriction: CourseManagementRestriction | null;
     courseOverview: TeacherCourseOverviewData | null;
     studentGroups: { id: number | null; label: string; count: number }[];
     studentGroup: GroupSelection;
@@ -84,7 +89,7 @@ export type TeacherCourseData = {
 
 type Props = TeacherCourseData & {
     course: Offering;
-    period: Pick<TeacherOverview, 'year' | 'semester'>;
+    period: Pick<TeacherOverview, 'year' | 'semester' | 'years'>;
     students: Page<CourseStudent> | null;
     onAnnounce?: () => void;
     onPublishLink?: () => void;
@@ -103,6 +108,23 @@ const resourceKinds = {
     video: { label: 'Vidéo', icon: Video },
     audio: { label: 'Audio', icon: Headphones },
 };
+
+function restrictionMessage(restriction: CourseManagementRestriction, year: string) {
+    switch (restriction) {
+        case 'archived_course':
+            return 'Cette offre est archivée. Sélectionnez l’offre active dans Mes cours, ou adressez-vous à l’administration si elle manque.';
+        case 'assistant_assignment':
+            return 'Vous êtes rattaché à ce cours en consultation. Pour gérer les supports et les évaluations, demandez à l’administration de vérifier votre affectation.';
+        case 'permission_required':
+            return 'Votre compte ne dispose pas de l’autorisation de gérer les cours. L’administration peut vérifier vos droits.';
+        case 'academic_year_draft':
+            return `L’année académique ${year} est en préparation. La création de supports et d’évaluations devient disponible à son ouverture par l’administration.`;
+        case 'academic_year_closed':
+            return `L’année académique ${year} est clôturée. Pour créer des supports ou des évaluations, ouvrez le cours correspondant dans l’année ouverte.`;
+        case 'academic_year_not_open':
+            return `L’année académique ${year} doit être ouverte pour permettre la création de supports et d’évaluations.`;
+    }
+}
 
 function SessionRows({ sessions }: { sessions: Page<CourseSession> | null }) {
     return sessions?.data.length ? (
@@ -392,6 +414,7 @@ export default function TeacherCourseDetail({
     course,
     period,
     courseTab,
+    courseManagementRestriction,
     courseOverview,
     students,
     sessions,
@@ -433,6 +456,12 @@ export default function TeacherCourseDetail({
         });
     const pages = { overview: null, sessions, students, assessments, resources, grades: null };
     const page = pages[active.id];
+    const isReadOnly = Boolean(courseManagementRestriction);
+    const openYear = period.years.find((year) => year.is_current && year.id !== course.year_id);
+    const isDifferentYear =
+        courseManagementRestriction === 'academic_year_draft' ||
+        courseManagementRestriction === 'academic_year_closed' ||
+        courseManagementRestriction === 'academic_year_not_open';
 
     return (
         <div className="teacher-course-detail">
@@ -480,6 +509,38 @@ export default function TeacherCourseDetail({
                 </details>
             </div>
 
+            {courseLinks && (
+                <nav className="teacher-course-management" aria-label="Accès aux outils du cours">
+                    <Link className="teacher-course-entry-action" href={courseLinks.resources}>
+                        <FolderOpen size={18} aria-hidden="true" />
+                        <span>{isReadOnly ? 'Bibliothèque du cours' : 'Gérer les supports'}</span>
+                        <ArrowUpRight size={15} aria-hidden="true" />
+                    </Link>
+                    {courseLinks.assessments && (
+                        <Link className="teacher-course-entry-action" href={courseLinks.assessments}>
+                            <ClipboardCheck size={18} aria-hidden="true" />
+                            <span>{isReadOnly ? 'Consulter les évaluations' : 'Gérer les évaluations'}</span>
+                            <ArrowUpRight size={15} aria-hidden="true" />
+                        </Link>
+                    )}
+                </nav>
+            )}
+
+            {courseManagementRestriction && (
+                <aside className="teacher-course-read-only" aria-label="Droits de gestion du cours">
+                    <LockKeyhole size={19} aria-hidden="true" />
+                    <div>
+                        <strong>Cours en lecture seule</strong>
+                        <p>{restrictionMessage(courseManagementRestriction, course.year)}</p>
+                        {openYear && isDifferentYear && (
+                            <Link href={route('dashboard.teaching.index', { view: 'courses', year: openYear.id })}>
+                                Voir mes cours de {openYear.title} <ArrowUpRight size={14} aria-hidden="true" />
+                            </Link>
+                        )}
+                    </div>
+                </aside>
+            )}
+
             <nav className="teacher-course-tabs" aria-label="Rubriques du cours" data-tab-count={visibleTabs.length}>
                 {visibleTabs.map(({ id, label, icon: Icon }) => (
                     <Link
@@ -510,21 +571,10 @@ export default function TeacherCourseDetail({
                     icon={active.icon}
                     className="teacher-course-panel"
                     action={
-                        active.id === 'assessments' && courseLinks?.assessments ? (
-                            <Link className="teacher-course-entry-action" href={courseLinks.assessments}>
-                                Gérer les évaluations <ArrowUpRight size={15} aria-hidden="true" />
-                            </Link>
-                        ) : active.id === 'resources' && courseLinks ? (
-                            <div className="teacher-course-panel-actions">
-                                {onPublishLink && (
-                                    <button className="teacher-course-entry-action" type="button" onClick={onPublishLink}>
-                                        <Plus size={15} aria-hidden="true" /> Publier un lien
-                                    </button>
-                                )}
-                                <Link className="teacher-course-entry-action" href={courseLinks.resources}>
-                                    {onPublishLink ? 'Gérer les supports' : 'Bibliothèque du cours'} <ArrowUpRight size={15} aria-hidden="true" />
-                                </Link>
-                            </div>
+                        active.id === 'resources' && onPublishLink ? (
+                            <button className="teacher-course-entry-action" type="button" onClick={onPublishLink}>
+                                <Plus size={15} aria-hidden="true" /> Publier un lien
+                            </button>
                         ) : undefined
                     }
                 >

@@ -119,6 +119,42 @@
     padding: clamp(0.75rem, 3vw, 1.25rem);
 }
 
+.student-agenda-attendance {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--agenda-line);
+    border-radius: 0.95rem;
+    background: var(--agenda-tint);
+    color: var(--agenda-accent);
+    transition: border-color 180ms ease;
+}
+
+.student-agenda-attendance:hover {
+    border-color: var(--agenda-accent);
+}
+
+.student-agenda-attendance-icon {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border-radius: 0.7rem;
+    background: var(--agenda-surface);
+}
+
+.student-agenda-attendance strong,
+.student-agenda-attendance small {
+    display: block;
+}
+
+.student-agenda-attendance small {
+    color: var(--agenda-muted);
+    font-size: 0.77rem;
+}
+
 .student-agenda-course-heading,
 .student-agenda-course-heading h2 {
     display: flex;

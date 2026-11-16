@@ -10,14 +10,23 @@ use Illuminate\Support\Str;
 
 final class StudentFinanceActivity
 {
+    public function annual(array $statement): array
+    {
+        return [
+            'obligations' => $statement['obligations'],
+            'kinds' => $statement['kinds'],
+            'kind_titles' => $statement['kind_titles'],
+            'can_submit_proof' => true,
+        ];
+    }
+
     public function overview(AcademicEnrollment $entry, array $statement): array
     {
         $history = $this->payments($entry)->latest('id');
         $receipts = $this->payments($entry)->whereNotNull('confirmed_at')->latest('confirmed_at')->latest('id');
         $parameters = ['section' => 'transactions', 'academic' => $entry->id];
 
-        return [
-            'obligations' => $statement['obligations'],
+        return $this->annual($statement) + [
             'recent_payments' => $history->limit(4)->get()->map(fn ($payment) => $this->payment($entry, $payment, $statement['kind_titles'])),
             'receipt_payments' => $receipts->limit(4)->get()->map(fn ($payment) => $this->payment($entry, $payment, $statement['kind_titles'])),
             'history_url' => route('dashboard.student.index', $parameters, absolute: false),

@@ -1,7 +1,141 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reçu {{ $payment->reference }}</title><style>body{font:15px Arial,sans-serif;color:#254534;background:#f6f5ee;padding:40px}main{max-width:680px;margin:auto;background:white;border:1px solid #dfe5d5;padding:40px;border-radius:10px}h1{font:32px Georgia,serif}dt{color:#59644c;margin-top:22px;font-size:12px}dd{margin:7px 0}.invalid{border:2px solid #a22;color:#822;padding:16px}button{background:#244b39;color:white;padding:13px 20px;border:0;border-radius:5px}@media print{body{background:white;padding:0}button{display:none}main{border:0}}</style></head><body>
-@php($snapshot = $payment->receipt_snapshot ?? [])
-@php($refunded = (int)$payment->refunds()->where('status', 'executed')->sum('amount_cents'))
-<main><p>{{ $snapshot['institution'] ?? config('app.name') }}</p><h1>Reçu de versement</h1><p>Référence : {{ $snapshot['reference'] ?? $payment->reference }}</p>
-@if($payment->status !== 'confirmed')<p class="invalid">REÇU INVALIDÉ — {{ $payment->status === 'refunded' && $refunded > 0 ? 'Remboursement exécuté' : 'Écriture annulée ou contrepassée' }}.</p>@elseif($refunded > 0)<p class="invalid">Remboursement partiel exécuté : {{ \App\Modules\Student\Application\Services\Money::decimal($refunded) }} {{ $payment->currency }}.</p>@endif
-<dl><dt>Étudiant</dt><dd>{{ $snapshot['name'] ?? $academic->profile->user->full_name }}</dd><dt>Matricule</dt><dd>{{ $snapshot['matricule'] ?? $academic->profile->matricule ?? $academic->matricule ?? 'Non renseigné' }}</dd><dt>Formation et année</dt><dd>{{ $snapshot['faculty'] ?? $academic->level->faculty->name }} · {{ $snapshot['level'] ?? $academic->level->title }} · {{ $snapshot['year'] ?? $academic->academicYear->title }}</dd><dt>Montant du versement confirmé initialement</dt><dd>{{ \App\Modules\Student\Application\Services\Money::decimal((int)($snapshot['amount_cents'] ?? $payment->amount_cents)) }} {{ $snapshot['currency'] ?? $payment->currency }}</dd><dt>Mode</dt><dd>{{ $snapshot['method'] ?? $payment->method }}</dd><dt>Confirmation comptable</dt><dd>{{ $payment->confirmed_at->timezone('Africa/Kinshasa')->format('d/m/Y à H:i') }}</dd><dt>État actuel de l’écriture</dt><dd>{{ ['confirmed'=>'Confirmé','cancelled'=>'Annulé','refunded'=>'Invalidé après remboursement / contrepassation historique'][$payment->status] ?? $payment->status }}</dd></dl>
-<p>Ce reçu concerne ce versement uniquement. Il ne constitue pas une attestation de règlement intégral des frais.</p><p><a href="{{ \Illuminate\Support\Facades\URL::signedRoute('finance.receipts.verify', ['payment' => $payment->uuid]) }}">Vérifier l’état de ce reçu</a></p><button onclick="window.print()">Imprimer le reçu</button></main></body></html>
+@php
+    $state = $receipt['state'];
+    $statusLabel = match ($state) {
+        'paid' => 'Payé',
+        'partially_refunded' => 'Partiellement remboursé',
+        'refunded' => 'Remboursé',
+        default => 'Reçu invalidé',
+    };
+    $currency = $receipt['currency'];
+    $formatAmount = static fn (int $cents): string => number_format($cents / 100, 2, ',', "\u{202F}");
+@endphp
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Reçu de paiement · {{ $receipt['reference'] }}</title>
+    @include('student.receipt-styles')
+</head>
+<body>
+    <div class="receipt-layout">
+        <nav class="receipt-toolbar" aria-label="Actions du reçu">
+            <a href="{{ $backUrl }}"><span aria-hidden="true">←</span> Retour aux paiements</a>
+            <button type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+        </nav>
+
+        <main class="receipt-sheet" data-state="{{ $state }}">
+            <header class="receipt-masthead">
+                <div class="receipt-identity">
+                    <img src="{{ asset('assets/usk/logo.png') }}" width="72" height="72" alt="">
+                    <div>
+                        <strong>{{ $receipt['institution'] }}</strong>
+                        <p>Comptabilité universitaire</p>
+                    </div>
+                </div>
+                <div class="receipt-reference">
+                    <span>Référence de paiement</span>
+                    <strong>{{ $receipt['reference'] }}</strong>
+                </div>
+            </header>
+
+            <div class="receipt-heading">
+                <div>
+                    <h1>Reçu de paiement</h1>
+                    <p>{{ $receipt['kind_title'] }}</p>
+                </div>
+                <strong class="receipt-status">
+                    <span class="receipt-status-mark" aria-hidden="true">{{ $state === 'paid' ? '' : '!' }}</span>
+                    {{ $statusLabel }}
+                </strong>
+            </div>
+
+            <section class="receipt-payment" aria-label="Versement">
+                <div class="receipt-total">
+                    <span>{{ $state === 'paid' ? 'Montant payé' : 'Montant du versement initial' }}</span>
+                    <p><strong>{{ $formatAmount($receipt['amount_cents']) }}</strong> <span>{{ $currency }}</span></p>
+                </div>
+                <dl class="receipt-payment-meta">
+                    <div>
+                        <dt>Mode de paiement</dt>
+                        <dd>{{ $receipt['method'] }}</dd>
+                    </div>
+                    <div>
+                        <dt>Confirmation comptable · Kinshasa</dt>
+                        <dd>{{ $receipt['confirmed_at'] }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+            @if ($receipt['refunded_cents'] > 0)
+                <dl class="receipt-refund">
+                    <div>
+                        <dt>Remboursement exécuté</dt>
+                        <dd>{{ $formatAmount($receipt['refunded_cents']) }} {{ $currency }}</dd>
+                    </div>
+                    @if ($state !== 'invalid')
+                        <div>
+                            <dt>Montant net après remboursement</dt>
+                            <dd>{{ $formatAmount($receipt['net_cents']) }} {{ $currency }}</dd>
+                        </div>
+                    @endif
+                </dl>
+            @endif
+
+            @if ($state === 'invalid')
+                <p class="receipt-warning">L’écriture a été annulée ou contrepassée.</p>
+            @endif
+
+            <div class="receipt-details">
+                <section aria-labelledby="receipt-student">
+                    <h2 id="receipt-student">Étudiant</h2>
+                    <dl>
+                        <div>
+                            <dt>Nom complet</dt>
+                            <dd>{{ $receipt['name'] }}</dd>
+                        </div>
+                        <div>
+                            <dt>Matricule</dt>
+                            <dd>{{ $receipt['matricule'] }}</dd>
+                        </div>
+                    </dl>
+                </section>
+                <section aria-labelledby="receipt-enrollment">
+                    <h2 id="receipt-enrollment">Inscription</h2>
+                    <dl>
+                        <div>
+                            <dt>Faculté et niveau</dt>
+                            <dd>{{ $receipt['faculty'] }} · {{ $receipt['level'] }}</dd>
+                        </div>
+                        <div>
+                            <dt>Année académique</dt>
+                            <dd>{{ $receipt['year'] }}</dd>
+                        </div>
+                    </dl>
+                </section>
+            </div>
+
+            <footer>
+                <section class="receipt-verification" aria-labelledby="receipt-verify">
+                    <div>
+                        <h2 id="receipt-verify">Vérification du reçu</h2>
+                        <p>Scannez le QR code pour consulter l’état de ce reçu dans le registre universitaire.</p>
+                        <a href="{{ $receipt['verification_url'] }}" rel="noreferrer">Vérifier en ligne <span aria-hidden="true">↗</span></a>
+                        <dl>
+                            <dt>Identifiant de vérification</dt>
+                            <dd><code>{{ $receipt['uuid'] }}</code></dd>
+                        </dl>
+                    </div>
+                    <img class="receipt-qr" src="{{ $receipt['qr_image'] }}" width="128" height="128" alt="QR code de vérification du reçu">
+                </section>
+                <div class="receipt-footer-note">
+                    <p>Ce reçu atteste uniquement du versement référencé ci-dessus.</p>
+                    <span>Kinshasa · RDC</span>
+                </div>
+            </footer>
+        </main>
+    </div>
+</body>
+</html>

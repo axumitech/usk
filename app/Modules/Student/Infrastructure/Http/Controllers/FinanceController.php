@@ -12,16 +12,21 @@ use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\FinanceTariff;
 use App\Models\Student\PaymentRefund;
 use App\Models\Student\StudentPayment;
+use App\Models\Student\StudentPaymentProof;
+use App\Models\User;
 use App\Modules\Student\Application\Services\AcademicEnrollmentReadService;
 use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\FeeTariffService;
+use App\Modules\Student\Application\Services\FinanceReceiptService;
 use App\Modules\Student\Application\Services\FinanceReconciliationService;
 use App\Modules\Student\Application\Services\FinanceReportingService;
 use App\Modules\Student\Application\Services\PaymentAllocationService;
 use App\Modules\Student\Application\Services\PaymentRefundService;
 use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentPaymentProofs;
 use App\Modules\Student\Infrastructure\Exports\FinanceWorkbook;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -41,25 +46,24 @@ final class FinanceController extends Controller
     {
         $this->staff($r);
         $actor = $r->user();
+        $filters = $this->filters($r);
+        if (isset($filters['academic'])) {
+            $context = $r->validate($this->confirmationReturnRules());
+            $entry = AcademicEnrollment::with(['profile.user', 'level.faculty', 'academicYear', 'curriculumVersion', 'promotion.program', 'admissionCohort.program', 'group.intake', 'group.promotion', 'application'])
+                ->findOrFail($filters['academic']);
+
+            return $this->account($r, $entry, $actor, $filters + $context, $finance, $read, $tariffService);
+        }
         $facultyScope = $actor->academicFaculties();
         $hasFacultyScope = $facultyScope->exists();
-        $filters = $this->filters($r);
-        $entry = isset($filters['academic']) ? AcademicEnrollment::with(['profile.user', 'level.faculty', 'academicYear', 'curriculumVersion', 'promotion.program', 'admissionCohort.program', 'group.intake', 'group.promotion'])->findOrFail($filters['academic']) : null;
-        if ($entry) {
-            $finance->authorize($entry, $actor);
-        }
 
         return Inertia::render('dashboard/finance/Index', [
             'entries' => $reports->entries($actor, $filters)->latest('academic_enrollments.id')->paginate(15)->withQueryString()->through(fn ($e) => $read->row($e)),
-            'filters' => $filters, 'totals' => $reports->totals($actor, $filters), 'selected' => $entry ? $read->row($entry) : null,
+            'filters' => $filters, 'totals' => $reports->totals($actor, $filters), 'selected' => null,
             'cashflow' => fn () => $reports->cashflow($actor, $filters),
             'breakdowns' => fn () => $reports->breakdowns($actor, $filters),
-            'statement' => $entry ? $finance->statement($entry) : null,
-            'adjustments' => $entry ? $entry->adjustments()->latest('id')->paginate(15, ['*'], 'adjustments_page')->withQueryString() : null,
-            'obligations' => $entry ? $entry->obligations()->orderBy('installment')->get() : [],
-            'payments' => $entry ? $entry->payments()->with('allocations')->latest('id')->paginate(20, ['*'], 'payments_page')->withQueryString() : null,
-            'refunds' => $entry ? PaymentRefund::whereIn('student_payment_id', $entry->payments()->select('id'))->latest('id')->paginate(15, ['*'], 'refunds_page')->withQueryString() : null,
-            'tariffs' => ['data' => $entry ? $tariffService->billableFor($entry, $actor)->orderBy('title')->get(['id', 'title', 'version', 'category', 'currency', 'status']) : []],
+            'statement' => null, 'adjustments' => null, 'obligations' => [], 'payments' => null,
+            'refunds' => null, 'tariffs' => ['data' => []],
             'faculties' => $hasFacultyScope ? (clone $facultyScope)->orderBy('name')->get(['faculties.id', 'faculties.name'])->makeHidden('pivot') : Faculty::orderBy('name')->get(['id', 'name']),
             'programs' => AcademicProgram::when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id')))->orderBy('name')->get(['id', 'name', 'faculty_id']),
             'levels' => Level::with('faculty:id,name')->when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', (clone $facultyScope)->select('faculties.id')))->orderBy('title')->get(['id', 'title', 'faculty_id']),
@@ -68,6 +72,97 @@ final class FinanceController extends Controller
             'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => config('finance.dual_control'),
             'preview' => ($r->session()->get('finance.preview.actor_id') === $r->user()->id && $r->session()->get('finance.preview.expires_at', 0) >= now()->timestamp) ? $r->session()->get('finance.preview') : null,
         ]);
+    }
+
+    private function account(Request $request, AcademicEnrollment $entry, User $actor, array $filters, StudentFinanceService $finance, AcademicEnrollmentReadService $read, FeeTariffService $tariffs)
+    {
+        $finance->authorize($entry, $actor);
+        if ($request->isMethod('GET') && $request->header('Purpose') !== 'prefetch' && $tariffs->applyToEnrollment($entry)) {
+            $entry->refresh();
+        }
+        $dualControl = (bool) config('finance.dual_control');
+        $fromConfirmations = (bool) ($filters['from_confirmations'] ?? false);
+        $fromProofs = (bool) ($filters['from_proofs'] ?? false);
+        $statement = $finance->statement($entry);
+        $backUrl = $fromConfirmations
+            ? route('dashboard.admin.finance.confirmations', array_filter([
+                'q' => $filters['confirmation_q'] ?? null,
+                'page' => $filters['confirmation_page'] ?? null,
+            ], fn ($value) => $value !== null), false)
+            : route('dashboard.admin.finance.index', Arr::only($filters, ['q', 'year', 'faculty', 'program', 'level']), false);
+        if ($fromProofs) {
+            $backUrl = route('dashboard.admin.finance.proofs.index', Arr::only($filters, ['q', 'page']), false);
+        }
+
+        return Inertia::render('dashboard/finance/Index', [
+            'selected' => $read->row($entry),
+            'filters' => $filters,
+            'accountBackUrl' => $backUrl,
+            'accountBackLabel' => $fromProofs ? 'Justificatifs de paiement' : ($fromConfirmations ? 'Inscriptions en attente' : 'Comptes étudiants'),
+            'enrollmentConfirmation' => $this->enrollmentConfirmation($entry, $actor, $finance, (bool) config('student.enrollment_requires_first_installment'), $statement['kinds']['tuition'] ?? null),
+            'statement' => $statement,
+            'paymentProofs' => fn () => app(StudentPaymentProofs::class)->adminRows($entry, $statement['kind_titles']),
+            'adjustments' => $entry->adjustments()->latest('id')->paginate(15, ['*'], 'adjustments_page')->withQueryString(),
+            'obligations' => $entry->obligations()->orderBy('installment')->orderBy('id')->get(),
+            'pendingPaymentCount' => $entry->payments()->where('status', 'pending')->count(),
+            'payments' => $entry->payments()->with('allocations')
+                ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")->latest('id')
+                ->paginate(20, ['*'], 'payments_page')->withQueryString()->through(fn (StudentPayment $payment) => $payment->toArray() + [
+                    'can_confirm' => $payment->status === 'pending' && (! $dualControl || (int) $payment->recorded_by !== (int) $actor->id),
+                    'recorded_at' => $payment->created_at?->toIso8601String(),
+                ]),
+            'refunds' => PaymentRefund::whereIn('student_payment_id', $entry->payments()->select('id'))->latest('id')->paginate(15, ['*'], 'refunds_page')->withQueryString(),
+            'tariffs' => ['data' => $tariffs->billableFor($entry, $actor)->orderBy('title')->get(['id', 'title', 'version', 'category', 'currency', 'status'])],
+            'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => $dualControl,
+            'entries' => ['data' => [], 'links' => [], 'total' => 0], 'totals' => [],
+            'cashflow' => ['start_month' => '', 'end_month' => '', 'series' => []],
+            'breakdowns' => ['faculties' => [], 'fee_kinds' => []],
+            'faculties' => [], 'programs' => [], 'levels' => [], 'cycles' => [], 'years' => [], 'preview' => null,
+        ]);
+    }
+
+    private function confirmationReturnRules(): array
+    {
+        return [
+            'from_confirmations' => 'nullable|boolean',
+            'confirmation_q' => 'nullable|string|max:150',
+            'confirmation_page' => 'nullable|integer|min:1',
+            'from_proofs' => 'nullable|boolean',
+            'page' => 'nullable|integer|min:1',
+        ];
+    }
+
+    public function proofs(Request $request, StudentPaymentProofs $proofs, AcademicEnrollmentReadService $enrollments)
+    {
+        $this->staff($request);
+        $filters = $request->validate(['q' => 'nullable|string|max:150', 'page' => 'nullable|integer|min:1']);
+        $actor = $request->user();
+        $query = $proofs->pendingFor($actor)->with(['payment', 'enrollment.profile.user', 'enrollment.academicYear', 'enrollment.level.faculty']);
+        if (! empty($filters['q'])) {
+            $query->whereIn('academic_enrollment_id', $enrollments->query($actor, ['q' => $filters['q']])->select('academic_enrollments.id'));
+        }
+        $rows = $query->oldest('id')->paginate(20)->withQueryString();
+        $rows->through(function (StudentPaymentProof $proof) use ($proofs, $filters, $rows) {
+            $entry = $proof->enrollment;
+            $row = $proofs->adminRow($proof);
+            $target = $proof->status === 'accepted' ? '#paiements' : '#justificatif-'.$proof->id;
+
+            return Arr::only($row, ['id', 'reference', 'kind_label', 'amount_cents', 'currency', 'submitted_at']) + [
+                'student' => $entry->profile->user->full_name,
+                'matricule' => $entry->matricule ?? $entry->profile->matricule,
+                'faculty' => $entry->level->faculty->name,
+                'year' => $entry->academicYear->title,
+                'second_check' => $proof->status === 'accepted',
+                'account_url' => route('dashboard.admin.finance.index', [
+                    'academic' => $entry->id,
+                    'from_proofs' => 1,
+                    'q' => $filters['q'] ?? null,
+                    'page' => $rows->currentPage(),
+                ], false).$target,
+            ];
+        });
+
+        return Inertia::render('dashboard/finance/PaymentProofs', ['rows' => $rows, 'filters' => Arr::only($filters, ['q'])]);
     }
 
     public function tariffs(Request $request, FeeTariffService $service)
@@ -98,7 +193,7 @@ final class FinanceController extends Controller
         $current = $open->first(fn (AcademicYear $year) => $year->start_date <= $today && $year->end_date >= $today) ?? $open->first() ?? $years->first();
         $filters['year'] ??= $current?->id;
 
-        $query = FinanceTariff::with(['academicYear:id,title,start_date,end_date,status', 'level:id,title,faculty_id', 'level.faculty:id,name', 'program:id,name,faculty_id', 'program.faculty:id,name'])
+        $query = FinanceTariff::with(['academicYear:id,title,start_date,end_date,status', 'faculty:id,name', 'level:id,title,faculty_id', 'level.faculty:id,name', 'program:id,name,faculty_id', 'program.faculty:id,name'])
             ->where('academic_year_id', $filters['year'])
             ->when(isset($filters['level']), fn ($query) => $query->where('level_id', $filters['level']))
             ->when(isset($filters['category']), fn ($query) => $query->where('category', $filters['category']))
@@ -106,7 +201,8 @@ final class FinanceController extends Controller
         $tariffFacultyIds = isset($filters['faculty']) ? [$filters['faculty']] : $facultyIds->all();
         if ($tariffFacultyIds !== []) {
             $query->where(function ($query) use ($tariffFacultyIds) {
-                $query->whereHas('program', fn ($program) => $program->whereIn('faculty_id', $tariffFacultyIds))
+                $query->whereIn('faculty_id', $tariffFacultyIds)
+                    ->orWhereHas('program', fn ($program) => $program->whereIn('faculty_id', $tariffFacultyIds))
                     ->orWhere(fn ($query) => $query->whereNull('academic_program_id')->whereHas('level', fn ($level) => $level->whereIn('faculty_id', $tariffFacultyIds)));
             });
         }
@@ -135,6 +231,7 @@ final class FinanceController extends Controller
             'programs' => AcademicProgram::when($facultyIds->isNotEmpty(), fn ($query) => $query->whereIn('faculty_id', $facultyIds))->orderBy('name')->get(['id', 'name', 'faculty_id']),
             'cycles' => AcademicCycle::orderBy('name')->get(['id', 'name']),
             'currencies' => config('finance.currencies'),
+            'canScopeUniversity' => $facultyIds->isEmpty(),
         ]);
     }
 
@@ -143,35 +240,46 @@ final class FinanceController extends Controller
         $this->staff($request);
         $filters = $request->validate(['q' => 'nullable|string|max:150']);
         $actor = $request->user();
-        $requiresPayment = config('student.enrollment_requires_first_installment');
+        $requiresPayment = (bool) config('student.enrollment_requires_first_installment');
 
         return Inertia::render('dashboard/finance/Confirmations', [
             'filters' => $filters,
             'requiresPayment' => $requiresPayment,
             'entries' => $read->query($actor, $filters + ['status' => 'pending_confirmation'])
                 ->with('application')->latest('academic_enrollments.id')->paginate(15)->withQueryString()
-                ->through(function (AcademicEnrollment $entry) use ($read, $finance, $requiresPayment, $actor) {
-                    $blocker = match (true) {
-                        $entry->application?->status?->value !== 'validated' => 'Candidature à valider',
-                        $entry->profile->student_status !== 'active' => 'Profil étudiant inactif',
-                        $entry->academicYear->status !== 'open' => 'Année académique fermée',
-                        $requiresPayment && ! $finance->firstTuitionInstallmentCovered($entry) => 'Première tranche à couvrir',
-                        default => null,
-                    };
-
-                    return $read->row($entry) + [
-                        'blocker' => $blocker,
-                        'canConfirm' => $actor->can('manage', $entry),
-                        'context' => AcademicEnrollmentService::contextToken($entry),
-                    ];
-                }),
+                ->through(fn (AcademicEnrollment $entry) => $read->row($entry) + $this->enrollmentConfirmation($entry, $actor, $finance, $requiresPayment)),
         ]);
+    }
+
+    private function enrollmentConfirmation(AcademicEnrollment $entry, User $actor, StudentFinanceService $finance, bool $requiresPayment, ?array $tuitionBalance = null): array
+    {
+        $blocker = match (true) {
+            $entry->enrollment_status !== 'pending_confirmation' => null,
+            $entry->application?->status?->value !== 'validated' => 'Candidature à valider',
+            $entry->profile->student_status !== 'active' => 'Profil étudiant inactif',
+            $entry->academicYear->status !== 'open' => 'Année académique fermée',
+            $requiresPayment && ! $finance->firstTuitionInstallmentCovered($entry, $tuitionBalance) => 'Première tranche à couvrir',
+            default => null,
+        };
+
+        return [
+            'status' => $entry->enrollment_status,
+            'blocker' => $blocker,
+            'canConfirm' => $actor->can('manage', $entry),
+            'context' => AcademicEnrollmentService::contextToken($entry),
+        ];
     }
 
     public function confirmEnrollment(Request $request, AcademicEnrollment $academic, AcademicEnrollmentService $service)
     {
         $this->staff($request);
         abort_unless($request->user()->can('manage', $academic), 403);
+        $redirect = to_route('dashboard.admin.finance.confirmations', status: 303);
+        if ($request->boolean('return_to_account')) {
+            $filters = $this->filters($request);
+            $context = $request->validate($this->confirmationReturnRules());
+            $redirect = to_route('dashboard.admin.finance.index', ['academic' => $academic->id] + $filters + $context, 303);
+        }
         try {
             $data = $request->validate([
                 'operation_key' => 'required|uuid',
@@ -183,23 +291,26 @@ final class FinanceController extends Controller
                 'enrollment_status' => 'confirmed',
             ]);
         } catch (ValidationException $exception) {
-            return to_route('dashboard.admin.finance.confirmations', status: 303)->withErrors($exception->errors());
+            return $redirect->withErrors($exception->errors());
         }
 
-        return to_route('dashboard.admin.finance.confirmations', status: 303)->with('success', 'Inscription académique confirmée.');
+        return $redirect->with('success', 'Inscription académique confirmée.');
     }
 
     public function tariff(Request $r, FeeTariffService $service)
     {
         $this->staff($r);
-        $data = $r->validate($this->tariffFields() + [
+        $data = $r->validate($this->tariffFields(allowUndated: $r->boolean('automatic')) + [
             'academic_year_id' => 'required|integer|exists:academic_years,id',
             'academic_program_id' => 'nullable|integer|exists:academic_programs,id',
             'academic_cycle_id' => 'nullable|integer|exists:academic_cycles,id',
+            'faculty_id' => 'nullable|integer|exists:faculties,id',
             'level_id' => 'nullable|integer|exists:levels,id',
             'category' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
             'kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
             'currency' => 'required|string|size:3',
+            'automatic' => 'sometimes|boolean',
+            'fee_scope' => 'nullable|in:university,faculty,level',
         ]);
         $tariff = $service->create($r->user(), $data);
 
@@ -209,15 +320,15 @@ final class FinanceController extends Controller
     public function updateTariff(Request $request, FinanceTariff $tariff, FeeTariffService $service)
     {
         $this->staff($request);
-        $service->authorize($request->user(), $tariff->level_id, $tariff->academic_program_id);
-        $data = $request->validate($this->tariffFields() + ['revision' => 'required|string|size:64']);
+        $service->authorize($request->user(), $tariff->level_id, $tariff->academic_program_id, $tariff->faculty_id);
+        $data = $request->validate($this->tariffFields(allowUndated: $tariff->automatic) + ['revision' => 'required|string|size:64']);
         $saved = $service->revise($tariff, $request->user(), $data);
         $message = $saved->is($tariff) ? 'Barème modifié.' : 'Nouvelle version créée en brouillon. Activez-la après contrôle.';
 
         return redirect()->to($this->tariffWorkspaceUrl($request, $saved), 303)->with('success', $message);
     }
 
-    private function tariffFields(): array
+    private function tariffFields(bool $allowUndated = false): array
     {
         return [
             'title' => 'required|string|max:180',
@@ -225,7 +336,7 @@ final class FinanceController extends Controller
             'valid_until' => 'nullable|date_format:Y-m-d|after_or_equal:valid_from',
             'schedule' => 'required|array|min:1|max:24',
             'schedule.*.amount' => 'required',
-            'schedule.*.due_at' => 'required|date_format:Y-m-d',
+            'schedule.*.due_at' => $allowUndated ? 'nullable|date_format:Y-m-d' : 'required|date_format:Y-m-d',
             'reason' => 'required|string|min:10|max:2000',
         ];
     }
@@ -239,7 +350,7 @@ final class FinanceController extends Controller
         $year = $tariff->academicYear;
         $message = match (true) {
             $counts !== null => "Barème activé. Échéanciers ajoutés : {$counts['applied']}. Dossiers avec frais ou historique conservés : {$counts['preserved']}.",
-            ! $service->supportsAutomaticTuition($tariff) => 'Barème activé.',
+            ! $service->supportsAutomaticBilling($tariff) => 'Barème activé.',
             $year->end_date < $today || ($tariff->valid_until !== null && $tariff->valid_until->toDateString() < $today) => 'Barème activé. Sa période de validité est terminée.',
             default => 'Barème activé. L’affectation automatique aura lieu pendant sa période de validité si l’année académique est ouverte.',
         };
@@ -259,7 +370,7 @@ final class FinanceController extends Controller
 
     private function tariffWorkspaceUrl(Request $request, FinanceTariff $tariff): string
     {
-        $faculty = $tariff->program?->faculty_id ?? $tariff->level?->faculty_id;
+        $faculty = $tariff->faculty_id ?? $tariff->program?->faculty_id ?? $tariff->level?->faculty_id;
         $params = ['year' => $tariff->academic_year_id];
         foreach (['faculty' => $faculty, 'level' => $tariff->level_id, 'category' => $tariff->category, 'status' => $tariff->status] as $key => $value) {
             $query = $request->query($key);
@@ -361,19 +472,32 @@ final class FinanceController extends Controller
         ]);
     }
 
-    public function receipt(Request $r, StudentPayment $payment, StudentFinanceService $finance)
+    public function receipt(Request $r, StudentPayment $payment, StudentFinanceService $finance, FinanceReceiptService $receipts)
     {
         $this->staff($r);
         $finance->authorize($payment->enrollment, $r->user());
         abort_unless($payment->confirmed_at, 404);
 
-        return response()->view('student.receipt', ['payment' => $payment, 'academic' => $payment->enrollment])->header('Cache-Control', 'private, no-store');
+        return response()->view('student.receipt', [
+            'receipt' => $receipts->present($payment, $payment->enrollment),
+            'backUrl' => route('dashboard.admin.finance.index', ['academic' => $payment->academic_enrollment_id], false),
+        ])->header('Cache-Control', 'private, no-store');
     }
 
-    public function verify(Request $r, StudentPayment $payment)
+    public function verify(Request $r, StudentPayment $payment, FinanceReceiptService $receipts)
     {
         abort_unless($payment->confirmed_at, 404);
 
-        return response()->json(['receipt' => $payment->uuid, 'state' => $payment->status === 'confirmed' ? ($payment->refunds()->where('status', 'executed')->exists() ? 'partially_refunded' : 'valid') : 'invalid', 'issued_at' => $payment->confirmed_at->toDateString()])->header('Cache-Control', 'no-store');
+        $html = $r->query('format') === 'html';
+        $verification = $receipts->verify($payment, localDate: $html);
+        $response = $html
+            ? response()->view('student.receipt-verification', compact('verification'))
+            : response()->json($verification);
+
+        return $response->withHeaders([
+            'Cache-Control' => 'no-store',
+            'Referrer-Policy' => 'no-referrer',
+            'X-Robots-Tag' => 'noindex, nofollow',
+        ]);
     }
 }

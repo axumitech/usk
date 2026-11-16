@@ -2,6 +2,7 @@
 
 namespace App\Modules\Assessment\Infrastructure\Http;
 
+use App\Models\AcademicYear;
 use App\Models\Student\AcademicAssessment;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\AcademicResource;
@@ -102,6 +103,10 @@ final class AssessmentController
         $published = (clone $list)->where('state', 'published');
         $upcoming = (clone $published)->whereHas('resource', fn ($q) => $q->where('opens_at', '>', now()))->count();
         $open = $published->whereHas('resource', fn ($q) => $q->where('opens_at', '<=', now())->where('closes_at', '>=', now()))->count();
+        $offer?->loadMissing(['course', 'academicYear', 'group.intake']);
+        $offerTitle = fn (AcademicOffering $offering) => implode(' · ', array_filter([
+            $offering->course?->title, $offering->academicYear?->title, $offering->group?->intake?->name,
+        ]));
         $canEdit = $offer && app(LearningAccess::class)->canManage($actor, $offer);
         $draftOptions = $resource ? $this->draftOptions->presentation($resource) : [];
         if (! empty($draftOptions['subject'])) {
@@ -110,6 +115,9 @@ final class AssessmentController
 
         return Inertia::render('dashboard/teaching/Assessments', [
             'prefix' => $prefix, 'admin' => $actor->hasRole('admin'), 'canEdit' => $canEdit, 'filters' => $filter, 'offering' => $offer?->id,
+            'offering_title' => $offer ? $offerTitle($offer) : null,
+            'years' => AcademicYear::whereIn('id', (clone $scope)->select('academic_year_id'))
+                ->orderByDesc('start_date')->orderByDesc('id')->get(['id', 'title']),
             'gradebook_url' => $gradebookUrl,
             'draft_options' => $this->draftOptions->formConfig(),
             'participant_groups' => $assessment ? $this->participantFilters->groups($assessment) : [],
@@ -117,7 +125,7 @@ final class AssessmentController
             'state_counts' => $stateCounts, 'work_counts' => $workCounts, 'upcoming_count' => $upcoming, 'open_count' => $open,
             'offers' => $offerList->with(['course', 'academicYear', 'group.intake'])->orderByDesc('academic_year_id')->orderBy('id')
                 ->paginate(20, ['*'], 'offers_page')->withQueryString()->through(fn ($offer) => [
-                    'id' => $offer->id, 'title' => implode(' · ', array_filter([$offer->course?->title, $offer->academicYear?->title, $offer->group?->intake?->name])),
+                    'id' => $offer->id, 'title' => $offerTitle($offer),
                 ]),
             'sessions' => $canEdit ? $offer->sessions()->whereNull('cancelled_at')->orderByDesc('starts_at')->paginate(25, ['id', 'room', 'starts_at', 'is_published'], 'sessions_page')->withQueryString() : null,
             'sections' => $canEdit ? ContentSection::where('academic_offering_id', $offer->id)->orderBy('position')->get(['id', 'title']) : [],

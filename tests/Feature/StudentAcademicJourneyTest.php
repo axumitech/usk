@@ -726,6 +726,45 @@ class StudentAcademicJourneyTest extends TestCase
         $this->assertSame(1, $academic->changes()->count());
     }
 
+    public function test_finance_account_keeps_enrollment_confirmation_and_queue_context_on_the_same_page(): void
+    {
+        config(['student.enrollment_auto_confirmation' => false]);
+        [$admin, $student, $application] = $this->application();
+        $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
+        $academic = $application->academicEnrollment()->firstOrFail();
+        app(StudentFinanceService::class)->assess($academic, $admin, 'national');
+        $context = ['from_confirmations' => 1, 'confirmation_q' => 'Étudiant', 'confirmation_page' => 2];
+        $account = route('dashboard.admin.finance.index', ['academic' => $academic->id] + $context);
+        $confirm = route('dashboard.admin.finance.confirmations.store', ['academic' => $academic->id] + $context);
+        $payload = [
+            'return_to_account' => true,
+            'operation_key' => '38fa76db-584e-4197-9c6f-121cc1a19f6d',
+            'expected_context' => AcademicEnrollmentService::contextToken($academic->fresh()),
+            'reason' => 'Première tranche vérifiée dans le compte financier.',
+        ];
+
+        $this->actingAs($student->fresh())->get($account)->assertForbidden();
+        $this->actingAs($admin)->get($account)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/finance/Index')
+            ->where('enrollmentConfirmation.status', 'pending_confirmation')
+            ->where('enrollmentConfirmation.canConfirm', true)
+            ->where('enrollmentConfirmation.blocker', 'Première tranche à couvrir')
+            ->where('accountBackUrl', route('dashboard.admin.finance.confirmations', ['q' => 'Étudiant', 'page' => 2], false))
+            ->where('statement.schedules.tuition.0.remaining_cents', 5000)
+            ->where('statement.schedules.tuition.1.remaining_cents', 5000));
+        $this->post($confirm, $payload)->assertRedirect($account)->assertSessionHasErrors('enrollment_status');
+
+        $this->payment($academic, $admin, '50.00');
+        $this->get($account)->assertInertia(fn (Assert $page) => $page
+            ->where('enrollmentConfirmation.blocker', null)
+            ->where('statement.schedules.tuition.0.remaining_cents', 0)
+            ->where('statement.schedules.tuition.1.remaining_cents', 5000));
+        $payload['expected_context'] = AcademicEnrollmentService::contextToken($academic->fresh());
+        $this->post($confirm, $payload)->assertRedirect($account)->assertSessionHasNoErrors();
+        $this->get($account)->assertInertia(fn (Assert $page) => $page->where('enrollmentConfirmation.status', 'confirmed'));
+        $this->assertSame(1, $academic->changes()->count());
+    }
+
     public function test_payment_and_valid_aid_combine_to_confirm_the_first_installment_once(): void
     {
         [$admin, , $application] = $this->application();

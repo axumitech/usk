@@ -30,12 +30,13 @@ export const studentModules: StudentModule[] = [
         title: 'Mes études',
         icon: BookOpen,
         description: 'Votre programme et vos enseignements.',
-        sections: ['program', 'academics', 'courses', 'schedule', 'absences', 'assignments', 'evaluations'],
+        sections: ['program', 'academics', 'courses', 'schedule', 'attendance', 'absences', 'assignments', 'evaluations'],
         items: [
             { label: 'Programme académique', section: 'program' },
             { label: 'Programme de formation', section: 'academics' },
             { label: 'Mes cours', section: 'courses' },
             { label: 'Emploi du temps', section: 'schedule' },
+            { label: 'Mes présences', section: 'attendance' },
             { label: 'Justification des absences', section: 'absences' },
             { label: 'Devoirs et travaux', section: 'assignments' },
             { label: 'Évaluations', section: 'evaluations' },
@@ -70,9 +71,10 @@ export const studentModules: StudentModule[] = [
         title: 'Finances',
         icon: Wallet,
         description: 'Votre situation et vos paiements.',
-        sections: ['fees', 'transactions'],
+        sections: ['fees', 'annual-fees', 'transactions'],
         items: [
             { label: 'Situation financière et échéancier', section: 'fees' },
+            { label: 'Frais de l’année', section: 'annual-fees' },
             { label: 'Historique des paiements et reçus', section: 'transactions' },
         ],
     },
@@ -116,6 +118,7 @@ export const studentSectionLabels: Record<string, string> = {
     academics: 'Programme de formation',
     courses: 'Mes cours',
     schedule: 'Emploi du temps',
+    attendance: 'Mes présences',
     absences: 'Justification des absences',
     materials: 'Supports de cours',
     assignments: 'Devoirs et travaux',
@@ -123,6 +126,7 @@ export const studentSectionLabels: Record<string, string> = {
     evaluations: 'Évaluations',
     results: 'Notes et bulletins',
     fees: 'Situation financière',
+    'annual-fees': 'Frais de l’année',
     transactions: 'Historique des paiements et reçus',
     services: 'Scolarité',
     enrollments: 'Mes inscriptions académiques',
@@ -131,10 +135,11 @@ export const studentSectionLabels: Record<string, string> = {
     notifications: 'Notifications',
 };
 
-// Match the page-level decisions in StudentPortalController::show.
+// Match the student page access decisions.
 const pagePermissions: Record<string, string> = {
     courses: 'courses_view',
     schedule: 'schedule_view',
+    attendance: 'schedule_view',
     materials: 'courses_view',
     assignments: 'courses_view',
     evaluations: 'courses_view',

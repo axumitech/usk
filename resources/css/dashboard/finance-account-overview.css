@@ -1,0 +1,429 @@
+.finance-account-overview {
+    --account-ink: var(--usk-night-text, #16392f);
+    --account-muted: var(--usk-night-muted, #51685e);
+    --account-line: var(--usk-night-border, #dce6de);
+    --account-paper: var(--usk-night-surface, #fffefa);
+    --account-green: var(--usk-night-mint, #166148);
+    display: grid;
+    gap: 0.85rem;
+    min-width: 0;
+    color: var(--account-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.finance-summary-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 0.85rem;
+}
+
+.finance-account-overview :is(h2, h3, h4, p, dl, dd) {
+    margin: 0;
+}
+
+.finance-summary-balance,
+.finance-summary-next {
+    display: grid;
+    align-content: center;
+    gap: 0.55rem;
+    min-width: 0;
+    min-height: 11rem;
+    padding: clamp(1rem, 2.4vw, 1.7rem);
+    border: 1px solid var(--account-line);
+    border-radius: 1.1rem;
+}
+
+.finance-summary-balance {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-color: var(--usk-night-field-border, #134838);
+    color: #fffdf4;
+    background: radial-gradient(ellipse at 96% -9%, #417550 0, transparent 65%), #123f32;
+}
+
+.finance-summary-mark {
+    position: absolute;
+    z-index: -1;
+    top: -1.1rem;
+    right: -0.5rem;
+    color: #f2e6ad;
+    opacity: 0.19;
+    transform: rotate(-10deg);
+}
+
+.finance-summary-kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.65rem;
+}
+
+.usk-dashboard .finance-account-overview .finance-summary-kicker h2,
+.usk-dashboard .finance-account-overview .finance-summary-next h2 {
+    margin: 0;
+    color: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.finance-summary-kicker > span {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #f2e6ad5c;
+    border-radius: 0.35rem;
+    color: #ffe9ad;
+    background: #182f2794;
+    font-size: 0.71rem;
+    font-weight: 700;
+}
+
+.finance-account-overview .finance-summary-amount {
+    color: inherit;
+    font-family: 'Libre Caslon Display', Georgia, serif;
+    font-size: clamp(2.2rem, 4.1vw, 3.65rem);
+    font-weight: 400;
+    line-height: 0.97;
+    overflow-wrap: anywhere;
+}
+
+.finance-summary-balance > p:not(.finance-summary-amount),
+.finance-coverage {
+    color: #ebf2e2;
+    font-size: 0.83rem;
+}
+
+.finance-coverage {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.2rem;
+}
+
+.finance-coverage progress {
+    appearance: none;
+    flex: 1 1 5rem;
+    width: 0;
+    height: 0.42rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 1rem;
+    color: #e5d596;
+    background: #fafffb3b;
+}
+
+.finance-coverage progress::-webkit-progress-bar {
+    border-radius: 1rem;
+    background: #fafffb3b;
+}
+
+.finance-coverage progress::-webkit-progress-value {
+    border-radius: 1rem;
+    background: #e5d596;
+}
+
+.finance-coverage progress::-moz-progress-bar {
+    border-radius: 1rem;
+    background: #e5d596;
+}
+
+.finance-summary-next {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.9rem;
+    color: var(--account-ink);
+    background: var(--usk-night-raised, #f4f7ef);
+}
+
+.finance-summary-next[data-overdue='true'] {
+    background: var(--usk-night-warm, #fcf5e6);
+}
+
+.finance-summary-next-icon,
+.finance-installments-heading > span {
+    display: grid;
+    width: 2.8rem;
+    height: 2.8rem;
+    place-items: center;
+    border: 1px solid var(--account-line);
+    border-radius: 0.7rem;
+    color: var(--account-green);
+    background: var(--account-paper);
+}
+
+.finance-summary-next[data-overdue='true'] :is(.finance-summary-next-icon, .finance-next-overdue) {
+    color: var(--usk-night-danger, #935515);
+}
+
+.finance-summary-next > div {
+    display: grid;
+    gap: 0.32rem;
+}
+
+.finance-summary-next p {
+    color: var(--account-muted);
+    font-size: 0.86rem;
+    overflow-wrap: anywhere;
+}
+
+.finance-summary-next .finance-next-amount {
+    color: var(--account-ink);
+    font-size: clamp(1.4rem, 2.7vw, 2.3rem);
+    font-weight: 750;
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+}
+
+.finance-summary-next .finance-next-overdue {
+    margin-top: 0.18rem;
+    font-weight: 700;
+}
+
+.finance-summary-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.finance-summary-metrics > div {
+    display: grid;
+    gap: 0.42rem;
+    padding: 0.9rem 0.95rem;
+    border: 1px solid var(--account-line);
+    border-radius: 0.8rem;
+    background: var(--account-paper);
+}
+
+.finance-summary-metrics dt {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    color: var(--account-muted);
+    font-size: 0.77rem;
+    line-height: 1.3;
+}
+
+.finance-summary-metrics dt svg {
+    flex-shrink: 0;
+    color: var(--account-green);
+}
+
+.finance-summary-metrics dd {
+    color: var(--account-ink);
+    font-size: clamp(1rem, 1.65vw, 1.25rem);
+    font-weight: 750;
+    overflow-wrap: anywhere;
+}
+
+.finance-account-overview .finance-summary-credit {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+    padding: 0.7rem 0.95rem;
+    border-radius: 0.65rem;
+    color: var(--account-green);
+    background: var(--usk-night-raised, #ecf4ef);
+    font-size: 0.85rem;
+}
+
+.finance-installments {
+    display: grid;
+    gap: 0.95rem;
+    margin-top: 0.15rem;
+    padding: clamp(0.85rem, 2.1vw, 1.4rem);
+    border: 1px solid var(--account-line);
+    border-radius: 1.1rem;
+    background: var(--account-paper);
+}
+
+.finance-installments-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.72rem;
+}
+
+.finance-installments-heading > span {
+    flex-shrink: 0;
+    background: var(--usk-night-raised, #eaf4ed);
+}
+
+.usk-dashboard .finance-account-overview .finance-installments-heading h2 {
+    margin: 0;
+    color: var(--account-ink);
+    font-size: clamp(1.2rem, 2vw, 1.5rem);
+    font-weight: 750;
+    letter-spacing: -0.025em;
+}
+
+.finance-installments-heading p,
+.finance-installments-empty,
+.finance-installment-heading p {
+    color: var(--account-muted);
+    font-size: 0.85rem;
+}
+
+.finance-installment-group {
+    display: grid;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.finance-installment-group-title,
+.finance-installment-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+}
+
+.finance-installment-group-title > div > p,
+.finance-installment-group-title > span {
+    color: var(--account-muted);
+    font-size: 0.78rem;
+}
+
+.finance-installment-group-title > span {
+    font-weight: 700;
+}
+
+.usk-dashboard .finance-account-overview .finance-installment-group-title h3,
+.usk-dashboard .finance-account-overview .finance-installment-heading h4 {
+    margin: 0;
+    color: var(--account-ink);
+    font-size: 0.95rem;
+    font-weight: 750;
+}
+
+.finance-installment-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.finance-installment {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+    min-width: 0;
+    padding: 0.85rem;
+    border: 1px solid var(--account-line);
+    border-radius: 0.75rem;
+    background: var(--usk-night-background, #fbfcf7);
+}
+
+.finance-installment[data-status='overdue'] {
+    border-inline-start: 3px solid var(--usk-night-danger, #ba692a);
+}
+
+.finance-installment-status {
+    padding: 0.2rem 0.52rem;
+    border-radius: 0.35rem;
+    color: var(--account-green);
+    background: var(--usk-night-raised, #eaf3eb);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.finance-installment[data-status='overdue'] .finance-installment-status {
+    color: var(--usk-night-danger, #93450f);
+    background: var(--usk-night-danger-surface, #fcebdc);
+}
+
+.finance-installment-amounts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.finance-installment-amounts dt {
+    color: var(--account-muted);
+    font-size: 0.77rem;
+}
+
+.finance-installment-amounts dd {
+    color: var(--account-ink);
+    font-size: 0.94rem;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.finance-installment-remaining {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem 0.45rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--account-line);
+}
+
+.finance-installment-remaining dd {
+    color: var(--account-green);
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+.finance-installment-payment {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 0.32rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--account-line);
+    border-radius: 0.45rem;
+    color: var(--account-green);
+    background: var(--account-paper);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.finance-installment-payment:hover {
+    background: var(--usk-night-raised, #e7f3eb);
+}
+
+.finance-installment-original summary {
+    width: fit-content;
+    padding: 0.35rem 0;
+    color: var(--account-green);
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.finance-installment-original .finance-installment-list {
+    margin-top: 0.4rem;
+}
+
+@media (max-width: 52rem) {
+    .finance-summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 39rem) {
+    .finance-summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .finance-summary-next {
+        min-height: auto;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .finance-account-overview :is(.finance-summary-grid, .finance-installments) {
+        animation: finance-overview-appear 230ms ease-out both;
+    }
+
+    @keyframes finance-overview-appear {
+        from {
+            opacity: 0;
+            transform: translateY(0.3rem);
+        }
+    }
+}

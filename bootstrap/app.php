@@ -44,7 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->dontFlash('email_current_password');
+        $exceptions->dontFlash(['email_current_password', 'uid']);
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
             if ($response->getStatusCode() >= 400) {
                 $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive');

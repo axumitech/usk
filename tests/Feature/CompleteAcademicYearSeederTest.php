@@ -4,15 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\AcademicYear;
 use App\Models\Courses;
+use App\Models\Enrollment;
 use App\Models\Faculty;
 use App\Models\Level;
-use App\Models\Student\AcademicAttendance;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\AcademicResource;
 use App\Models\Student\AcademicSession;
-use App\Models\Student\AcademicSubmission;
-use App\Models\Student\StudentPayment;
 use App\Models\Student\StudentProfile;
+use App\Models\User;
+use Carbon\Carbon;
 use Database\Seeders\CompleteAcademicYearSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +27,7 @@ class CompleteAcademicYearSeederTest extends TestCase
 
     public function test_complete_year_is_consistent_preserves_existing_data_and_is_repeatable(): void
     {
-        $this->travelTo(\Carbon\Carbon::parse('2026-11-02 12:00', 'Africa/Kinshasa'));
+        $this->travelTo(Carbon::parse('2026-11-02 12:00', 'Africa/Kinshasa'));
         Storage::fake('local');
         Mail::fake();
         Notification::fake();
@@ -43,16 +43,14 @@ class CompleteAcademicYearSeederTest extends TestCase
         $this->assertDatabaseCount('courses', 181);
         $this->assertDatabaseCount('professors', 20);
         $this->assertDatabaseCount('academic_offerings', 180);
-        $this->assertDatabaseCount('student_profiles', 45);
-        $this->assertDatabaseCount('academic_enrollments', 45);
-        $this->assertDatabaseCount('student_obligations', 90);
-        $this->assertDatabaseCount('student_payments', 60);
-        $this->assertSame(45, StudentPayment::where('status', 'confirmed')->count());
-        $this->assertSame(15, StudentPayment::where('status', 'pending')->count());
+        $this->assertSame(0, User::role('student')->count());
+        foreach (['enrollments', 'student_profiles', 'academic_enrollments', 'student_obligations', 'student_payments', 'academic_attendances', 'academic_submissions'] as $table) {
+            $this->assertDatabaseEmpty($table);
+        }
         $this->assertSame(180, AcademicResource::where('kind', 'material')->count());
-        $this->assertGreaterThan(0, AcademicAttendance::count());
-        $this->assertGreaterThan(0, AcademicSubmission::count());
-        $this->assertSame(0, AcademicAttendance::whereIn('academic_session_id', AcademicSession::where('starts_at', '>', now())->select('id'))->count());
+        $this->assertSame(180, AcademicResource::where('kind', 'assignment')->count());
+        $this->assertSame(180, AcademicResource::where('kind', 'evaluation')->count());
+        $this->assertSame(0, AcademicResource::where('kind', 'result')->count());
         $hours = [];
         $active = [];
         foreach (AcademicSession::with('offering.course')->orderBy('starts_at')->get() as $session) {
@@ -78,24 +76,32 @@ class CompleteAcademicYearSeederTest extends TestCase
         foreach (AcademicResource::whereNotNull('path')->get() as $resource) {
             Storage::disk('local')->assertExists($resource->path);
         }
+        $student = User::factory()->create(['email' => 'demo.student.med.l1.1@usk.example.test', 'first_name' => 'Nom modifié']);
+        $student->assignRole('student');
+        $profile = StudentProfile::create(['user_id' => $student->id, 'matricule' => 'MED-DEMO-1']);
+        $demoLevel = Level::where('code', 'L1')->whereBelongsTo(Faculty::where('code', 'MED')->firstOrFail())->firstOrFail();
+        $application = Enrollment::create([
+            'student_id' => $student->id, 'level_id' => $demoLevel->id, 'academic_year_id' => $year->id,
+            'status' => 'validated', 'notes' => 'Dossier existant', 'meta' => ['demo' => true],
+        ]);
+        $entry = $profile->enrollments()->create([
+            'application_id' => $application->id, 'level_id' => $demoLevel->id, 'academic_year_id' => $year->id,
+            'matricule' => $profile->matricule, 'enrollment_status' => 'confirmed',
+        ]);
         $tables = ['academic_years', 'levels', 'courses', 'professors', 'academic_offerings', 'academic_sessions', 'users', 'enrollments', 'academic_enrollments', 'student_profiles', 'student_obligations', 'student_payments', 'academic_resources', 'academic_attendances', 'academic_submissions', 'academic_audits'];
         $counts = [];
         foreach ($tables as $table) {
             $counts[$table] = DB::table($table)->count();
         }
-        $payment = StudentPayment::first();
-        app(\App\Modules\Student\Application\Services\StudentFinanceService::class)->annotate($payment, \App\Models\User::where('email', 'demo.admin@usk.example.test')->firstOrFail(), 'Note conservée par la comptabilité', 'Correction de note comptable contrôlée.');
-        $counts['academic_audits'] = DB::table('academic_audits')->count();
-        $student = StudentProfile::first()->user;
-        $student->update(['first_name' => 'Nom modifié']);
         $this->seed(CompleteAcademicYearSeeder::class);
         foreach ($counts as $table => $count) {
             $this->assertSame($count, DB::table($table)->count(), $table);
         }
         $this->assertSame('Nom modifié', $student->fresh()->first_name);
-        $this->assertSame('Note conservée par la comptabilité', $payment->fresh()->note);
+        $this->assertSame('Dossier existant', $application->fresh()->notes);
+        $this->assertDatabaseHas('academic_enrollments', ['id' => $entry->id, 'student_profile_id' => $profile->id, 'enrollment_status' => 'confirmed']);
         $this->assertSame('Cours existant', $custom->fresh()->title);
-        $this->assertFalse(Level::where('id','!=',$level->id)->where('is_active',true)->exists());
+        $this->assertFalse(Level::where('id', '!=', $level->id)->where('is_active', true)->exists());
         Mail::assertNothingSent();
         Notification::assertNothingSent();
     }

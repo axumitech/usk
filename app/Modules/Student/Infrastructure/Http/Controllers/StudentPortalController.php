@@ -27,12 +27,16 @@ use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Application\Services\AcademicProgressionService;
 use App\Modules\Student\Application\Services\Audit;
 use App\Modules\Student\Application\Services\CardEligibility;
+use App\Modules\Student\Application\Services\FeeTariffService;
+use App\Modules\Student\Application\Services\FinanceReceiptService;
 use App\Modules\Student\Application\Services\Money;
 use App\Modules\Student\Application\Services\StudentAnnouncements;
 use App\Modules\Student\Application\Services\StudentFinanceActivity;
 use App\Modules\Student\Application\Services\StudentFinanceService;
+use App\Modules\Student\Application\Services\StudentPaymentProofs;
 use App\Modules\Student\Application\Services\StudentOverviewService;
 use App\Modules\Student\Application\Services\StudentPortalContext;
+use App\Modules\Student\Application\Services\StudentProfileCompletion;
 use App\Modules\Student\Application\Services\StudentScolarite;
 use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use App\Modules\Teaching\Application\Services\LearningAccess;
@@ -171,6 +175,11 @@ class StudentPortalController extends Controller
     {
         $currentYearId = $this->portalContext->currentYearId();
         $entry = $this->context($request, in_array($section, ['overview', 'services', 'requests'], true) ? $currentYearId : null);
+        $financeSection = in_array($section, ['fees', 'annual-fees'], true);
+        if (($section === 'overview' || $financeSection) && $request->isMethod('GET')
+            && $request->header('Purpose') !== 'prefetch' && app(FeeTariffService::class)->applyToEnrollment($entry)) {
+            $entry->refresh();
+        }
         $permissions = $this->access->permissions($entry);
         $sectionFeature = ['materials' => 'materials_download', 'assignments' => 'assignments_submit', 'evaluations' => 'evaluations_participate', 'results' => 'results_view'][$section] ?? null;
         if ($sectionFeature && ($permissions[$sectionFeature]['visible'] ?? true) === false) {
@@ -383,6 +392,8 @@ class StudentPortalController extends Controller
                 : [],
             'curriculum' => $this->access->curriculumContext($entry),
             'overview' => $section === 'overview' ? app(StudentOverviewService::class)->summary($entry, $permissions, $balance, $scheduleWeek) : null,
+            'profile_completion' => $section === 'overview'
+                ? fn () => app(StudentProfileCompletion::class)->summary($entry, $studentChrome['photo_url'] !== null) : null,
             'card_eligibility' => $section === 'card' ? (function () use ($entry) {
                 $eligibility = app(\App\Modules\Student\Application\Services\CardEligibility::class);
 
@@ -392,11 +403,18 @@ class StudentPortalController extends Controller
             'profile_view' => $section === 'profile' ? match ($request->query('view')) {
                 'personal' => 'personal', 'photo' => 'photo', 'settings' => 'settings', default => 'overview',
             } : null,
+            'profile_edit_field' => $section === 'profile' && $request->query('view') === 'personal'
+                ? app(StudentProfileCompletion::class)->editField($request->query('edit')) : null,
             'welcome_pending' => $entry->profile->welcome_seen_at === null,
             'section' => $section, 'academic' => ['id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference, 'matricule' => $studentChrome['matricule'], 'application_status' => $entry->application->status->value, 'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status, 'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title, 'group' => $entry->group?->intake?->name, 'fee_category' => $entry->fee_category, 'name' => $studentChrome['name'], 'email' => $entry->profile->user->email, 'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $studentChrome['photo_url']],
             'studentChrome' => $studentChrome,
-            'finance_schedule' => $section === 'fees' ? collect($statement['schedules'])->flatten(1)->sortBy(fn ($line) => $line['due_at'] ?? '9999-12-31')->values() : [],
-            'finance_details' => $section === 'fees' ? fn () => $financeActivity->overview($entry, $statement) : null,
+            'finance_schedule' => $financeSection ? collect($statement['schedules'])->flatten(1)->sortBy(fn ($line) => $line['due_at'] ?? '9999-12-31')->values() : [],
+            'finance_details' => match ($section) {
+                'fees' => fn () => $financeActivity->overview($entry, $statement),
+                'annual-fees' => fn () => $financeActivity->annual($statement),
+                default => null,
+            },
+            'payment_proofs' => $section === 'fees' ? fn () => app(StudentPaymentProofs::class)->studentProps($entry, $statement, $request->query('kind')) : null,
             'finance_view' => $financeView,
             'payments_pagination' => ['links' => $paymentsPage?->linkCollection() ?? []],
             'permissions' => $permissions, 'balance' => $balance, 'obligations' => $entry->obligations()->get(['id', 'title', 'amount_cents', 'due_at', 'installment']),
@@ -604,12 +622,15 @@ class StudentPortalController extends Controller
         return ($returnTo ? redirect()->to($returnTo, 303) : back(303))->with('success', 'Demande de révision enregistrée.');
     }
 
-    public function receipt(Request $request, string $payment)
+    public function receipt(Request $request, string $payment, FinanceReceiptService $receipts)
     {
         $entry = $this->context($request);
         $record = $entry->payments()->where('uuid', $payment)->whereNotNull('confirmed_at')->firstOrFail();
 
-        return response()->view('student.receipt', ['payment' => $record, 'academic' => $entry])->header('Cache-Control', 'private, no-store');
+        return response()->view('student.receipt', [
+            'receipt' => $receipts->present($record, $entry),
+            'backUrl' => route('dashboard.student.index', ['section' => 'transactions', 'academic' => $entry->id, 'view' => 'receipts'], false),
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     public function requestService(Request $request, StudentScolarite $scolarite)

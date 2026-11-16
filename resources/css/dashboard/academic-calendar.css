@@ -1,197 +1,681 @@
 .ac-page {
+    --ac-ink: var(--usk-night-text, #172b24);
+    --ac-muted: var(--usk-night-muted, #54695e);
+    --ac-surface: var(--usk-night-surface, #fff);
+    --ac-subtle: var(--usk-night-raised, #f4f7f3);
+    --ac-border: var(--usk-night-border, #dce7e0);
+    --ac-green: var(--usk-night-mint, #236448);
+    --ac-course: var(--usk-night-positive, #f1f8f0);
+    --ac-active: var(--usk-night-hover, #e4f2e7);
+    --ac-danger: var(--usk-night-danger, #9a3633);
+    container-type: inline-size;
+    display: grid;
+    gap: 20px;
     min-width: 0;
     padding-bottom: 30px;
+    color: var(--ac-ink);
+}
+
+.ac-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px 40px;
+    padding: clamp(22px, 4cqi, 40px);
+    border-radius: 20px;
+    background: radial-gradient(ellipse at 91% 8%, #4b8650 0%, transparent 56%), linear-gradient(113deg, #133b34 0%, #1e513b 87%);
+    color: #fff;
+}
+
+.ac-hero-copy > svg {
+    box-sizing: content-box;
+    margin-bottom: 12px;
+    padding: 9px;
+    border: 1px solid #d0f9b654;
+    border-radius: 12px;
+    background: #efffd618;
+    color: #e2f7cd;
+}
+
+.usk-dashboard main .ac-page .ac-hero h1 {
+    margin: 0;
+    color: inherit;
+    font-size: clamp(1.7rem, 4cqi, 2.6rem);
+    font-weight: 750;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
+}
+
+.ac-hero p {
+    margin: 8px 0 0;
+    color: #e0efdf;
+    font-size: 0.94rem;
 }
 
 .ac-controls,
-.ac-toolbar,
-.ac-agenda-item {
+.ac-month-actions,
+.ac-month-arrows {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .ac-controls {
-    align-items: end;
-    margin: 20px 0;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
 }
 
-.ac-calendar {
-    border: 1px solid var(--usk-night-border, #dce5d1);
-    border-radius: 12px;
-    background: var(--usk-night-surface, #fffefa);
+.ac-year-field {
+    display: grid;
+    gap: 6px;
+    color: #e0efdf;
+    font-size: 0.75rem;
+    font-weight: 650;
+}
+
+.ac-year-select {
+    position: relative;
+    display: block;
+    min-width: 124px;
+}
+
+.ac-year-select svg {
+    position: absolute;
+    top: 50%;
+    right: 11px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.usk-dashboard main .ac-page .ac-year-field .ac-year-select select,
+.ac-control {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid #e9ffdd70;
+    border-radius: 9px;
+    background: #ffffff14;
+    color: #fff;
+    font: inherit;
+    font-size: 0.81rem;
+    font-weight: 680;
+}
+
+.usk-dashboard main .ac-page .ac-year-field .ac-year-select select {
+    width: 100%;
+    padding: 7px 34px 7px 11px;
+    appearance: none;
+    cursor: pointer;
+}
+
+.ac-year-select option {
+    background: var(--ac-surface);
+    color: var(--ac-ink);
+}
+
+.ac-control {
+    padding: 7px 14px;
+    text-decoration: none;
+}
+
+.ac-control:hover {
+    background: #ffffff30;
+}
+
+.ac-control.ac-create {
+    border-color: #e7f5cd;
+    background: #dff2b9;
+    color: #193c2c;
+}
+
+.ac-control.ac-create:hover {
+    background: #ecf9d5;
+}
+
+.ac-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(290px, 0.46fr);
+    align-items: start;
+    gap: 20px;
+}
+
+.ac-panel {
+    min-width: 0;
     overflow: hidden;
+    border: 1px solid var(--ac-border);
+    border-radius: 16px;
+    background: var(--ac-surface);
+    box-shadow: 0 5px 18px #152a2110;
 }
 
-.ac-calendar > .ac-toolbar,
-.ac-agenda {
-    padding: 16px;
+.ac-panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 17px 19px;
 }
 
-.ac-toolbar h2 {
-    font-size: 1.15rem;
+.usk-dashboard main .ac-panel-header h2 {
+    margin: 0;
+    color: var(--ac-ink);
+    font-size: 1.05rem;
+    font-weight: 730;
+    letter-spacing: -0.023em;
+    line-height: 1.25;
+}
+
+.usk-dashboard main .ac-month-header h2 {
+    font-size: clamp(1.05rem, 2.3cqi, 1.52rem);
     text-transform: capitalize;
+}
+
+.ac-icon-button,
+.ac-today-link,
+.ac-text-button,
+.ac-day-add,
+.ac-day-number,
+.ac-event,
+.ac-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    cursor: pointer;
+}
+
+.ac-icon-button,
+.ac-today-link {
+    min-height: 35px;
+    border: 1px solid var(--ac-border);
+    border-radius: 8px;
+    background: var(--ac-surface);
+    color: var(--ac-ink);
+}
+
+.ac-icon-button {
+    width: 35px;
+    flex: 0 0 35px;
+}
+
+.ac-icon-button:disabled {
+    opacity: 0.42;
+    cursor: default;
+}
+
+.ac-today-link,
+.ac-text-button {
+    padding: 5px 10px;
+    color: var(--ac-green);
+    font-size: 0.79rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.ac-text-button {
+    gap: 5px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+}
+
+.ac-icon-button:hover:not(:disabled),
+.ac-today-link:hover,
+.ac-text-button:hover {
+    background: var(--ac-subtle);
+}
+
+.ac-remove {
+    color: var(--ac-danger);
+}
+
+.ac-remove:hover:not(:disabled) {
+    border-color: var(--ac-danger);
+    background: var(--usk-night-danger-surface, #faecea);
+}
+
+.ac-page :is(button, a, select):focus-visible {
+    outline: solid 2px var(--ac-green);
+    outline-offset: 2px;
+}
+
+.ac-hero :is(button, a, select):focus-visible {
+    outline-color: #e7f5cd;
 }
 
 .ac-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 1px;
-    background: var(--usk-night-raised, #e4eada);
-    border-block: 1px solid var(--usk-night-border, #e4eada);
-}
-
-.ac-weekday,
-.ac-day {
-    background: var(--usk-night-surface, #fffefa);
-    padding: 6px;
+    border-block: 1px solid var(--ac-border);
+    background: var(--ac-border);
 }
 
 .ac-weekday {
+    padding: 8px 2px;
+    background: var(--ac-subtle);
+    color: var(--ac-muted);
+    font-size: 0.71rem;
+    font-weight: 680;
     text-align: center;
-    color: var(--usk-night-mint, #4b6356);
-    font-size: 0.82rem;
 }
 
 .ac-day {
-    min-height: 76px;
+    min-width: 0;
+    min-height: 88px;
+    padding: 5px;
+    background: var(--ac-surface);
+}
+
+.ac-day[data-outside] {
+    background: var(--ac-subtle);
+}
+
+.ac-day[data-course] {
+    background: var(--ac-course);
+}
+
+.ac-day[data-selected] {
+    background: var(--ac-active);
+    box-shadow: inset 0 0 0 1px var(--ac-green);
+}
+
+.ac-day-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3px;
 }
 
 .ac-day-number,
-.ac-event {
-    display: block;
+.ac-day-add {
+    position: relative;
+    z-index: 1;
+    flex: 0 0 27px;
+    width: 27px;
+    height: 27px;
     border: 0;
-    cursor: pointer;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ac-muted);
 }
 
 .ac-day-number {
-    padding: 4px 7px;
-    border-radius: 5px;
-    background: transparent;
-}
-
-.ac-today .ac-day-number,
-.ac-day-number:hover:not(:disabled) {
-    background: var(--usk-night-raised, #dceadf);
-    color: var(--usk-night-text, #174535);
+    font-size: 0.85rem;
+    font-weight: 710;
+    font-variant-numeric: tabular-nums;
 }
 
 .ac-day-number:disabled {
+    opacity: 0.48;
     cursor: default;
-    opacity: 0.45;
 }
 
-.ac-event {
-    width: 100%;
-    margin-top: 3px;
-    padding: 3px 4px;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    text-align: left;
-    border-radius: 4px;
-    background: var(--ac-category-bg, var(--usk-night-raised, #e8e9ed));
-    color: var(--ac-category-color, var(--usk-night-text, #343848));
-    font-size: 0.75rem;
+.ac-day-number:hover:not(:disabled),
+.ac-day-add:hover,
+.ac-day-add:focus-visible {
+    background: var(--ac-active);
+    color: var(--ac-green);
+}
+
+.ac-day-number[aria-current='date'],
+.ac-day-number[aria-pressed='true'] {
+    background: #255d45;
+    color: #fff;
+}
+
+.ac-day-add {
+    opacity: 0;
+}
+
+.ac-day:hover .ac-day-add,
+.ac-day:focus-within .ac-day-add,
+.ac-day[data-selected] .ac-day-add {
+    opacity: 1;
+}
+
+.ac-day-events {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.ac-page [data-category='courses'],
+.ac-page [data-category='course'] {
+    --ac-event-bg: var(--usk-night-positive, #e2f2e0);
+    --ac-event-ink: var(--usk-night-mint, #28583a);
+    --ac-event-dot: #539164;
 }
 
 .ac-page [data-category='exam'] {
-    --ac-category-bg: var(--usk-night-raised, #f5e1e8);
-    --ac-category-color: #742d46;
+    --ac-event-bg: var(--usk-night-danger-surface, #fae9ee);
+    --ac-event-ink: var(--usk-night-danger, #7e3950);
+    --ac-event-dot: #b9637b;
 }
 
 .ac-page [data-category='resit'] {
-    --ac-category-bg: var(--usk-night-raised, #f8ebce);
-    --ac-category-color: #6b4614;
+    --ac-event-bg: var(--usk-night-warm, #f9eed9);
+    --ac-event-ink: var(--usk-night-gold, #734f21);
+    --ac-event-dot: #ad7832;
 }
 
 .ac-page [data-category='holiday'] {
-    --ac-category-bg: var(--usk-night-raised, #e8edf7);
-    --ac-category-color: #344e77;
+    --ac-event-bg: var(--usk-night-info-surface, #e7effa);
+    --ac-event-ink: var(--usk-night-info, #34597e);
+    --ac-event-dot: #5b86b6;
 }
 
-.ac-agenda-item {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--usk-night-border, #e4eada);
+.ac-page [data-category='other'] {
+    --ac-event-bg: var(--usk-night-hover, #efeaf7);
+    --ac-event-ink: var(--usk-night-text, #604e7c);
+    --ac-event-dot: #866ba8;
 }
 
-.ac-agenda-item span,
-.ac-agenda-item strong {
-    display: block;
-    overflow-wrap: anywhere;
+.ac-event {
+    justify-content: flex-start;
+    min-width: 0;
+    min-height: 21px;
+    padding: 3px 4px;
+    border: 0;
+    border-inline-start: 2px solid var(--ac-event-dot, var(--ac-muted));
+    border-radius: 5px;
+    background: var(--ac-event-bg, var(--ac-subtle));
+    color: var(--ac-event-ink, var(--ac-ink));
+    font-size: 0.7rem;
+    font-weight: 670;
+    line-height: 1.15;
+    text-align: start;
 }
 
-.ac-agenda-item span,
-.ac-agenda-item p {
-    color: var(--usk-night-mint, #4b6356);
-    font-size: 0.85rem;
+.ac-event span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.ac-agenda-item p {
-    margin: 0;
+.ac-event:hover {
+    box-shadow: inset 0 0 0 1px var(--ac-event-dot, var(--ac-muted));
 }
 
-@media (max-width: 560px) {
-    .ac-day {
-        padding: 3px;
-        min-height: 50px;
-    }
+.ac-more {
+    justify-self: start;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ac-green);
+    font-size: 0.7rem;
+    font-weight: 720;
 }
 
-.ac-periods {
-    border: 1px solid var(--usk-night-border, #dce5d1);
-    border-radius: 12px;
-    padding: 16px;
-    background: var(--usk-night-surface, #fffefa);
+.ac-more:hover {
+    background: var(--ac-active);
 }
 
-.ac-period-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-    gap: 12px;
-    margin-top: 12px;
-}
-
-.ac-period-grid > div,
-.ac-course-day {
-    background: var(--usk-night-raised, #eef4e6);
-}
-
-.ac-period-grid > div {
-    border-radius: 8px;
-    padding: 12px;
-}
-
-.ac-period-grid p {
-    margin: 4px 0 0;
+.ac-day-dots {
+    display: none;
 }
 
 .ac-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 8px 15px;
+    margin: 0;
+    padding: 13px 15px;
     list-style: none;
-    margin: 16px 0;
-    padding: 0;
-    font-size: 0.85rem;
+    color: var(--ac-muted);
+    font-size: 0.73rem;
 }
 
 .ac-legend li {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
 }
 
-.ac-key {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    border: 1px solid var(--usk-night-field-border, #677a6a);
-    background: var(--ac-category-bg, var(--usk-night-raised, #e8e9ed));
+.ac-dot {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--ac-event-dot, var(--ac-muted));
 }
 
-.ac-key[data-category='course'] {
-    --ac-category-bg: var(--usk-night-raised, #eef4e6);
+.ac-legend [data-category='course'] {
+    border: 1px solid var(--ac-event-dot);
+    background: var(--ac-event-bg);
+}
+
+.ac-agenda-header {
+    border-bottom: 1px solid var(--ac-border);
+}
+
+.ac-agenda-header h2::first-letter {
+    text-transform: uppercase;
+}
+
+.ac-agenda-header p {
+    margin: 4px 0 0;
+    color: var(--ac-muted);
+    font-size: 0.78rem;
+}
+
+.ac-agenda-list {
+    margin: 0;
+    padding: 0 15px;
+    list-style: none;
+}
+
+.ac-agenda-item {
+    display: grid;
+    grid-template-columns: 43px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 9px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--ac-border);
+}
+
+.ac-agenda-item:last-child {
+    border-bottom: 0;
+}
+
+.ac-date-tile {
+    display: grid;
+    min-height: 47px;
+    align-content: center;
+    justify-items: center;
+    gap: 2px;
+    border-radius: 8px;
+    background: var(--ac-event-bg, var(--ac-subtle));
+    color: var(--ac-event-ink, var(--ac-ink));
+    line-height: 1;
+}
+
+.ac-date-tile strong {
+    font-size: 1.08rem;
+    font-weight: 750;
+}
+
+.ac-date-tile span {
+    font-size: 0.67rem;
+    font-weight: 650;
+}
+
+.ac-agenda-copy {
+    display: grid;
+    gap: 3px;
+    overflow-wrap: anywhere;
+}
+
+.ac-category {
+    color: var(--ac-event-ink, var(--ac-muted));
+    font-size: 0.72rem;
+    font-weight: 720;
+}
+
+.usk-dashboard main :is(.ac-agenda-copy, .ac-period) h3 {
+    margin: 0;
+    color: var(--ac-ink);
+    font-size: 0.91rem;
+    font-weight: 720;
+    line-height: 1.27;
+}
+
+.ac-agenda-copy p,
+.ac-period p {
+    margin: 0;
+    color: var(--ac-muted);
+    font-size: 0.76rem;
+    line-height: 1.38;
+}
+
+.ac-location {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.ac-location svg {
+    flex: 0 0 auto;
+}
+
+.ac-event-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.ac-event-actions .ac-icon-button {
+    width: 30px;
+    min-height: 32px;
+    flex-basis: 30px;
+}
+
+.ac-empty {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    padding: 28px 14px;
+    color: var(--ac-muted);
+    text-align: center;
+}
+
+.ac-empty svg {
+    color: var(--ac-green);
+}
+
+.ac-empty p {
+    margin: 4px 0 0;
+    font-size: 0.86rem;
+}
+
+.ac-period-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 18px 18px;
+}
+
+.ac-period {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 9px;
+    background: var(--ac-course);
+}
+
+.ac-period svg {
+    flex: 0 0 auto;
+    color: var(--ac-green);
+}
+
+.ac-period p {
+    margin-top: 4px;
+}
+
+@container (max-width: 880px) {
+    .ac-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container (max-width: 540px) {
+    .ac-hero {
+        border-radius: 15px;
+    }
+
+    .ac-controls {
+        width: 100%;
+    }
+
+    .ac-year-field {
+        flex: 1 0 100%;
+    }
+
+    .usk-dashboard main .ac-page .ac-year-field .ac-year-select select {
+        font-size: 1rem;
+    }
+
+    .ac-control {
+        flex: 1 0 auto;
+        padding-inline: 9px;
+    }
+
+    .ac-day {
+        min-height: 48px;
+        padding: 3px 0;
+    }
+
+    .ac-day-head {
+        justify-content: center;
+        margin-bottom: 2px;
+    }
+
+    .ac-day-add,
+    .ac-day-events {
+        display: none;
+    }
+
+    .ac-day-dots {
+        display: flex;
+        justify-content: center;
+        gap: 2px;
+    }
+
+    .ac-day-dots .ac-dot {
+        width: 5px;
+        height: 5px;
+    }
+
+    .ac-panel-header {
+        padding: 13px 12px;
+    }
+
+    .ac-period-grid {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 0 12px 12px;
+    }
+}
+
+@media (hover: none) {
+    .ac-day-add {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .ac-page :is(button, a) {
+        transition:
+            background-color 150ms ease,
+            box-shadow 150ms ease,
+            opacity 150ms ease;
+    }
 }

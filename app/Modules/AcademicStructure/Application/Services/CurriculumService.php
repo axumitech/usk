@@ -662,7 +662,7 @@ class CurriculumService
         Audit::record($actor->id, 'curriculum_bound', $entry, $reason, ['curriculum_version_id' => $version->id]);
     }
 
-    private function enrollmentProgram(AcademicEnrollment $entry, ?int $programId = null): ?int
+    public function enrollmentProgram(AcademicEnrollment $entry, ?int $programId = null): ?int
     {
         $groupPromotion = $entry->group?->promotion;
         if ($groupPromotion && (int) $groupPromotion->academic_year_id !== (int) $entry->academic_year_id) {

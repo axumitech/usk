@@ -38,4 +38,14 @@ final class AttendanceAccess
         return $session->is_published && ! $session->cancelled_at && $session->starts_at->lte(now())
             && ($actor->hasRole('admin') || (! $session->attendance_closed_at && $session->offering->academicYear->status === 'open'));
     }
+
+    public function checkInIsOpen(AcademicSession $session): bool
+    {
+        $now = now();
+
+        return $session->is_published && $session->offering->is_published
+            && ! $session->cancelled_at && ! $session->attendance_closed_at
+            && $session->offering->academicYear->status === 'open'
+            && $session->starts_at->lte($now) && $session->ends_at->gt($now);
+    }
 }

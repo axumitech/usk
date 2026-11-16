@@ -1,9 +1,8 @@
 import Pagination from '@/components/admin/Pagination';
 import { formatDate } from '@/lib/studentEnrollment';
-import { Link } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
-    ArrowDown,
     ArrowLeft,
     ArrowRight,
     Building2,
@@ -14,18 +13,27 @@ import {
     Clock3,
     Download,
     FileCheck2,
-    GraduationCap,
     HandCoins,
     ListChecks,
     MessageCircle,
     ReceiptText,
+    Upload,
     Wallet,
     X,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import '../../../css/student-finance.css';
 import { studentHref } from './navigation';
-import { labels, money, type FinanceDueLine, type FinanceObligation, type PortalProps, type StudentPayment } from './types';
+import {
+    labels,
+    money,
+    type Balance,
+    type FinanceDueLine,
+    type FinanceObligation,
+    type PortalProps,
+    type StudentPayment,
+    type StudentPaymentProofs,
+} from './types';
 
 const balanceStates: Record<string, [string, string]> = {
     unassessed: ['À établir', 'neutral'],
@@ -48,6 +56,11 @@ const paymentStates: Record<string, [string, string]> = {
     cancelled: ['Annulé', 'danger'],
     refunded: ['Remboursé', 'neutral'],
 };
+const proofStates: Record<StudentPaymentProofs['submissions'][number]['status'], [string, string]> = {
+    pending: ['En vérification', 'warning'],
+    confirmed: ['Confirmé', 'success'],
+    rejected: ['Refusé', 'danger'],
+};
 const methods: Record<string, string> = {
     cash: 'Espèces',
     bank_transfer: 'Virement',
@@ -65,7 +78,7 @@ function Status({ state }: { state: [string, string] }) {
     );
 }
 
-function PaymentGuide({ academic }: { academic: number }) {
+function PaymentGuide({ academic, canSubmit }: { academic: number; canSubmit: boolean }) {
     return (
         <Dialog.Root>
             <Dialog.Trigger asChild>
@@ -85,7 +98,7 @@ function PaymentGuide({ academic }: { academic: number }) {
                         <Building2 size={24} />
                     </span>
                     <Dialog.Title>Faire enregistrer un paiement</Dialog.Title>
-                    <Dialog.Description>Pour le moment, les versements se font hors de l’application.</Dialog.Description>
+                    <Dialog.Description>Effectuez le versement selon les modalités communiquées par l’université.</Dialog.Description>
                     <ol>
                         <li>
                             <div>
@@ -95,8 +108,12 @@ function PaymentGuide({ academic }: { academic: number }) {
                         </li>
                         <li>
                             <div>
-                                <strong>Présentez votre preuve à l’administration</strong>
-                                <p>Apportez le justificatif du versement et indiquez votre matricule.</p>
+                                <strong>{canSubmit ? 'Envoyez votre justificatif' : 'Présentez le justificatif au service financier'}</strong>
+                                <p>
+                                    {canSubmit
+                                        ? 'Joignez le document depuis votre compte financier et indiquez la référence du versement.'
+                                        : 'Présentez le document reçu lors du versement avec votre matricule.'}
+                                </p>
                             </div>
                         </li>
                         <li>
@@ -110,9 +127,15 @@ function PaymentGuide({ academic }: { academic: number }) {
                         </li>
                     </ol>
                     <Dialog.Close asChild>
-                        <Link className="sf-guide-contact" href={`${studentHref('services', academic)}&category=finance`}>
-                            Ouvrir les démarches financières <ArrowRight size={17} aria-hidden="true" />
-                        </Link>
+                        {canSubmit ? (
+                            <a className="sf-guide-contact" href="#finance-payment-proofs">
+                                Déposer un justificatif <ArrowRight size={17} aria-hidden="true" />
+                            </a>
+                        ) : (
+                            <Link className="sf-guide-contact" href={`${studentHref('services', academic)}&category=finance`}>
+                                Ouvrir les démarches financières <ArrowRight size={17} aria-hidden="true" />
+                            </Link>
+                        )}
                     </Dialog.Close>
                 </Dialog.Content>
             </Dialog.Portal>
@@ -179,58 +202,419 @@ function PaymentList({ payments, currency }: { payments: StudentPayment[]; curre
     );
 }
 
-function FeeLine({ line, showScheduled = false, currency }: { line: FinanceDueLine | FinanceObligation; showScheduled?: boolean; currency: string }) {
+function Installment({ line, obligation, currency }: { line: FinanceDueLine; obligation?: FinanceObligation; currency: string }) {
     const state = feeStates[line.status] ?? feeStates.upcoming;
     const Icon = line.status === 'paid' || line.status === 'exempted' ? Check : line.status === 'overdue' ? CircleAlert : Clock3;
     const unit = line.currency ?? currency;
+    const waived = obligation?.waived_cents ?? 0;
+    const paid = obligation?.paid_cents ?? Math.max(0, line.amount_cents - line.remaining_cents);
     return (
-        <li className="sf-line">
-            <span className="sf-line-icon" data-tone={state[1]}>
-                <Icon size={17} aria-hidden="true" />
-            </span>
-            <div className="sf-line-label">
-                <strong>{line.title}</strong>
-                <small>
-                    {'rescheduled' in line && line.rescheduled
-                        ? 'Voir l’échéancier approuvé'
-                        : line.due_at
-                          ? `Échéance : ${formatDate(line.due_at)}`
-                          : 'Échéance non fixée'}
-                </small>
-                {showScheduled && line.kind_title && line.kind_title !== line.title && <small>{line.kind_title}</small>}
-                {'paid_cents' in line && line.paid_cents > 0 && line.remaining_cents > 0 && <small>Réglé : {money(line.paid_cents, unit)}</small>}
-                {'waived_cents' in line && line.waived_cents > 0 && <small>Remise : {money(line.waived_cents, unit)}</small>}
-            </div>
-            <div className="sf-line-value">
-                <strong>{money(showScheduled ? line.remaining_cents : line.amount_cents, unit)}</strong>
+        <li className="sf-installment" data-status={line.status}>
+            <div className="sf-installment-header">
+                <span className="sf-line-icon" data-tone={state[1]}>
+                    <Icon size={17} aria-hidden="true" />
+                </span>
+                <div>
+                    <h4>{line.title}</h4>
+                    <p>
+                        {obligation?.rescheduled ? (
+                            'Date remplacée par l’échéancier approuvé'
+                        ) : line.due_at ? (
+                            <>
+                                Date limite <time dateTime={line.due_at}>{formatDate(line.due_at)}</time>
+                            </>
+                        ) : line.kind === 'tuition' ? (
+                            'Date limite à fixer'
+                        ) : (
+                            'Sans date limite'
+                        )}
+                    </p>
+                </div>
                 <Status state={state} />
-                {showScheduled
-                    ? line.remaining_cents !== line.amount_cents && <small>Sur {money(line.amount_cents, unit)}</small>
-                    : line.remaining_cents > 0 &&
-                      line.remaining_cents !== line.amount_cents && <small>Reste : {money(line.remaining_cents, unit)}</small>}
             </div>
+            <dl className="sf-installment-amounts">
+                <div>
+                    <dt>Montant prévu</dt>
+                    <dd>{money(line.amount_cents, unit)}</dd>
+                </div>
+                {waived > 0 && (
+                    <div>
+                        <dt>Aides déduites</dt>
+                        <dd>{money(waived, unit)}</dd>
+                    </div>
+                )}
+                <div>
+                    <dt>Réglé</dt>
+                    <dd>{money(paid, unit)}</dd>
+                </div>
+                <div className="sf-installment-due">
+                    <dt>Reste à payer</dt>
+                    <dd>{money(line.remaining_cents, unit)}</dd>
+                </div>
+            </dl>
         </li>
     );
 }
 
-function Details({ obligations, balance, academic }: Pick<PortalProps, 'academic' | 'balance'> & { obligations: FinanceObligation[] }) {
+function InstallmentSchedule({
+    schedule,
+    obligations,
+    currency,
+    annual,
+}: {
+    schedule: FinanceDueLine[];
+    obligations: FinanceObligation[];
+    currency: string;
+    annual?: { details: PortalProps['finance_details']; feesUrl: string };
+}) {
+    const amountsById = new Map(obligations.map((obligation) => [obligation.id, obligation]));
+    const groups = new Map<string, FinanceDueLine[]>();
+    for (const line of schedule.length ? schedule : obligations) {
+        const kind = groups.get(line.kind) ?? [];
+        kind.push(line);
+        groups.set(line.kind, kind);
+    }
+    const feeGroups = [...groups].sort(([a], [b]) => Number(b === 'tuition') - Number(a === 'tuition'));
+    const title = annual ? 'Détail des frais par type' : 'Échéancier de paiement';
     return (
-        <section id="finance-fees" className="sf-panel sf-details" aria-label="Détails des frais">
-            <PanelHeading title="Détails des frais" description={academic.level} icon={GraduationCap} />
-            {obligations.length ? (
-                <>
-                    <ul className="sf-list">
-                        {obligations.map((line) => (
-                            <FeeLine key={line.id} line={line} currency={balance.currency} />
+        <section id="finance-schedule" className="sf-panel sf-installment-panel" aria-label={title}>
+            <PanelHeading
+                title={title}
+                description={
+                    annual
+                        ? 'Retrouvez ce qu’il reste à payer pour chaque type de frais et les dates limites lorsqu’elles sont fixées.'
+                        : 'Les frais à régler et leurs dates limites lorsqu’elles sont fixées.'
+                }
+                icon={CalendarDays}
+            />
+            {feeGroups.length === 0 && (
+                <Empty>
+                    {annual
+                        ? 'Aucun frais n’a encore été affecté à cette inscription.'
+                        : 'Les tranches apparaîtront après la facturation de vos frais par le service financier.'}
+                </Empty>
+            )}
+            {feeGroups.map(([kind, lines]) => {
+                const original = obligations.filter((line) => line.kind === kind && line.rescheduled);
+                const kindTitle = annual?.details?.kind_titles?.[kind] ?? lines[0].kind_title ?? lines[0].title;
+                const kindBalance = annual?.details?.kinds?.[kind];
+                return (
+                    <section className="sf-installment-group" key={kind}>
+                        {kindBalance ? (
+                            <header className="sf-annual-group">
+                                <div className="sf-annual-group-heading">
+                                    <h3>{kindTitle}</h3>
+                                    {annual?.details?.can_submit_proof && kindBalance.balance_cents > 0 && (
+                                        <Link
+                                            className="sf-annual-proof"
+                                            href={`${annual.feesUrl}&kind=${encodeURIComponent(kind)}#finance-payment-proofs`}
+                                            aria-label={`Déposer un justificatif pour : ${kindTitle}`}
+                                        >
+                                            <Upload size={16} aria-hidden="true" /> Déposer un justificatif
+                                        </Link>
+                                    )}
+                                </div>
+                                <dl className="sf-annual-kind-totals">
+                                    <div>
+                                        <dt>À régler après aides</dt>
+                                        <dd>{money(kindBalance.due_cents, kindBalance.currency)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Réglé</dt>
+                                        <dd>{money(coveredAmount(kindBalance), kindBalance.currency)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Reste à payer</dt>
+                                        <dd>{money(kindBalance.balance_cents, kindBalance.currency)}</dd>
+                                    </div>
+                                </dl>
+                            </header>
+                        ) : (
+                            <h3>{kindTitle}</h3>
+                        )}
+                        <ol className="sf-installment-list">
+                            {lines.map((line, index) => (
+                                <Installment
+                                    key={line.id}
+                                    line={typeof line.id === 'string' ? { ...line, title: `Échéance approuvée ${index + 1}` } : line}
+                                    obligation={typeof line.id === 'number' ? amountsById.get(line.id) : undefined}
+                                    currency={currency}
+                                />
+                            ))}
+                        </ol>
+                        {original.length > 0 && (
+                            <details className="sf-original-installments">
+                                <summary>Voir les tranches initiales</summary>
+                                <ol className="sf-installment-list">
+                                    {original.map((line) => (
+                                        <Installment key={line.id} line={line} obligation={line} currency={currency} />
+                                    ))}
+                                </ol>
+                            </details>
+                        )}
+                    </section>
+                );
+            })}
+        </section>
+    );
+}
+
+function coveredAmount(balance: Balance) {
+    return Math.max(0, balance.due_cents - balance.balance_cents);
+}
+
+function AnnualFees({ props, feesUrl }: { props: PortalProps; feesUrl: string }) {
+    const { academic, balance, finance_details: details, finance_schedule: schedule = [] } = props;
+    const obligations = details?.obligations ?? [];
+    const covered = coveredAmount(balance);
+    const status = balance.financial_clearance_status === 'partial' && covered === 0 ? 'unpaid' : balance.financial_clearance_status;
+    const indicator = balanceStates[status] ?? balanceStates.unassessed;
+    return (
+        <div className="sf-page sf-annual-page">
+            <header className="sf-subpage-header">
+                <Link href={feesUrl}>
+                    <ArrowLeft size={17} aria-hidden="true" /> Finances
+                </Link>
+                <h1>Frais de l’année</h1>
+                <p>
+                    Année académique {academic.year} · {academic.level}
+                </p>
+            </header>
+            <div className="sf-summary">
+                <section className="sf-hero" aria-labelledby="finance-annual-balance">
+                    <div className="sf-hero-art" aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                        <span>
+                            <ReceiptText size={47} strokeWidth={1.2} />
+                        </span>
+                    </div>
+                    <div className="sf-hero-top">
+                        <h2 id="finance-annual-balance">Reste à payer</h2>
+                        <Status state={indicator} />
+                    </div>
+                    <p className="sf-balance" aria-live="polite">
+                        {balance.assessed ? money(balance.balance_cents, balance.currency) : 'À établir'}
+                    </p>
+                    <p className="sf-hero-note">
+                        {balance.assessed
+                            ? 'Solde des frais affectés à cette inscription après les versements confirmés.'
+                            : 'Votre total sera disponible dès que des frais seront affectés à cette inscription.'}
+                    </p>
+                </section>
+                <section className="sf-panel sf-annual-breakdown">
+                    <PanelHeading title="Bilan de l’année" icon={ListChecks} />
+                    <dl className="sf-progress-totals">
+                        <div>
+                            <dt>Frais affectés</dt>
+                            <dd>{balance.assessed ? money(balance.total_cents, balance.currency) : '—'}</dd>
+                        </div>
+                        <div>
+                            <dt>Remises et aides</dt>
+                            <dd>{balance.assessed ? money(balance.waived_cents, balance.currency) : '—'}</dd>
+                        </div>
+                        <div>
+                            <dt>À régler après aides</dt>
+                            <dd>{balance.assessed ? money(balance.due_cents, balance.currency) : '—'}</dd>
+                        </div>
+                        <div>
+                            <dt>Réglé</dt>
+                            <dd>{balance.assessed ? money(covered, balance.currency) : '—'}</dd>
+                        </div>
+                    </dl>
+                </section>
+            </div>
+            {balance.assessed && !obligations.some((line) => line.kind === 'tuition') && (
+                <div className="sf-notices">
+                    <p>
+                        <CircleAlert size={18} aria-hidden="true" />
+                        <span>Le solde couvre les frais déjà facturés. Les tranches de frais académiques restent à établir.</span>
+                    </p>
+                </div>
+            )}
+            {balance.pending_cents > 0 && (
+                <div className="sf-notices">
+                    <p>
+                        <Clock3 size={18} aria-hidden="true" />
+                        <span>
+                            <strong>{money(balance.pending_cents, balance.currency)}</strong> en attente de confirmation par la comptabilité.
+                        </span>
+                    </p>
+                </div>
+            )}
+            <InstallmentSchedule schedule={schedule} obligations={obligations} currency={balance.currency} annual={{ details, feesUrl }} />
+        </div>
+    );
+}
+
+function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProofs; currency: string; submitUrl: string }) {
+    const defaultKind = proofs.kinds.find((kind) => kind.id === proofs.selected_kind)?.id ?? (proofs.kinds.length === 1 ? proofs.kinds[0].id : '');
+    const form = useForm({ kind: defaultKind, amount: '', method: '', reference: '', proof: null as File | null });
+    const file = useRef<HTMLInputElement>(null);
+    const [sent, setSent] = useState(false);
+    const size = (proofs.max_kb / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (form.processing) return;
+        setSent(false);
+        form.post(submitUrl, {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                form.reset();
+                if (file.current) file.current.value = '';
+                setSent(true);
+            },
+        });
+    }
+    return (
+        <form className="sf-proof-form" onSubmit={submit}>
+            <fieldset disabled={form.processing} aria-busy={form.processing}>
+                <div className="sf-proof-fields">
+                    <label className="sf-proof-kind">
+                        Frais concernés
+                        <select
+                            value={form.data.kind}
+                            onChange={(event) => form.setData('kind', event.target.value)}
+                            aria-invalid={Boolean(form.errors.kind) || undefined}
+                            required
+                        >
+                            <option value="">Sélectionner les frais</option>
+                            {proofs.kinds.map((kind) => (
+                                <option value={kind.id} key={kind.id}>
+                                    {typeof kind.balance_cents === 'number'
+                                        ? `${kind.label} · Reste : ${money(kind.balance_cents, kind.currency ?? currency)}`
+                                        : kind.label}
+                                </option>
+                            ))}
+                        </select>
+                        <small>Choisissez le type de frais indiqué sur votre preuve de versement.</small>
+                    </label>
+                    <label>
+                        Montant réellement versé ({currency})
+                        <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            inputMode="decimal"
+                            value={form.data.amount}
+                            onChange={(event) => form.setData('amount', event.target.value)}
+                            aria-invalid={Boolean(form.errors.amount) || undefined}
+                            required
+                        />
+                    </label>
+                    <label>
+                        Mode de paiement
+                        <select
+                            value={form.data.method}
+                            onChange={(event) => form.setData('method', event.target.value)}
+                            aria-invalid={Boolean(form.errors.method) || undefined}
+                            required
+                        >
+                            <option value="">Sélectionner le mode</option>
+                            {proofs.methods.map((method) => (
+                                <option value={method} key={method}>
+                                    {methods[method] ?? method}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <label>
+                        Référence du versement
+                        <input
+                            type="text"
+                            autoComplete="off"
+                            maxLength={180}
+                            value={form.data.reference}
+                            onChange={(event) => form.setData('reference', event.target.value)}
+                            aria-invalid={Boolean(form.errors.reference) || undefined}
+                            required
+                        />
+                    </label>
+                    <label className="sf-proof-file">
+                        <span>
+                            <Upload size={18} aria-hidden="true" /> Joindre le justificatif
+                        </span>
+                        <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            ref={file}
+                            onChange={(event) => form.setData('proof', event.target.files?.[0] ?? null)}
+                            aria-invalid={Boolean(form.errors.proof) || undefined}
+                            required
+                        />
+                        <small>PDF, JPG, PNG ou WebP · {size} Mo maximum</small>
+                    </label>
+                </div>
+                {Object.values(form.errors).length > 0 && (
+                    <ul className="sf-proof-errors" role="alert">
+                        {Object.entries(form.errors).map(([field, message]) => (
+                            <li key={field}>{message}</li>
                         ))}
                     </ul>
-                    <div className="sf-fees-total">
-                        <span>Total des frais affectés</span>
-                        <strong>{money(balance.total_cents, balance.currency)}</strong>
-                    </div>
-                </>
-            ) : (
-                <Empty>Les frais s’afficheront ici dès que le service financier les aura affectés à votre inscription.</Empty>
+                )}
+                <button className="sf-proof-submit" type="submit">
+                    {form.processing ? 'Envoi du justificatif…' : 'Envoyer le justificatif'}
+                    <ArrowRight size={17} aria-hidden="true" />
+                </button>
+            </fieldset>
+            {sent && (
+                <p className="sf-proof-success" role="status">
+                    Justificatif envoyé au service financier.
+                </p>
+            )}
+        </form>
+    );
+}
+
+function PaymentProofs({ proofs, currency }: { proofs: StudentPaymentProofs; currency: string }) {
+    return (
+        <section id="finance-payment-proofs" className="sf-panel sf-proof-panel" aria-label="Justificatifs de paiement">
+            <PanelHeading
+                title="Justificatifs de paiement"
+                description={
+                    proofs.submit_url
+                        ? 'Transmettez votre preuve de versement. Votre solde est mis à jour après la confirmation par la comptabilité.'
+                        : 'Suivez les justificatifs transmis pour cette inscription.'
+                }
+                icon={Upload}
+            />
+            {proofs.submit_url && <ProofForm proofs={proofs} currency={currency} submitUrl={proofs.submit_url} />}
+            {proofs.submissions.length > 0 && (
+                <div className="sf-proof-history">
+                    <h3>Derniers justificatifs envoyés</h3>
+                    <ul className="sf-list">
+                        {proofs.submissions.map((submission) => {
+                            const state = proofStates[submission.status];
+                            const Icon = submission.status === 'confirmed' ? Check : submission.status === 'rejected' ? CircleAlert : Clock3;
+                            return (
+                                <li key={submission.id} className="sf-line">
+                                    <span className="sf-line-icon" data-tone={state[1]}>
+                                        <Icon size={17} aria-hidden="true" />
+                                    </span>
+                                    <div className="sf-line-label">
+                                        <strong>{submission.kind_label}</strong>
+                                        <small>
+                                            Réf. {submission.reference} · {methods[submission.method] ?? submission.method}
+                                        </small>
+                                        <small>Envoyé le {formatDate(submission.submitted_at)}</small>
+                                        {submission.review_note && <small>Note du service financier · {submission.review_note}</small>}
+                                    </div>
+                                    <div className="sf-line-value">
+                                        <strong>{money(submission.amount_cents, submission.currency)}</strong>
+                                        <Status state={state} />
+                                        {submission.download_url && (
+                                            <a href={submission.download_url} aria-label={`Télécharger le justificatif ${submission.reference}`}>
+                                                <Download size={15} aria-hidden="true" /> Justificatif
+                                            </a>
+                                        )}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </div>
             )}
         </section>
     );
@@ -241,6 +625,7 @@ export default function StudentFinance(props: PortalProps) {
     const feesUrl = studentHref('fees', academic.id);
     const history = details?.history_url ?? studentHref('transactions', academic.id);
     const receipts = details?.receipts_url ?? `${history}&view=receipts`;
+    if (props.section === 'annual-fees') return <AnnualFees props={props} feesUrl={feesUrl} />;
     if (props.section === 'transactions') {
         const receiptsOnly = props.finance_view === 'receipts';
         const payments = props.payments ?? [];
@@ -285,17 +670,27 @@ export default function StudentFinance(props: PortalProps) {
         );
     }
 
-    const covered = Math.max(0, balance.due_cents - balance.balance_cents);
+    const proofs = props.payment_proofs;
+    const canSubmit = Boolean(proofs?.submit_url);
+    const hasProofPanel = proofs && (canSubmit || proofs.submissions.length > 0);
+    const dueLines = schedule.length ? schedule : (details?.obligations ?? []);
+    const next = dueLines.find((line) => line.remaining_cents > 0);
+    const covered = coveredAmount(balance);
     const balanceStatus = balance.financial_clearance_status === 'partial' && covered === 0 ? 'unpaid' : balance.financial_clearance_status;
     const state = balanceStates[balanceStatus] ?? balanceStates.unassessed;
     const percent = balance.due_cents > 0 ? (balance.balance_cents === 0 ? 100 : Math.min(99, Math.round((covered / balance.due_cents) * 100))) : 0;
     const progressVisible = balance.assessed && balance.due_cents > 0;
     const pending = balance.pending_cents > 0;
+    const tuitionUnbilled = balance.assessed && details && !details.obligations.some((line) => line.kind === 'tuition');
     const recent = details?.recent_payments ?? [];
-    const hasReceipt = Boolean(details?.receipt_payments.length);
+    const hasReceipt = Boolean(details?.receipt_payments?.length);
     const actions = [
-        { label: 'Détails des frais', note: 'Frais affectés à votre inscription', icon: ListChecks, hash: '#finance-fees' },
-        { label: 'Échéancier de paiement', note: 'Dates et montants restants', icon: CalendarDays, hash: '#finance-schedule' },
+        {
+            label: 'Frais de l’année',
+            note: 'Toutes les tranches et les autres frais',
+            icon: ListChecks,
+            href: studentHref('annual-fees', academic.id),
+        },
         { label: 'Historique des paiements', note: 'Versements saisis par la comptabilité', icon: Clock3, href: history },
         {
             label: 'Reçus et attestations',
@@ -335,16 +730,25 @@ export default function StudentFinance(props: PortalProps) {
                         </span>
                     </div>
                     <div className="sf-hero-top">
-                        <h2 id="finance-balance">Solde à payer</h2>
+                        <h2 id="finance-balance">Reste à payer</h2>
                         <Status state={state} />
                     </div>
                     <p className="sf-balance" aria-live="polite">
                         {balance.assessed ? money(balance.balance_cents, balance.currency) : 'À établir'}
                     </p>
                     <p className="sf-hero-note">
-                        {balance.assessed ? 'Situation financière de votre inscription' : 'Le service financier n’a pas encore affecté vos frais.'}
+                        {balance.assessed
+                            ? 'Solde de votre inscription après les versements confirmés'
+                            : 'Le montant et les dates de vos tranches apparaîtront dès qu’un barème applicable à votre inscription pourra être facturé.'}
                     </p>
-                    <PaymentGuide academic={academic.id} />
+                    <div className="sf-hero-actions">
+                        {canSubmit && (
+                            <a className="sf-proof-cta" href="#finance-payment-proofs">
+                                <Upload size={18} aria-hidden="true" /> Déposer un justificatif
+                            </a>
+                        )}
+                        <PaymentGuide academic={academic.id} canSubmit={canSubmit} />
+                    </div>
                 </section>
                 <section className="sf-panel sf-progress" aria-label="Avancement des règlements">
                     <div className="sf-progress-main">
@@ -380,10 +784,34 @@ export default function StudentFinance(props: PortalProps) {
                             <dd>{balance.assessed ? money(balance.waived_cents, balance.currency) : '—'}</dd>
                         </div>
                     </dl>
+                    {next && (
+                        <a className="sf-next" href="#finance-schedule" data-overdue={next.status === 'overdue'}>
+                            <CalendarDays size={20} aria-hidden="true" />
+                            <span>
+                                <strong>
+                                    {next.status === 'overdue'
+                                        ? 'Échéance en retard'
+                                        : next.due_at || next.kind === 'tuition'
+                                          ? 'Prochaine tranche à régler'
+                                          : 'Montant à régler'}
+                                </strong>
+                                <small>
+                                    {next.due_at ? formatDate(next.due_at) : next.kind === 'tuition' ? 'Date limite à fixer' : 'Sans date limite'}
+                                </small>
+                            </span>
+                            <strong>{money(next.remaining_cents, next.currency ?? balance.currency)}</strong>
+                        </a>
+                    )}
                 </section>
             </div>
-            {(pending || balance.credit_cents > 0 || balance.overdue_cents > 0) && (
+            {(tuitionUnbilled || pending || balance.credit_cents > 0 || balance.overdue_cents > 0) && (
                 <div className="sf-notices">
+                    {tuitionUnbilled && (
+                        <p>
+                            <CircleAlert size={18} aria-hidden="true" />
+                            <span>Le solde couvre les frais déjà facturés. Les tranches de frais académiques restent à établir.</span>
+                        </p>
+                    )}
                     {balance.overdue_cents > 0 && (
                         <p data-tone="danger">
                             <CircleAlert size={18} aria-hidden="true" />
@@ -412,44 +840,22 @@ export default function StudentFinance(props: PortalProps) {
                 </div>
             )}
             <nav className="sf-actions" aria-label="Rubriques financières">
-                {actions.map(({ label, note, icon: Icon, href, hash }) => {
-                    const content = (
-                        <>
-                            <span className="sf-icon">
-                                <Icon size={21} aria-hidden="true" />
-                            </span>
-                            <span>
-                                <strong>{label}</strong>
-                                <small>{note}</small>
-                            </span>
-                            {hash ? <ArrowDown size={17} aria-hidden="true" /> : <ChevronRight size={18} aria-hidden="true" />}
-                        </>
-                    );
-                    return href ? (
-                        <Link key={label} href={href}>
-                            {content}
-                        </Link>
-                    ) : (
-                        <a key={label} href={hash}>
-                            {content}
-                        </a>
-                    );
-                })}
+                {actions.map(({ label, note, icon: Icon, href }) => (
+                    <Link key={label} href={href}>
+                        <span className="sf-icon">
+                            <Icon size={21} aria-hidden="true" />
+                        </span>
+                        <span>
+                            <strong>{label}</strong>
+                            <small>{note}</small>
+                        </span>
+                        <ChevronRight size={18} aria-hidden="true" />
+                    </Link>
+                ))}
             </nav>
+            <InstallmentSchedule schedule={schedule} obligations={details?.obligations ?? []} currency={balance.currency} />
+            {hasProofPanel && <PaymentProofs key={academic.id} proofs={proofs} currency={balance.currency} />}
             <div className="sf-detail-grid">
-                <Details obligations={details?.obligations ?? []} balance={balance} academic={academic} />
-                <section id="finance-schedule" className="sf-panel" aria-label="Échéancier de paiement">
-                    <PanelHeading title="Échéancier de paiement" description="Dates et soldes par échéance" icon={CalendarDays} />
-                    {schedule.length ? (
-                        <ul className="sf-list">
-                            {schedule.map((line) => (
-                                <FeeLine key={line.id} line={line} showScheduled currency={balance.currency} />
-                            ))}
-                        </ul>
-                    ) : (
-                        <Empty>Aucune échéance enregistrée pour cette inscription.</Empty>
-                    )}
-                </section>
                 <section className="sf-panel sf-activity" aria-label="Derniers paiements">
                     <PanelHeading title="Derniers paiements" icon={ReceiptText} />
                     {recent.length ? (
