@@ -15,6 +15,7 @@ use App\Modules\Teaching\Application\Services\LearningFiles;
 use App\Modules\Teaching\Application\Services\TeachingTeam;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class StudentCourseController extends Controller
@@ -105,13 +106,18 @@ class StudentCourseController extends Controller
             ]);
             $attendance->through(fn ($s) => ['id' => $s->id, 'starts_at' => $s->starts_at, 'ends_at' => $s->ends_at, 'room' => $s->room, 'status' => $records[$s->id] ?? null]);
         }
-        $attendanceStatus = "CASE WHEN academic_attendances.status = 'absent' AND justification.status = 'accepted' THEN 'excused' ELSE academic_attendances.status END";
-        $stats = $permissions['schedule_view']['allowed'] ? AcademicAttendance::query()
-            ->leftJoin('academic_absence_justifications as justification', 'justification.academic_attendance_id', '=', 'academic_attendances.id')
-            ->where('academic_enrollment_id', $entry->id)
-            ->whereIn('academic_session_id', (clone $sessionQuery)->whereNull('cancelled_at')->where('ends_at', '<=', $now)->select('id'))
-            ->selectRaw($attendanceStatus.' as attendance_status, count(*) as total')
-            ->groupByRaw($attendanceStatus)->pluck('total', 'attendance_status')->map(fn ($count) => (int) $count) : collect();
+        $stats = collect();
+        if ($permissions['schedule_view']['allowed']) {
+            $attendanceRows = AcademicAttendance::query()
+                ->leftJoin('academic_absence_justifications as justification', 'justification.academic_attendance_id', '=', 'academic_attendances.id')
+                ->where('academic_enrollment_id', $entry->id)
+                ->whereIn('academic_session_id', (clone $sessionQuery)->whereNull('cancelled_at')->where('ends_at', '<=', $now)->select('id'))
+                ->selectRaw("CASE WHEN academic_attendances.status = 'absent' AND justification.status = 'accepted' THEN 'excused' ELSE academic_attendances.status END as attendance_status");
+
+            $stats = DB::query()->fromSub($attendanceRows, 'attendance_rows')
+                ->selectRaw('attendance_status, count(*) as total')->groupBy('attendance_status')
+                ->pluck('total', 'attendance_status')->map(fn ($count) => (int) $count);
+        }
         $total = $stats->sum();
         $attended = ($stats['present'] ?? 0) + ($stats['late'] ?? 0);
         $periodOffering = $focus?->offering->curriculum_item_id ? $focus->offering : $managed;
