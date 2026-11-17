@@ -91,7 +91,7 @@ final class AbsenceController
                     'submission_history' => $history, 'decision_reason' => null, 'reviewed_by' => null, 'decided_at' => null, 'revision' => (int) $case->revision + 1])->save();
                 Audit::record($request->user()->id, 'absence_justification_submitted', $case, data: ['revision' => $case->revision]);
                 $faculty = $session->offering->level->faculty_id;
-                User::role('admin')->permission('manage academic access')->where(fn (Builder $q) => $q->whereDoesntHave('academicFaculties')
+                User::administrators()->permission('manage academic access')->where(fn (Builder $q) => $q->whereDoesntHave('academicFaculties')
                     ->orWhereHas('academicFaculties', fn ($f) => $f->whereKey($faculty)))->eachById(fn ($reviewer) => (new AcademicScheduleNotice([
                         'status' => 'absence_submitted', 'reference' => 'Demande de justification',
                     ]))->deliver($reviewer));

@@ -2,7 +2,7 @@ import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import VideoPlayer from '@/components/news/VideoPlayer';
 import { gradientOptions } from '@/components/section/dashboard/blog/utils/gradientOptions';
 import { Head, router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { categoryBadgeStyle } from './category-badge';
 import EditPostModal from './EditPostModal';
 
@@ -16,7 +16,7 @@ type Post = {
     title: string;
     slug: string;
     excerpt?: string | null;
-    content?: string | null; // HTML ou texte brut
+    content?: string | null;
     read_time?: string | null;
     gradient?: string | null;
     featured: boolean;
@@ -69,11 +69,6 @@ export default function Show({ post, categories, galleryRevision, openEdit: init
             router.replace({ url: url.href, props: (current) => ({ ...current, openEdit: false }), preserveState: true, preserveScroll: true });
         }
     };
-
-    const isHtml = useMemo(() => {
-        const c = post.content ?? '';
-        return c.includes('<') && c.includes('>');
-    }, [post.content]);
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -335,14 +330,7 @@ export default function Show({ post, categories, galleryRevision, openEdit: init
                         </h2>
 
                         {post.content ? (
-                            isHtml ? (
-                                <div
-                                    className="prose prose-slate prose-headings:mt-6 prose-headings:mb-3 prose-p:leading-7 prose-img:rounded-xl prose-img:shadow-lg max-w-none"
-                                    dangerouslySetInnerHTML={{ __html: post.content }}
-                                />
-                            ) : (
-                                <div className="text-lg leading-7 whitespace-pre-line text-slate-800">{post.content}</div>
-                            )
+                            <div className="text-lg leading-7 whitespace-pre-line text-slate-800">{post.content}</div>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-12">
                                 <svg

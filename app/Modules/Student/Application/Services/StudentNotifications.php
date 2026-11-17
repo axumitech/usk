@@ -2,11 +2,13 @@
 
 namespace App\Modules\Student\Application\Services;
 
+use App\Models\Enrollment;
 use App\Models\User;
 use App\Notifications\AcademicAssessmentNotice;
 use App\Notifications\AcademicEnrollmentChanged;
 use App\Notifications\AcademicScheduleNotice;
 use App\Notifications\EnrollmentDocumentReviewed;
+use App\Notifications\EnrollmentDocumentReplacement;
 use App\Notifications\FinancialOperationNotice;
 use App\Notifications\LearningContentNotice;
 use App\Notifications\OfficialDocumentNotice;
@@ -16,6 +18,7 @@ use App\Notifications\StudentAppointmentNotice;
 use App\Notifications\TeacherAnnouncementNotice;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Support\Facades\DB;
 
 final class StudentNotifications
 {
@@ -32,6 +35,23 @@ final class StudentNotifications
         StudentAppointmentNotice::class => 'student_request',
         TeacherAnnouncementNotice::class => 'announcement',
     ];
+
+    public function forAdmissionsStaff(User $user): MorphMany
+    {
+        $query = $user->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, AcademicScheduleNotice::class]);
+        if ($user->academicFaculties()->exists()) {
+            $grammar = $query->getBaseQuery()->getGrammar();
+            // Notifications store JSON as text. PostgreSQL needs a cast before extracting the identifier.
+            $enrollmentId = $user->getConnection()->getDriverName() === 'pgsql'
+                ? "CAST(\"data\" AS JSONB)->>'enrollment_id'"
+                : $grammar->wrap('data->enrollment_id');
+            $visible = AcademicStaffScope::apply(Enrollment::query(), $user)->selectRaw('CAST(enrollments.id AS VARCHAR)');
+            $query->where(fn ($notice) => $notice->where('type', AcademicScheduleNotice::class)
+                ->orWhereIn(DB::raw("CAST($enrollmentId AS VARCHAR)"), $visible));
+        }
+
+        return $query;
+    }
 
     public function summary(User $user, bool $teacherOnly = false): array
     {

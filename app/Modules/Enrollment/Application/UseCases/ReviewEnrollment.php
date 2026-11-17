@@ -3,13 +3,23 @@
 namespace App\Modules\Enrollment\Application\UseCases;
 
 use App\Models\Enrollment;
+use App\Models\User;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 final class ReviewEnrollment
 {
     public function __construct(private NotifyEnrollmentReview $notifications) {}
+
+    private function lockedForReview(int $id, int $actor): Enrollment
+    {
+        $entry = Enrollment::lockForUpdate()->findOrFail($id);
+        Gate::forUser(User::findOrFail($actor))->authorize('review', $entry);
+
+        return $entry;
+    }
 
     private function requireAnalysis(Enrollment $enrollment): void
     {
@@ -21,7 +31,7 @@ final class ReviewEnrollment
     public function start(int $id, int $actor): bool
     {
         return DB::transaction(function () use ($id, $actor) {
-            $entry = Enrollment::lockForUpdate()->findOrFail($id);
+            $entry = $this->lockedForReview($id, $actor);
             if (! in_array($entry->status, [EnrollmentStatus::SUBMITTED, EnrollmentStatus::PENDING], true)) {
                 throw new InvalidEnrollmentStateException('Seul un dossier soumis peut être mis en analyse.');
             }
@@ -41,7 +51,7 @@ final class ReviewEnrollment
     public function document(int $id, string $uuid, int $actor, string $verdict, ?string $reason): void
     {
         DB::transaction(function () use ($id, $uuid, $actor, $verdict, $reason) {
-            $entry = Enrollment::lockForUpdate()->findOrFail($id);
+            $entry = $this->lockedForReview($id, $actor);
             $this->requireAnalysis($entry);
             $document = $entry->documents()->where('uuid', $uuid)->lockForUpdate()->firstOrFail();
             $reason = trim($reason ?? '');
@@ -68,7 +78,7 @@ final class ReviewEnrollment
     public function requestCorrections(int $id, int $actor): bool
     {
         return DB::transaction(function () use ($id, $actor) {
-            $entry = Enrollment::lockForUpdate()->findOrFail($id);
+            $entry = $this->lockedForReview($id, $actor);
             $this->requireAnalysis($entry);
             $documents = $entry->documents()->whereIn('review_status', ['rejected', 'correction_requested'])->orderBy('id')->get();
             if ($documents->isEmpty()) {

@@ -7,13 +7,31 @@ use App\Modules\Blog\Infrastructure\Persistence\Eloquent\Models\PostModel;
 use App\Modules\Identity\Domain\Nationality;
 use Illuminate\Auth\MustVerifyEmail; // le trait ajoute hasVerifiedEmail(), markEmailAsVerified()...
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmailContract
 {
-    use HasRoles, \Illuminate\Database\Eloquent\Factories\HasFactory, MustVerifyEmail, Notifiable;
+    use HasRoles, \Illuminate\Database\Eloquent\Factories\HasFactory, MustVerifyEmail, Notifiable {
+        hasRole as private hasAssignedRole;
+    }
+
+    public const ADMIN_ROLES = ['admin', 'super admin'];
+
+    public function hasRole($roles, ?string $guard = null): bool
+    {
+        // Both roles enter administration. Permissions and faculty assignments still apply.
+        return $this->hasAssignedRole($roles, $guard)
+            || ($roles === 'admin' && $this->hasAssignedRole('super admin', $guard));
+    }
+
+    public function scopeAdministrators(Builder $query): Builder
+    {
+        return $query->whereHas('roles', fn ($roles) => $roles
+            ->where('guard_name', $this->getDefaultGuardName())->whereIn('name', self::ADMIN_ROLES));
+    }
 
     /**
      * The attributes that are mass assignable.

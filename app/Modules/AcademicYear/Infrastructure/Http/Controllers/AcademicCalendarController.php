@@ -36,6 +36,7 @@ class AcademicCalendarController extends Controller
 
     public function save(Request $request, AcademicYear $year, ?int $event = null)
     {
+        abort_if($request->user()->academicFaculties()->exists(), 403);
         $data = $request->validate([
             'title' => 'required|string|max:160',
             'category' => ['required', Rule::in(array_keys(AcademicCalendarEvent::CATEGORIES))],
@@ -59,8 +60,9 @@ class AcademicCalendarController extends Controller
         return back()->with('success', 'Événement enregistré.');
     }
 
-    public function destroy(AcademicYear $year, int $event)
+    public function destroy(Request $request, AcademicYear $year, int $event)
     {
+        abort_if($request->user()->academicFaculties()->exists(), 403);
         DB::transaction(function () use ($year, $event) {
             $lockedYear = AcademicYear::whereKey($year->id)->lockForUpdate()->firstOrFail();
             $this->events($lockedYear->id)->findOrFail($event)->delete();

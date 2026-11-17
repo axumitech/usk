@@ -8,7 +8,9 @@ class CreateAcademicYearRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // tu peux plus tard restreindre aux admins
+        $user = $this->user();
+
+        return $user?->can('manage academic access') && ! $user->academicFaculties()->exists();
     }
 
     public function rules(): array

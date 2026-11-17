@@ -17,10 +17,12 @@ use App\Modules\Enrollment\Application\UseCases\ValidateEnrollmentUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Identity\Domain\Nationality;
+use App\Modules\Student\Application\Services\AcademicStaffScope;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -30,10 +32,11 @@ class EnrollmentManagementController extends Controller
 {
     public function __construct(private readonly ValidateEnrollmentUseCase $validateUseCase, private readonly RejectEnrollmentUseCase $rejectUseCase) {}
 
-    public function overview()
+    public function overview(Request $request)
     {
-        $new = Enrollment::where('status', EnrollmentStatus::SUBMITTED);
-        $review = Enrollment::where('status', EnrollmentStatus::PENDING);
+        $scope = AcademicStaffScope::apply(Enrollment::query(), $request->user());
+        $new = (clone $scope)->where('status', EnrollmentStatus::SUBMITTED);
+        $review = (clone $scope)->where('status', EnrollmentStatus::PENDING);
         $reexamination = (clone $review)->whereHas('documents', self::correctedDocuments(...));
         $counts = [
             'new' => (clone $new)->count(),
@@ -53,7 +56,7 @@ class EnrollmentManagementController extends Controller
         }
         $decisionAt = EnrollmentEvent::select('occurred_at')->whereColumn('enrollment_id', 'enrollments.id')
             ->whereColumn('event', 'enrollments.status')->orderByDesc('occurred_at')->limit(1);
-        $decisions = Enrollment::whereIn('status', [EnrollmentStatus::VALIDATED, EnrollmentStatus::REJECTED])
+        $decisions = (clone $scope)->whereIn('status', [EnrollmentStatus::VALIDATED, EnrollmentStatus::REJECTED])
             ->whereHas('events', fn ($events) => $events->whereColumn('event', 'enrollments.status')->whereNotNull('occurred_at'))
             ->with($relations)->addSelect(['decision_at' => $decisionAt])
             ->orderByDesc('decision_at')->orderByDesc('id')->limit(5)->get();
@@ -101,7 +104,9 @@ class EnrollmentManagementController extends Controller
             'faculty_id' => 'nullable|integer|exists:faculties,id',
             'year_id' => 'nullable|integer|exists:academic_years,id',
         ]);
-        $query = Enrollment::with(['student:id,first_name,last_name,post_name,email', 'level.faculty', 'academicYear'])->withCount(['documents', 'documents as reexamination_count' => fn ($q) => $q->where('version', '>', 1)->where('review_status', 'pending')->whereHas('enrollment', fn ($entry) => $entry->where('status', 'pending'))]);
+        $actor = $request->user();
+        $scope = AcademicStaffScope::apply(Enrollment::query(), $actor);
+        $query = (clone $scope)->with(['student:id,first_name,last_name,post_name,email', 'level.faculty', 'academicYear'])->withCount(['documents', 'documents as reexamination_count' => fn ($q) => $q->where('version', '>', 1)->where('review_status', 'pending')->whereHas('enrollment', fn ($entry) => $entry->where('status', 'pending'))]);
         if ($filters['reexamination'] ?? false) {
             $query->where('status', 'pending')->whereHas('documents', self::correctedDocuments(...));
         }
@@ -154,7 +159,7 @@ class EnrollmentManagementController extends Controller
                     }
                 }));
         }
-        $counts = Enrollment::selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
+        $counts = (clone $scope)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
         $isQueue = ! empty($filters['queue']) || ! empty($filters['reexamination']);
         if ($isQueue) {
             $query->orderByDesc('reexamination_count')->latest('created_at');
@@ -177,14 +182,20 @@ class EnrollmentManagementController extends Controller
             return $data;
         });
 
+        $restricted = $actor->academicFaculties()->exists();
+        $facultyIds = fn () => $actor->academicFaculties()->select('faculties.id');
+
         return Inertia::render('dashboard/adminEnrollments/Index', [
             'enrollments' => $enrollments, 'filters' => $filters,
-            'levels' => Level::orderBy('title')->get(['id', 'title']),
-            'programs' => AcademicProgram::orderBy('name')->get(['id', 'name']),
-            'agents' => User::role('admin')->permission('manage academic access')->orderBy('last_name')->get(['id', 'first_name', 'last_name']),
-            'faculties' => Faculty::orderBy('name')->get(['id', 'name']),
+            'levels' => Level::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('title')->get(['id', 'title']),
+            'programs' => AcademicProgram::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('name')->get(['id', 'name']),
+            'agents' => User::administrators()->permission('manage academic access')
+                ->when($restricted, fn ($q) => $q->where(fn ($staff) => $staff->whereDoesntHave('academicFaculties')
+                    ->orWhereHas('academicFaculties', fn ($faculties) => $faculties->whereIn('faculties.id', $facultyIds()))))
+                ->orderBy('last_name')->get(['id', 'first_name', 'last_name']),
+            'faculties' => Faculty::when($restricted, fn ($q) => $q->whereIn('id', $facultyIds()))->orderBy('name')->get(['id', 'name']),
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
-            'reexamination_total' => Enrollment::where('status', 'pending')->whereHas('documents', self::correctedDocuments(...))->count(),
+            'reexamination_total' => (clone $scope)->where('status', 'pending')->whereHas('documents', self::correctedDocuments(...))->count(),
             'stats' => ['pending' => (int) ($counts['submitted'] ?? 0) + (int) ($counts['pending'] ?? 0), 'validated' => (int) ($counts['validated'] ?? 0), 'rejected' => (int) ($counts['rejected'] ?? 0), 'total' => (int) $counts->sum()],
             'success' => session('success'),
         ]);
@@ -193,6 +204,7 @@ class EnrollmentManagementController extends Controller
     public function show(Request $request, int $id)
     {
         $entry = Enrollment::with(['student:id,first_name,last_name,post_name,email,nationality_code', 'level.faculty', 'academicYear', 'documents', 'events.actor:id,first_name,last_name'])->findOrFail($id);
+        Gate::authorize('review', $entry);
         $data = Arr::only($entry->toArray(), ['id', 'uuid', 'reference', 'matricule', 'status', 'status_label', 'payment_status_label', 'created_at', 'enrolled_at', 'student', 'level', 'academic_year']);
         $data['nationality'] = Nationality::label($entry->student?->nationality_code);
         $academic = $entry->academicEnrollment;
@@ -313,9 +325,7 @@ class EnrollmentManagementController extends Controller
     {
         $document = EnrollmentDocument::with('enrollment')->where('uuid', $uuid)->firstOrFail();
         abort_unless($document->enrollment, 404);
-        if (request()->user()->academicFaculties()->exists()) {
-            abort_unless(request()->user()->academicFaculties()->whereKey($document->enrollment->level->faculty_id)->exists(), 403);
-        }
+        Gate::authorize('review', $document->enrollment);
         $disk = Storage::disk($document->disk);
         abort_unless($disk->exists($document->path), 404, 'Ce fichier est indisponible.');
         $mime = $disk->mimeType($document->path);

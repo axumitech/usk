@@ -100,6 +100,7 @@ class ScheduleController extends Controller
     public function saveSemester(Request $request, SemesterService $service)
     {
         abort_unless($request->user()->can('publish academic content'), 403);
+        abort_if($request->user()->academicFaculties()->exists(), 403);
         $data = $request->validate([
             'academic_year_id' => 'required|integer|exists:academic_years,id', 'number' => 'required|integer|in:1,2',
             'start_month' => 'required|date_format:Y-m', 'end_month' => 'required|date_format:Y-m|after_or_equal:start_month',

@@ -9,6 +9,7 @@ use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Enrollment\Domain\Services\EnrollmentValidator;
 use App\Modules\Student\Application\Services\StudentAdmissionService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 final class RecordEnrollmentDecision
 {
@@ -17,11 +18,12 @@ final class RecordEnrollmentDecision
         $actor = User::findOrFail($actorId);
         abort_unless($actor->hasRole('admin') && $actor->can('manage academic access'), 403);
 
-        return DB::transaction(function () use ($id, $actorId, $decision, $reason) {
+        return DB::transaction(function () use ($id, $actor, $actorId, $decision, $reason) {
             if ($decision === EnrollmentStatus::VALIDATED) {
                 User::whereKey(Enrollment::findOrFail($id)->student_id)->lockForUpdate()->firstOrFail();
             }
             $enrollment = Enrollment::lockForUpdate()->findOrFail($id);
+            Gate::forUser($actor)->authorize('review', $enrollment);
             if (! in_array($decision, [EnrollmentStatus::VALIDATED, EnrollmentStatus::REJECTED], true)
                 || ! $enrollment->status->canTransitionTo($decision)) {
                 throw InvalidEnrollmentStateException::cannotTransition($enrollment->status, $decision);

@@ -3,6 +3,7 @@
 namespace App\Modules\AcademicYear\Infrastructure\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Enrollment;
 use App\Modules\AcademicYear\Application\UseCases\CloseAcademicYear;
 use App\Modules\AcademicYear\Application\UseCases\CreateAcademicYear;
 use App\Modules\AcademicYear\Application\UseCases\ListAcademicYears;
@@ -13,8 +14,10 @@ use App\Modules\AcademicYear\Domain\Repositories\AcademicYearRepository;
 use App\Modules\AcademicYear\Infrastructure\Http\Requests\CreateAcademicYearRequest;
 use App\Modules\AcademicYear\Infrastructure\Http\Requests\UpdateAcademicYearRequest;
 use App\Modules\AcademicYear\Infrastructure\Http\Resources\AcademicYearResource;
+use App\Modules\Student\Application\Services\AcademicStaffScope;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class AcademicYearController extends Controller
@@ -28,7 +31,7 @@ class AcademicYearController extends Controller
         ]);
     }
 
-    public function show(int $id, AcademicYearRepository $academicYearRepository)
+    public function show(Request $request, int $id, AcademicYearRepository $academicYearRepository)
     {
         $year = $academicYearRepository->findById($id);
 
@@ -36,19 +39,21 @@ class AcademicYearController extends Controller
             abort(404, 'Année académique introuvable');
         }
 
+        $enrollments = AcademicStaffScope::apply(Enrollment::where('academic_year_id', $id), $request->user());
+        if (! $request->user()->can('manage academic access')) {
+            $enrollments->whereRaw('1 = 0');
+        }
+        $counts = (clone $enrollments)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
+
         return Inertia::render('dashboard/academicYear/Show', [
             'academicYear' => AcademicYearResource::make($year),
-            'enrollmentStats' => (function () use ($id) {
-                $counts = \App\Models\Enrollment::where('academic_year_id', $id)->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
-
-                return [
-                    'total' => (int) $counts->sum(),
-                    'validated' => (int) ($counts['validated'] ?? 0),
-                    'pending' => (int) ($counts['pending'] ?? 0) + (int) ($counts['submitted'] ?? 0),
-                    'draft' => (int) ($counts['draft'] ?? 0),
-                ];
-            })(),
-            'enrollments' => \App\Models\Enrollment::where('academic_year_id', $id)
+            'enrollmentStats' => [
+                'total' => (int) $counts->sum(),
+                'validated' => (int) ($counts['validated'] ?? 0),
+                'pending' => (int) ($counts['pending'] ?? 0) + (int) ($counts['submitted'] ?? 0),
+                'draft' => (int) ($counts['draft'] ?? 0),
+            ],
+            'enrollments' => $enrollments
                 ->with(['student:id,first_name,last_name', 'level:id,title,code'])
                 ->orderByDesc('id')->paginate(8)->withQueryString()
                 ->through(fn ($enrollment) => [

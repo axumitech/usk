@@ -10,6 +10,7 @@ use App\Models\Level;
 use App\Modules\AcademicStructure\Application\Services\AnnualProgramPreparation;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,8 +23,13 @@ final class AdmissionCampaignController
         $institution = University::where('context_key', 'current')->first();
 
         $filters = $request->validate(['level_id' => 'nullable|integer|exists:levels,id']);
-        $level = isset($filters['level_id']) ? Level::findOrFail($filters['level_id'], ['id', 'title']) : null;
-        $programs = AcademicProgram::whereHas('faculty', fn ($q) => $q->where('university_id', $institution?->id ?? -1));
+        $actor = $request->user();
+        $level = isset($filters['level_id']) ? Level::findOrFail($filters['level_id'], ['id', 'title', 'faculty_id']) : null;
+        abort_if($level && ! TeachingScope::allows($actor, (int) $level->faculty_id), 403);
+
+        $faculties = $actor->academicFaculties();
+        $programs = AcademicProgram::whereHas('faculty', fn ($q) => $q->where('university_id', $institution?->id ?? -1))
+            ->when($faculties->exists(), fn ($q) => $q->whereIn('faculty_id', $faculties->select('faculties.id')));
         $campaigns = AdmissionCampaign::whereIn('academic_program_id', (clone $programs)->select('id'));
 
         if ($level) {
@@ -32,7 +38,7 @@ final class AdmissionCampaignController
         }
 
         return Inertia::render('dashboard/adminEnrollments/Campaigns', [
-            'level' => $level,
+            'level' => $level?->only(['id', 'title']),
             'campaigns' => $campaigns->latest('id')->paginate(20)->withQueryString(),
             'programs' => $programs->with('levels:id,title')->orderBy('name')->get(['id', 'name']),
             'years' => AcademicYear::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))->latest('start_date')->get(['id', 'title']),
@@ -48,6 +54,7 @@ final class AdmissionCampaignController
             'additional_documents' => 'nullable|string|max:2000', 'reason' => 'required|string|min:5|max:500',
         ]);
         $program = $structure->program($data['academic_program_id']);
+        TeachingScope::authorize($request->user(), (int) $program->faculty_id, 'manage academic access');
         $year = $structure->year($data['academic_year_id']);
         if (! $program->levels->contains('id', (int) $data['level_id'])) {
             throw ValidationException::withMessages(['level_id' => 'Le niveau ne correspond pas au programme.']);
