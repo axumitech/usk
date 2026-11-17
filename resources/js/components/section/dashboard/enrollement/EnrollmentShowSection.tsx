@@ -52,7 +52,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
             <div className="student-detail-toolbar">
                 <Link href="/app/dashboard/enrollments" className="student-text-button">
                     <ArrowLeft size={16} />
-                    Mes inscriptions
+                    Mes candidatures
                 </Link>
                 <div>
                     {enrollment.academic_portal_url && (
@@ -102,7 +102,11 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                         {enrollment.academic_year?.title && ` · ${enrollment.academic_year.title}`}
                     </p>
                     <div className="student-hero-badges">
-                        <span className={`student-badge is-${enrollment.status}`}>{statusLabels[enrollment.status] || 'Statut à confirmer'}</span>
+                        <span className={`student-badge is-${corrections ? 'correction_requested' : enrollment.status}`}>
+                            {corrections ? 'Correction demandée' : statusLabels[enrollment.status] || 'Statut à confirmer'}
+                        </span>
+                        {enrollment.academic_enrollment_status === 'pending_confirmation' && <span className="student-badge is-pending">Inscription à confirmer</span>}
+                        {enrollment.academic_enrollment_status === 'confirmed' && <span className="student-badge is-validated">Inscription confirmée</span>}
                         {enrollment.matricule && <span className="student-matricule">Matricule {enrollment.matricule}</span>}
                     </div>
                 </div>
@@ -118,7 +122,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                     {success}
                 </p>
             )}
-            {enrollment.analysis_completed_at && (
+            {enrollment.status === 'pending' && !corrections && enrollment.analysis_completed_at && (
                 <p className="student-notice">
                     L’examen de toutes vos pièces est terminé depuis le {formatDate(enrollment.analysis_completed_at)}. Retrouvez les verdicts et les
                     remarques dans vos justificatifs. La décision finale est communiquée séparément.
@@ -211,6 +215,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                                         <dl className="student-information-grid">
                                             {[
                                                 ['Faculté', enrollment.level?.faculty?.name],
+                                                ['Programme', enrollment.requested_program],
                                                 ['Niveau', enrollment.level?.title],
                                                 ['Code du niveau', enrollment.level?.code],
                                                 ['Année académique', enrollment.academic_year?.title],
@@ -234,7 +239,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                                                 ['Dernière mise à jour', enrollment.updated_at],
                                                 ['Début de l’analyse', enrollment.analysis_started_at],
                                                 ['Fin de vérification des pièces', enrollment.analysis_completed_at],
-                                                ['Validation', enrollment.enrolled_at],
+                                                ['Admission', enrollment.admitted_at],
                                             ].map(([label, value]) => (
                                                 <div key={label}>
                                                     <dt>{label}</dt>
@@ -382,7 +387,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                         <p>{nextStep(enrollment)}</p>
                         {enrollment.status === 'draft' ? (
                             <Link className="student-primary" href={`/app/dashboard/enrollments/${enrollment.uuid}/edit`}>
-                                Continuer mon inscription
+                                Continuer ma candidature
                                 <ArrowLeft className="student-arrow-forward" size={16} />
                             </Link>
                         ) : (
@@ -397,30 +402,28 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                                 {corrections > 0 ? 'Corriger mes pièces' : 'Voir le suivi'}
                             </button>
                         )}
-                        {(enrollment.rejection_reason || enrollment.notes) && (
+                        {(enrollment.rejection_reason || enrollment.admission_reason || enrollment.notes) && (
                             <div className="student-decision-note">
-                                <strong>{enrollment.status === 'rejected' ? 'Motif de la décision' : 'Message du service'}</strong>
-                                <p>{enrollment.rejection_reason || enrollment.notes}</p>
+                                <strong>{isFinal ? 'Motif de la décision' : 'Message du service'}</strong>
+                                <p>{enrollment.rejection_reason || enrollment.admission_reason || enrollment.notes}</p>
                             </div>
                         )}
                     </section>
-                    <section className="student-panel student-payment">
-                        <h2>
-                            <CreditCard size={19} />
-                            Situation de paiement
-                        </h2>
-                        <strong>{paymentLabels[enrollment.payment_status || 'unpaid'] || 'À confirmer'}</strong>
-                        {enrollment.financial_portal_url && (
-                            <Link className="student-secondary" href={enrollment.financial_portal_url}>
-                                Consulter mes frais
-                                <CreditCard size={15} />
-                            </Link>
-                        )}
-                        <p>
-                            La validation du dossier et le règlement des frais sont deux étapes distinctes. Suivez les modalités communiquées par
-                            l’université.
-                        </p>
-                    </section>
+                    {enrollment.status === 'validated' && (
+                        <section className="student-panel student-payment">
+                            <h2>
+                                <CreditCard size={19} />
+                                Situation de paiement
+                            </h2>
+                            <strong>{enrollment.financial_portal_url ? (paymentLabels[enrollment.payment_status || 'unassessed'] || 'À confirmer') : 'À confirmer'}</strong>
+                            {enrollment.financial_portal_url && (
+                                <Link className="student-secondary" href={enrollment.financial_portal_url}>
+                                    Consulter mes frais
+                                    <CreditCard size={15} />
+                                </Link>
+                            )}
+                        </section>
+                    )}
                     <section className="student-help">
                         <Info size={18} />
                         <p>

@@ -32,7 +32,7 @@ final class ReviewEnrollment
     {
         return DB::transaction(function () use ($id, $actor) {
             $entry = $this->lockedForReview($id, $actor);
-            if (! in_array($entry->status, [EnrollmentStatus::SUBMITTED, EnrollmentStatus::PENDING], true)) {
+            if ($entry->status !== EnrollmentStatus::PENDING && ! $entry->status->canTransitionTo(EnrollmentStatus::PENDING)) {
                 throw new InvalidEnrollmentStateException('Seul un dossier soumis peut être mis en analyse.');
             }
             if (! empty($entry->meta['analysis_started_at'])) {

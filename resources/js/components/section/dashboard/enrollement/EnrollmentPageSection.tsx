@@ -22,9 +22,9 @@ type PageData = {
 };
 const titles = ['Choisissez votre formation.', 'Faisons connaissance.', 'Parlez-nous de votre parcours.', 'Un dernier regard avant l’envoi.'];
 const descriptions = [
-    'Sélectionnez votre faculté, votre niveau et l’année académique souhaitée.',
+    'Sélectionnez votre faculté, votre niveau, votre programme et l’année académique souhaitée.',
     'Vérifiez vos coordonnées et ajoutez les pièces demandées pour votre identité.',
-    'Précisez votre programme d’études et joignez vos justificatifs académiques.',
+    'Vérifiez votre programme d’études et joignez vos justificatifs académiques.',
     'Relisez chaque information. Vous pouvez encore revenir sur les étapes précédentes.',
 ];
 export default function EnrollmentPageSection() {
@@ -47,7 +47,13 @@ export default function EnrollmentPageSection() {
     const years: Year[] = props.years.map((y) => ({ id: String(y.id), name: y.title }));
     const availableLevels: Level[] = (props.levelsByFaculty[formData.faculty_id] || []).map((level) => ({ id: String(level.id), name: level.title }));
     const availablePrograms = (props.levelsByFaculty[formData.faculty_id] || []).find(level => String(level.id) === formData.level_id)?.programs ?? [];
-    const { requirements, loading, error: requirementsError } = useRequirements(formData);
+    const officialProgram = !formData.academic_program_id && availablePrograms.length === 1
+        ? availablePrograms[0]
+        : availablePrograms.find((program) => String(program.id) === formData.academic_program_id);
+    const applicationForm = officialProgram
+        ? { ...formData, academic_program_id: String(officialProgram.id), program: officialProgram.name }
+        : formData;
+    const { requirements, loading, error: requirementsError } = useRequirements(applicationForm);
     const busy = working || uploadingKeys.length > 0 || loading;
     const formation = {
         faculty: faculties.find((f) => f.id === formData.faculty_id)?.name || '—',
@@ -56,7 +62,7 @@ export default function EnrollmentPageSection() {
     };
     const noLevels = !!formData.faculty_id && availableLevels.length === 0;
     const documentProps = {
-        formData,
+        formData: applicationForm,
         errors: { ...errors, ...uploadErrors },
         handleFieldChange: form.handleFieldChange,
         requirements,
@@ -86,7 +92,7 @@ export default function EnrollmentPageSection() {
         if (requirementsError) return;
         if (step === 4) {
             for (let current = 1; current <= 4; current++) {
-                const nextErrors = validateStep(current, formData, requirements, noLevels, isConfirmed, availablePrograms.length);
+                const nextErrors = validateStep(current, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
                 if (Object.keys(nextErrors).length) {
                     setStep(current);
                     showErrors(nextErrors);
@@ -94,7 +100,7 @@ export default function EnrollmentPageSection() {
                 }
             }
         }
-        const nextErrors = validateStep(step, formData, requirements, noLevels, isConfirmed, availablePrograms.length);
+        const nextErrors = validateStep(step, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
         if (Object.keys(nextErrors).length) {
             showErrors(nextErrors);
             return;
@@ -102,14 +108,14 @@ export default function EnrollmentPageSection() {
         setWorking(true);
         try {
             if (step < 4) {
-                if (await saveProgress(step + 1)) goToStep(step + 1);
-            } else await submitEnrollment();
+                if (await saveProgress(step + 1, applicationForm)) goToStep(step + 1);
+            } else await submitEnrollment(applicationForm);
         } finally {
             setWorking(false);
         }
     };
     const saveAndExit = async () => {
-        const firstStepErrors = validateStep(1, formData, requirements, noLevels, isConfirmed, availablePrograms.length);
+        const firstStepErrors = validateStep(1, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
         if (Object.keys(firstStepErrors).length) {
             setStep(1);
             showErrors(firstStepErrors);
@@ -117,7 +123,7 @@ export default function EnrollmentPageSection() {
         }
         setWorking(true);
         try {
-            if (await saveProgress(step)) router.visit('/app/dashboard/enrollments');
+            if (await saveProgress(step, applicationForm)) router.visit('/app/dashboard/enrollments');
         } finally {
             setWorking(false);
         }
@@ -127,7 +133,7 @@ export default function EnrollmentPageSection() {
             <div className="enrollment-flow">
                 <div className="enrollment-page-top">
                     <Link href="/app/dashboard/enrollments">
-                        <ArrowLeft size={16} /> Mes inscriptions
+                        <ArrowLeft size={16} /> Mes candidatures
                     </Link>
                     <span>
                         <CheckCircle2 size={15} />
@@ -140,7 +146,7 @@ export default function EnrollmentPageSection() {
                 </div>
                 <header className="enrollment-page-title">
                     <span>UNIVERSITÉ SIMON KIMBANGU</span>
-                    <h1>Votre inscription, pas à pas.</h1>
+                    <h1>Votre candidature, pas à pas.</h1>
                     <p>Un parcours guidé pour préparer et transmettre votre dossier en toute clarté.</p>
                 </header>
                 <ProgressHeader step={step} onStepChange={busy ? undefined : goToStep} />
@@ -172,7 +178,7 @@ export default function EnrollmentPageSection() {
                                         .map(([key, message]) => (
                                             <li key={key}>
                                                 <a
-                                                    href={`#${['faculty_id', 'level_id', 'year_id', 'name', 'email', 'program', 'confirmed'].includes(key) ? key : `document-${key}`}`}
+                                                    href={`#${['faculty_id', 'level_id', 'academic_program_id', 'year_id', 'name', 'email', 'program', 'confirmed'].includes(key) ? key : `document-${key}`}`}
                                                 >
                                                     {message}
                                                 </a>
@@ -218,14 +224,14 @@ export default function EnrollmentPageSection() {
                             />
                         )}
                         {step === 2 && <Step2Personal {...documentProps} />}
-                        {step === 3 && <Step3Academic {...documentProps} />}
+                        {step === 3 && <Step3Academic {...documentProps} officialProgram={!!officialProgram} />}
                         {step === 4 && (
                             <Step4Payment
                                 isConfirmed={isConfirmed}
                                 setIsConfirmed={setIsConfirmed}
                                 errors={errors}
                                 requirements={requirements}
-                                formData={formData}
+                                formData={applicationForm}
                                 formation={formation}
                                 onEdit={goToStep}
                             />
@@ -264,6 +270,7 @@ export default function EnrollmentPageSection() {
                                 {[
                                     ['Faculté', formation.faculty],
                                     ['Niveau', formation.level],
+                                    ['Programme', applicationForm.program || '—'],
                                     ['Année', formation.year],
                                 ].map(([label, value]) => (
                                     <div key={label}>

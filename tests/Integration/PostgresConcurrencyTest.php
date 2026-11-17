@@ -13,6 +13,7 @@ use App\Models\Student\AcademicAudit;
 use App\Models\Student\StudentPayment;
 use App\Models\Student\StudentProfile;
 use App\Models\User;
+use App\Notifications\AcademicEnrollmentChanged;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
 use App\Modules\Student\Application\Services\StudentAppointmentBooking;
@@ -97,6 +98,24 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame(1, StudentPayment::count());
         $this->assertSame(1, AcademicAudit::where('action', 'payment_confirmed')->where('entity_id', $payment->id)->count());
         $this->assertSame(10000, app(StudentFinanceService::class)->balance($entry)['paid_cents']);
+    }
+
+    public function test_automatic_and_manual_enrollment_confirmation_share_one_decision_and_notice(): void
+    {
+        $student = $this->studentContext();
+        $actor = User::factory()->create()->assignRole(Role::findOrCreate('admin', 'web'));
+        $entry = $student->studentProfile->enrollments()->sole();
+        $entry->update(['enrollment_status' => 'pending_confirmation']);
+        $entry->obligations()->create(['kind' => 'tuition', 'title' => 'Première tranche', 'installment' => 1, 'amount_cents' => 10000]);
+        $finance = app(StudentFinanceService::class);
+        config(['student.enrollment_auto_confirmation' => false]);
+        $payment = $finance->record($entry, $actor, ['amount' => '100', 'method' => 'bank_transfer', 'reference' => 'CONFIRMATION-RACE']);
+        $finance->transition($payment, $actor, 'confirmed', 'Versement validé avant le test concurrent.');
+
+        $this->assertSame(['confirmed', 'confirmed'], $this->race('enrollment-confirmation', $entry->id, $actor->id, -$entry->id));
+        $this->assertSame('confirmed', $entry->fresh()->enrollment_status);
+        $this->assertSame(1, AcademicAudit::where('action', 'academic_enrollment_confirmed')->where('entity_id', $entry->id)->count());
+        $this->assertSame(1, $student->notifications()->where('type', AcademicEnrollmentChanged::class)->count());
     }
 
     public function test_two_students_cannot_reserve_the_same_service_at_the_same_time(): void

@@ -30,6 +30,15 @@ export type Balance = {
     credit_cents: number;
     financial_clearance_status: string;
 };
+export type FirstInstallment = {
+    status: 'absent' | 'invalid' | 'due' | 'covered';
+    currency: string;
+    amount_cents: number | null;
+    paid_cents: number | null;
+    waived_cents: number | null;
+    remaining_cents: number | null;
+    due_at?: string | null;
+};
 export type AssessmentActivity = {
     category: string;
     session_code: string;
@@ -210,6 +219,8 @@ export type PortalProps = {
     profile_edit_field?: string | null;
     profile_completion?: StudentProfileCompletion | null;
     finance_schedule?: FinanceDueLine[];
+    first_installment?: FirstInstallment | null;
+    first_installment_review_required?: boolean;
     finance_details?: {
         obligations: FinanceObligation[];
         kinds?: Record<string, Balance>;

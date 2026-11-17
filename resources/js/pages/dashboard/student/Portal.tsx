@@ -583,6 +583,14 @@ export default function Portal(props: PortalProps) {
                             />
                         </div>
                         <StudentShortcuts academic={academic.id} permissions={permissions} onGuide={() => setGuideRequest((value) => value + 1)} />
+                        {academic.enrollment_status === 'pending_confirmation' && (
+                            <div className="portal-alert">
+                                <p>Votre inscription est en attente de confirmation.</p>
+                                <Link href={studentHref('fees', academic.id, 'finance-first-installment')} className="underline">
+                                    Consulter la première tranche et suivre vos versements
+                                </Link>
+                            </div>
+                        )}
                     </>
                 )}
                 {isCourseList && (

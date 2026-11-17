@@ -208,6 +208,7 @@ class EnrollmentManagementController extends Controller
         $data = Arr::only($entry->toArray(), ['id', 'uuid', 'reference', 'matricule', 'status', 'status_label', 'payment_status_label', 'created_at', 'enrolled_at', 'student', 'level', 'academic_year']);
         $data['nationality'] = Nationality::label($entry->student?->nationality_code);
         $academic = $entry->academicEnrollment;
+        $data['academic_enrollment_status'] = $academic?->enrollment_status;
         $data['fee_category'] = $academic ? $academic->fee_category : $entry->student?->feeCategoryFromNationality();
         $selected = $request->query('document');
         if ($selected !== null) {
@@ -224,7 +225,7 @@ class EnrollmentManagementController extends Controller
         $data['analysis_started_at'] = $entry->meta['analysis_started_at'] ?? null;
         $data['analysis_completed_at'] = $entry->meta['analysis_completed_at'] ?? null;
         $data['corrections_requested_at'] = $entry->meta['corrections_requested_at'] ?? null;
-        $data['decision_reason'] = $entry->meta['rejection_reason'] ?? null;
+        $data['decision_reason'] = $entry->meta['rejection_reason'] ?? $entry->meta['validation_reason'] ?? null;
         $data['documents'] = $entry->documents->sortByDesc(fn ($doc) => $doc->version > 1 && $doc->review_status === 'pending')->values()->map(fn ($doc) => [
             'uuid' => $doc->uuid, 'key' => $doc->key, 'filename' => $doc->filename, 'mime' => $doc->mime,
             'needs_reexamination' => $entry->status === EnrollmentStatus::PENDING && $doc->version > 1 && $doc->review_status === 'pending',
@@ -282,7 +283,8 @@ class EnrollmentManagementController extends Controller
     public function validate(Request $request, int $id)
     {
         try {
-            $application = $this->validateUseCase->execute($id, $request->user()->id);
+            $data = $request->validate(['reason' => 'nullable|string|max:1000']);
+            $application = $this->validateUseCase->execute($id, $request->user()->id, $data['reason'] ?? null);
             $academic = $application->academicEnrollment;
             $feesMessage = match (true) {
                 $academic->obligations()->where('kind', 'tuition')->whereNotNull('finance_tariff_id')->exists() => 'Les échéances sont visibles dans Finances pour l’étudiant.',
@@ -291,6 +293,8 @@ class EnrollmentManagementController extends Controller
             };
 
             return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'Le dossier a été validé. '.$feesMessage);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo(route('dashboard.admin.enrollments.show', $id));
         } catch (InvalidEnrollmentStateException $e) {
             return to_route('dashboard.admin.enrollments.show', $id)->withErrors(['decision' => $e->getMessage()]);
         }

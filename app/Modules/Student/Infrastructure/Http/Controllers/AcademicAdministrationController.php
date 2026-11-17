@@ -143,7 +143,7 @@ class AcademicAdministrationController extends Controller
         if ($scoped) $auditQuery->where('entity_type', 'academic_enrollments')->whereIn('entity_id', (clone $allowedEntries)->select('academic_enrollments.id'));
 
         if (! $access) {
-            $auditQuery->whereIn('action', ['fees_assessed', 'additional_fee_created', 'payment_recorded', 'payment_confirmed', 'payment_cancelled', 'payment_refunded', 'financial_adjustment_approved', 'financial_adjustment_revoked', 'academic_enrollment_confirmed']);
+            $auditQuery->whereIn('action', ['fees_assessed', 'additional_fee_created', 'payment_recorded', 'payment_confirmed', 'payment_cancelled', 'payment_refunded', 'financial_adjustment_approved', 'financial_adjustment_revoked', 'academic_enrollment_confirmed', 'academic_enrollment_first_installment_review_required']);
         }
 
         $requests = null;

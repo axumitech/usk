@@ -7,6 +7,7 @@ use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\EnrollmentNotFoundException;
 use App\Modules\Enrollment\Domain\Repositories\EnrollmentRepositoryInterface;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class EloquentEnrollmentRepository implements EnrollmentRepositoryInterface
@@ -55,6 +56,15 @@ class EloquentEnrollmentRepository implements EnrollmentRepositoryInterface
             ->first();
     }
 
+    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId): ?Enrollment
+    {
+        return Enrollment::forStudent($studentId)->drafts()
+            ->where('level_id', $levelId)->where('academic_year_id', $yearId)
+            ->where(fn ($query) => $this->sameProgram($query, $programId))
+            ->where(fn ($query) => $query->whereNull('draft_expires_at')->orWhere('draft_expires_at', '>', now()))
+            ->latest('id')->lockForUpdate()->first();
+    }
+
     public function findByStudent(int $studentId, ?EnrollmentStatus $status = null): Collection
     {
         $query = Enrollment::where('student_id', $studentId);
@@ -101,7 +111,7 @@ class EloquentEnrollmentRepository implements EnrollmentRepositoryInterface
             ->get();
     }
 
-    public function checkUniqueness(int $studentId, int $levelId, int $yearId, ?int $excludeId = null): bool
+    public function checkUniqueness(int $studentId, int $levelId, int $yearId, ?int $programId, ?int $excludeId = null): bool
     {
         $query = Enrollment::where('student_id', $studentId)
             ->where('level_id', $levelId)
@@ -114,6 +124,26 @@ class EloquentEnrollmentRepository implements EnrollmentRepositoryInterface
             $query->where('id', '!=', $excludeId);
         }
 
+        if ($programId !== null) {
+            $query->where(fn ($program) => $program->where(fn ($match) => $this->sameProgram($match, $programId))
+                // An already filed legacy application without a program cannot be assigned to a different program by inference.
+                ->orWhere(fn ($legacy) => $legacy->where('status', '!=', EnrollmentStatus::DRAFT->value)
+                    ->where(fn ($missing) => $this->sameProgram($missing, null))));
+        }
+
         return $query->exists();
+    }
+
+    private function sameProgram(Builder $query, ?int $programId): void
+    {
+        $field = 'form_snapshot->academic_program_id';
+        if ($programId === null) {
+            $query->whereNull($field)->orWhere($field, '');
+
+            return;
+        }
+
+        // Drafts and applications created before normalization may contain a string identifier.
+        $query->whereJsonContains($field, $programId)->orWhereJsonContains($field, (string) $programId);
     }
 }

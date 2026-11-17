@@ -5,14 +5,15 @@ import type { DocumentMeta, FormData as EnrollmentFormData, SaveStatus } from '.
 
 export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?: string; last_step?: number; isConfirmed?: boolean }) {
     const [formData, setFormData] = useState<EnrollmentFormData>({
-        faculty_id: '',
-        level_id: '',
-        year_id: '',
         name: '',
         email: '',
         program: '',
         documents: {},
         ...initial,
+        faculty_id: String(initial.faculty_id ?? ''),
+        level_id: String(initial.level_id ?? ''),
+        year_id: String(initial.year_id ?? ''),
+        academic_program_id: String(initial.academic_program_id ?? ''),
     });
     const [uuid, setUuid] = useState<string | null>(initial.uuid || null);
     const [isConfirmed, setIsConfirmed] = useState(!!initial.isConfirmed);
@@ -97,7 +98,7 @@ export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?
             setUploadingKeys((prev) => prev.filter((item) => item !== key));
         }
     };
-    const saveProgress = async (step = 1): Promise<boolean> => {
+    const saveProgress = async (step = 1, snapshot = formData): Promise<boolean> => {
         if (busy.current || uploadingKeys.length) return false;
         busy.current = true;
         setSaveStatus('saving');
@@ -107,14 +108,14 @@ export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?
                 uuid,
                 last_step: step,
                 form_snapshot: {
-                    faculty_id: formData.faculty_id,
-                    level_id: formData.level_id,
-                    academic_program_id: formData.academic_program_id,
-                    year_id: formData.year_id,
-                    name: formData.name.trim(),
-                    email: formData.email.trim(),
-                    program: formData.program.trim(),
-                    documents: formData.documents,
+                    faculty_id: snapshot.faculty_id,
+                    level_id: snapshot.level_id,
+                    academic_program_id: snapshot.academic_program_id,
+                    year_id: snapshot.year_id,
+                    name: snapshot.name.trim(),
+                    email: snapshot.email.trim(),
+                    program: snapshot.program.trim(),
+                    documents: snapshot.documents,
                     isConfirmed,
                 },
             });
@@ -133,8 +134,8 @@ export function useEnrollmentForm(initial: Partial<EnrollmentFormData> & { uuid?
             busy.current = false;
         }
     };
-    const submitEnrollment = async (): Promise<boolean> => {
-        if (!uuid || !(await saveProgress(4))) return false;
+    const submitEnrollment = async (snapshot = formData): Promise<boolean> => {
+        if (!uuid || !(await saveProgress(4, snapshot))) return false;
         try {
             const { data } = await axios.post<{ ok: boolean; redirect: string }>(route('dashboard.enrollments.submit', uuid));
             router.visit(data.redirect);

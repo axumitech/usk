@@ -38,6 +38,7 @@ final class RecordEnrollmentDecision
             if ($decision === EnrollmentStatus::VALIDATED) {
                 app(EnrollmentValidator::class)->available($enrollment, checkCampaignWindow: false);
                 app(StudentAdmissionService::class)->ensureComplete($enrollment);
+                $reason = $reason !== '' ? $reason : 'Dossier conforme aux exigences d’admission.';
             }
             $previous = $enrollment->status->value;
             $enrollment->status = $decision;
@@ -46,7 +47,7 @@ final class RecordEnrollmentDecision
             $meta[$key.'_by'] = $actorId;
             $meta[$key.'_at'] = now()->toISOString();
             if ($decision === EnrollmentStatus::VALIDATED) {
-                $enrollment->enrolled_at = now();
+                $meta['validation_reason'] = $reason;
             } else {
                 $meta['rejection_reason'] = $reason;
                 $enrollment->notes = $reason;

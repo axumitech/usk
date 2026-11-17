@@ -2,7 +2,8 @@ import AdminModal from '@/components/admin/AdminModal';
 import FeedbackToast from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import { labels, money } from '@/components/student/types';
+import FirstInstallmentDetails from '@/components/student/FirstInstallmentDetails';
+import { labels, money, type FirstInstallment } from '@/components/student/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, Download, FileCheck2, Landmark, ShieldCheck, Wallet } from 'lucide-react';
 import { useState } from 'react';
@@ -62,7 +63,14 @@ type Props = {
     filters: { academic?: number; [key: string]: string | number | boolean | undefined };
     accountBackUrl: string;
     accountBackLabel: string;
-    enrollmentConfirmation: { status: string; canConfirm: boolean; blocker: string | null; context: string };
+    enrollmentConfirmation: {
+        status: string;
+        canConfirm: boolean;
+        blocker: string | null;
+        context: string;
+        first_installment?: FirstInstallment | null;
+        first_installment_review_required?: boolean;
+    };
     pendingPaymentCount: number;
     paymentProofs?: PaymentProof[];
     dualControl: boolean;
@@ -110,6 +118,7 @@ export default function FinanceAccount(props: Props) {
     const [allocating, setAllocating] = useState<Payment | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const enrollment = props.enrollmentConfirmation;
+    const pendingEnrollment = enrollment.status === 'pending_confirmation';
     const feeLabel = (kind: string) => props.statement.kind_titles[kind] ?? kind.replaceAll('_', ' ');
     const activeTariffs = props.tariffs.data.filter((tariff) => tariff.status === 'active');
     const paymentProofs = props.paymentProofs ?? [];
@@ -330,21 +339,32 @@ export default function FinanceAccount(props: Props) {
                     </div>
                 )}
                 {paymentProofs.length > 0 && <AccountPaymentProofs proofs={paymentProofs} onReview={reviewProof} paymentsPageUrl={paymentsPageUrl} />}
-                {enrollment.status === 'pending_confirmation' && (
+                {(pendingEnrollment || enrollment.first_installment) && (
                     <section
                         className="portal-panel finance-operational-panel finance-enrollment-decision"
                         aria-labelledby="finance-confirmation-title"
                     >
-                        <div>
-                            <h2 id="finance-confirmation-title">Confirmation de l’inscription</h2>
+                        <div className="grow">
+                            <h2 id="finance-confirmation-title">{pendingEnrollment ? 'Confirmation de l’inscription' : 'Suivi de l’inscription'}</h2>
                             <p>
-                                {enrollment.blocker ??
-                                    (enrollment.canConfirm
-                                        ? 'Le dossier est prêt à être confirmé.'
-                                        : 'Seul un agent habilité à gérer les inscriptions peut confirmer ce dossier.')}
+                                {pendingEnrollment
+                                    ? (enrollment.blocker ??
+                                      (enrollment.canConfirm
+                                          ? 'Le dossier est prêt à être confirmé.'
+                                          : 'Seul un agent habilité à gérer les inscriptions peut confirmer ce dossier.'))
+                                    : `Inscription ${(labels[enrollment.status] ?? enrollment.status).toLowerCase()}`}
                             </p>
+                            {enrollment.first_installment && (
+                                <div className="mt-3">
+                                    <h3 className="mb-2 font-semibold">Première tranche des frais académiques</h3>
+                                    <FirstInstallmentDetails installment={enrollment.first_installment} />
+                                </div>
+                            )}
+                            {enrollment.first_installment_review_required && (
+                                <p role="status">La couverture de la première tranche nécessite un réexamen administratif.</p>
+                            )}
                         </div>
-                        {enrollment.canConfirm && !enrollment.blocker && (
+                        {pendingEnrollment && enrollment.canConfirm && !enrollment.blocker && (
                             <button type="button" className="portal-primary" onClick={confirmEnrollment}>
                                 <ClipboardCheck size={17} aria-hidden="true" /> Confirmer l’inscription
                             </button>

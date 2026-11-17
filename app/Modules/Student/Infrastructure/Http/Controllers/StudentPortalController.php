@@ -349,6 +349,7 @@ class StudentPortalController extends Controller
         $detail = $entry->level->detail;
         $statement = $this->finance->statement($entry);
         $balance = $statement['balance'];
+        $firstInstallment = $financeSection ? $this->finance->firstTuitionInstallment($entry, $statement) : null;
         $financeActivity = app(StudentFinanceActivity::class);
         $financeView = $section === 'transactions' ? ($request->query('view') === 'receipts' ? 'receipts' : 'history') : null;
         $paymentsPage = $financeView !== null ? $financeActivity->transactions($entry, $statement['kind_titles'], $financeView === 'receipts') : null;
@@ -409,6 +410,8 @@ class StudentPortalController extends Controller
             'section' => $section, 'academic' => ['id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference, 'matricule' => $studentChrome['matricule'], 'application_status' => $entry->application->status->value, 'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status, 'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title, 'group' => $entry->group?->intake?->name, 'fee_category' => $entry->fee_category, 'name' => $studentChrome['name'], 'email' => $entry->profile->user->email, 'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $studentChrome['photo_url']],
             'studentChrome' => $studentChrome,
             'finance_schedule' => $financeSection ? collect($statement['schedules'])->flatten(1)->sortBy(fn ($line) => $line['due_at'] ?? '9999-12-31')->values() : [],
+            'first_installment' => $firstInstallment,
+            'first_installment_review_required' => $firstInstallment !== null && $this->finance->firstInstallmentReviewRequired($entry, $firstInstallment),
             'finance_details' => match ($section) {
                 'fees' => fn () => $financeActivity->overview($entry, $statement),
                 'annual-fees' => fn () => $financeActivity->annual($statement),

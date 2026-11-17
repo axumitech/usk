@@ -138,7 +138,9 @@ export function presentNotice(notice: Notice, audience: 'student' | 'admin' = 's
         case 'enrollment':
             return {
                 ...base,
-                title: audience === 'student' ? 'Votre situation administrative a été mise à jour' : defaultTitle,
+                title: audience === 'student'
+                    ? (status === 'confirmed' ? 'Votre inscription académique est confirmée' : 'Votre situation administrative a été mise à jour')
+                    : defaultTitle,
                 action: 'Consulter mes inscriptions',
             };
         case 'admission':
