@@ -4,7 +4,13 @@ import ModuleLanding from '@/components/student/ModuleLanding';
 import { studentHref, studentModules, studentSectionAccess, studentSectionLabels } from '@/components/student/navigation';
 import OfficialDocumentCenter from '@/components/student/OfficialDocumentCenter';
 import OfficialResults from '@/components/student/OfficialResults';
-import { AcademicSummary, EmptyState, FinancialStatusBanner, StudentIdentityCard } from '@/components/student/PortalCards';
+import {
+    AcademicSummary,
+    EmptyState,
+    FinancialStatusBanner,
+    PedagogicalRegistrationNotice,
+    StudentIdentityCard,
+} from '@/components/student/PortalCards';
 import ProfilePageHeading, { ProfileSettings, ProfileSubpageHeading, studentProfileHref } from '@/components/student/ProfilePageHeading';
 import StudentAlertBubble from '@/components/student/StudentAlertBubble';
 import StudentAssignments from '@/components/student/StudentAssignments';
@@ -365,6 +371,7 @@ export default function Portal(props: PortalProps) {
             'overview',
             'profile_completion',
             'courses',
+            'pedagogical_registration_pending',
             'calendar_events',
             'resources',
             'progression',
@@ -374,7 +381,7 @@ export default function Portal(props: PortalProps) {
         ],
         academics: ['progression'],
         schedule: ['sessions', 'schedule_week', 'schedule_day', 'schedule_view', 'calendar_events'],
-        courses: ['courses', 'course_credits'],
+        courses: ['courses', 'course_credits', 'pedagogical_registration_pending'],
         materials: ['resources'],
         assignments: ['resources', 'work_pagination', 'assignment_counts'],
         evaluations: ['resources', 'work_pagination', 'evaluation_counts', 'evaluation_view'],
@@ -546,7 +553,7 @@ export default function Portal(props: PortalProps) {
 
     return (
         <Dashboard>
-            <Head title={isResults ? 'Mes résultats' : isCourseList ? 'Mes cours' : 'Mon espace étudiant'} />
+            <Head title={isResults ? 'Mes résultats' : (studentSectionLabels[section] ?? 'Mon espace étudiant')} />
             {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
             <div
                 className={`student-portal ${section === 'overview' ? 'is-overview' : isCourseList ? 'is-course-list' : ''}`}
@@ -583,6 +590,14 @@ export default function Portal(props: PortalProps) {
                             />
                         </div>
                         <StudentShortcuts academic={academic.id} permissions={permissions} onGuide={() => setGuideRequest((value) => value + 1)} />
+                        {academic.enrollment_status === 'pending_confirmation' && (
+                            <div className="portal-alert">
+                                <p>Votre inscription est en attente de confirmation.</p>
+                                <Link href={studentHref('fees', academic.id, 'finance-first-installment')} className="underline">
+                                    Consulter la première tranche et suivre vos versements
+                                </Link>
+                            </div>
+                        )}
                     </>
                 )}
                 {isCourseList && (
@@ -675,39 +690,40 @@ export default function Portal(props: PortalProps) {
                             <section className="portal-curriculum-card" aria-label="Maquette de votre programme">
                                 <BookOpen size={21} aria-hidden="true" />
                                 <div>
-                                    <strong>{props.curriculum.program}</strong>
-                                    <small>
-                                        {[props.curriculum.cycle, props.curriculum.promotion, props.curriculum.cohort].filter(Boolean).join(' · ')}
-                                    </small>
+                                    <strong>Maquette pédagogique</strong>
+                                    {props.curriculum.cycle && <small>Cycle {props.curriculum.cycle}</small>}
                                 </div>
-                                <span>Maquette {props.curriculum.code}</span>
+                                <span>{props.curriculum.code}</span>
                             </section>
                         )}
                         {section === 'academics' && (
-                            <section className="portal-panel space-y-3">
-                                <h2>Mon parcours académique</h2>
-                                {props.progression_credits ? (
-                                    <p>
-                                        {(props.progression_credits.earned / 100).toLocaleString('fr-CD')} crédits acquis ·{' '}
-                                        {(props.progression_credits.remaining / 100).toLocaleString('fr-CD')} restant pour ce résultat annuel
-                                    </p>
-                                ) : (
-                                    permissions.results_view?.allowed && <p>Les crédits s’afficheront après publication du résultat officiel.</p>
-                                )}
-                                {!!props.lifecycle?.length && (
-                                    <ul>
-                                        {props.lifecycle.map((event) => (
-                                            <li key={event.reference}>
-                                                {new Date(event.decided_at).toLocaleDateString('fr-CD')} · {pathwayLabels[event.kind]} ·{' '}
-                                                {event.status === 'approved' ? 'Approuvé' : 'Refusé'}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                                <Link className="portal-primary" href={route('dashboard.student.enrollments')}>
-                                    Consulter mes inscriptions
-                                </Link>
-                            </section>
+                            <>
+                                <AcademicSummary academic={academic} />
+                                <section className="portal-panel space-y-3">
+                                    <h2>Mon parcours académique</h2>
+                                    {props.progression_credits ? (
+                                        <p>
+                                            {(props.progression_credits.earned / 100).toLocaleString('fr-CD')} crédits acquis ·{' '}
+                                            {(props.progression_credits.remaining / 100).toLocaleString('fr-CD')} restant pour ce résultat annuel
+                                        </p>
+                                    ) : (
+                                        permissions.results_view?.allowed && <p>Les crédits s’afficheront après publication du résultat officiel.</p>
+                                    )}
+                                    {!!props.lifecycle?.length && (
+                                        <ul>
+                                            {props.lifecycle.map((event) => (
+                                                <li key={event.reference}>
+                                                    {new Date(event.decided_at).toLocaleDateString('fr-CD')} · {pathwayLabels[event.kind]} ·{' '}
+                                                    {event.status === 'approved' ? 'Approuvé' : 'Refusé'}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                    <Link className="portal-primary" href={route('dashboard.student.enrollments')}>
+                                        Consulter mes inscriptions
+                                    </Link>
+                                </section>
+                            </>
                         )}
                         {!isResults && <ModuleLanding section={section} academic={academic.id} permissions={permissions} />}
                         {props.document_center && <OfficialDocumentCenter data={props.document_center} academic={academic.id} />}
@@ -738,6 +754,9 @@ export default function Portal(props: PortalProps) {
                                 </Link>
                             </section>
                         )}
+                        {((section === 'overview' && permissions.courses_view?.allowed) || isCourseList) && (
+                            <PedagogicalRegistrationNotice courses={props.pedagogical_registration_pending} />
+                        )}
                         {section === 'overview' && props.overview && (
                             <StudentOverview
                                 data={props.overview}
@@ -748,10 +767,10 @@ export default function Portal(props: PortalProps) {
                                 permissions={permissions}
                             />
                         )}
-                        {section === 'courses' &&
+                        {isCourseList &&
                             (props.courses.length ? (
                                 <CoursesBySemester courses={props.courses} />
-                            ) : (
+                            ) : props.pedagogical_registration_pending?.length ? null : (
                                 <EmptyState title="Vos enseignements seront publiés ici." icon={BookOpen}>
                                     Aucun cours n’est encore publié pour votre niveau, votre année et votre groupe. Votre validation administrative
                                     reste effective.

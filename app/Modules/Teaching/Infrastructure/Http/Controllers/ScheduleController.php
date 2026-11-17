@@ -15,6 +15,7 @@ use App\Modules\Teaching\Application\Services\SemesterService;
 use App\Modules\Teaching\Application\Services\SessionLifecycle;
 use App\Modules\Teaching\Application\Services\TeachingScope;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -86,20 +87,23 @@ class ScheduleController extends Controller
             'room' => 'nullable|string|max:180', 'is_published' => $session ? 'sometimes|boolean' : 'required|boolean',
             'repeat_count' => 'required|integer|min:1|max:'.($session ? '1' : '26'),
             'scope' => $session ? 'sometimes|in:session,semester' : 'prohibited',
+            'return_to_schedule' => 'sometimes|boolean',
+            'schedule_week' => 'required_if:return_to_schedule,true|nullable|date_format:Y-m-d',
         ]);
         if (($data['scope'] ?? null) === 'semester') {
             $count = $service->updateWeeklySlot($session, $data, $request->user()->id);
 
-            return back()->with('success', $count === 1 ? 'Une séance du semestre modifiée.' : "{$count} séances du semestre modifiées.");
+            return $this->scheduleRedirect($data)->with('success', $count === 1 ? 'Une séance du semestre modifiée.' : "{$count} séances du semestre modifiées.");
         }
         $count = $service->save($data, $request->user()->id, $session);
 
-        return back()->with('success', $count > 1 ? "{$count} séances hebdomadaires enregistrées." : 'Séance enregistrée.');
+        return $this->scheduleRedirect($data)->with('success', $count > 1 ? "{$count} séances hebdomadaires enregistrées." : 'Séance enregistrée.');
     }
 
     public function saveSemester(Request $request, SemesterService $service)
     {
         abort_unless($request->user()->can('publish academic content'), 403);
+        abort_if($request->user()->academicFaculties()->exists(), 403);
         $data = $request->validate([
             'academic_year_id' => 'required|integer|exists:academic_years,id', 'number' => 'required|integer|in:1,2',
             'start_month' => 'required|date_format:Y-m', 'end_month' => 'required|date_format:Y-m|after_or_equal:start_month',
@@ -127,10 +131,26 @@ class ScheduleController extends Controller
             'start_time' => 'required_without:slots|date_format:H:i',
             'end_time' => 'required_without:slots|date_format:H:i|after:start_time',
             'room' => 'nullable|string|max:180', 'is_published' => 'required|boolean',
+            'return_to_schedule' => 'sometimes|boolean',
+            'schedule_week' => 'required_if:return_to_schedule,true|nullable|date_format:Y-m-d',
         ]);
         $count = $service->semester($data, $request->user()->id);
 
-        return back()->with('success', "Horaire du semestre enregistré : {$count} séances planifiées.");
+        return $this->scheduleRedirect($data)->with('success', "Horaire du semestre enregistré : {$count} séances planifiées.");
+    }
+
+    private function scheduleRedirect(array $data): RedirectResponse
+    {
+        if (! ($data['return_to_schedule'] ?? false)) {
+            return back();
+        }
+        $offering = AcademicOffering::findOrFail($data['academic_offering_id']);
+
+        return to_route('dashboard.admin.schedule.index', [
+            'academic_year_id' => $offering->academic_year_id,
+            'level_id' => $offering->level_id,
+            'week' => CarbonImmutable::parse($data['schedule_week'], 'Africa/Kinshasa')->startOfWeek()->toDateString(),
+        ]);
     }
 
     public function destroy(Request $request, ScheduleService $service, int $session)

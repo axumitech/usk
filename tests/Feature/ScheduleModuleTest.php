@@ -91,6 +91,52 @@ class ScheduleModuleTest extends TestCase
         $this->assertDatabaseCount('academic_sessions', 2);
     }
 
+    public function test_schedule_form_returns_to_the_saved_week_without_a_referer_after_navigation_from_curriculum(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-25 12:00', 'Africa/Kinshasa'));
+        $offering = $this->offering();
+        $this->actingAs($this->user());
+        $curriculum = url('/app/dashboard/admin/academic-structure?tab=curriculum');
+        $this->withSession(['_previous.url' => $curriculum])
+            ->get('/app/dashboard/admin/schedule?week=2026-10-26', ['X-Requested-With' => 'XMLHttpRequest'])
+            ->assertOk();
+        $this->assertSame($curriculum, session()->previousUrl());
+
+        $payload = $this->payload($offering, [
+            'return_to_schedule' => true, 'schedule_week' => '2026-11-03',
+            'starts_at' => '2026-11-03T00:30', 'ends_at' => '2026-11-03T02:30',
+        ]);
+        $destination = route('dashboard.admin.schedule.index', [
+            'academic_year_id' => $offering->academic_year_id, 'level_id' => $offering->level_id, 'week' => '2026-11-02',
+        ]);
+        $this->post('/app/dashboard/admin/schedule', $payload)
+            ->assertRedirect($destination)->assertSessionHasNoErrors()->assertSessionHas('success', 'Séance enregistrée.');
+        $session = $offering->sessions()->sole();
+        $this->assertSame('2026-11-02 23:30:00', $session->starts_at->format('Y-m-d H:i:s'));
+
+        $this->put('/app/dashboard/admin/schedule/'.$session->id, array_replace($payload, ['room' => 'Salle B']))
+            ->assertRedirect($destination)->assertSessionHasNoErrors();
+        $this->get($destination)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/schedule/Index')->where('filters.week', '2026-11-02')
+            ->where('filters.academic_year_id', (string) $offering->academic_year_id)
+            ->has('sessions', 1)->where('sessions.0.room', 'Salle B'));
+    }
+
+    public function test_schedule_return_requires_a_valid_date_and_boolean_before_saving(): void
+    {
+        $offering = $this->offering();
+        $this->actingAs($this->user());
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, ['return_to_schedule' => true]))
+            ->assertSessionHasErrors('schedule_week');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, [
+            'return_to_schedule' => true, 'schedule_week' => '2026-11-31',
+        ]))->assertSessionHasErrors('schedule_week');
+        $this->post('/app/dashboard/admin/schedule', $this->payload($offering, [
+            'return_to_schedule' => 'https://example.test', 'schedule_week' => '2026-11-02',
+        ]))->assertSessionHasErrors('return_to_schedule');
+        $this->assertDatabaseCount('academic_sessions', 0);
+    }
+
     public function test_repetition_rolls_back_entirely_when_a_later_week_conflicts(): void
     {
         $first = $this->offering();
@@ -158,6 +204,28 @@ class ScheduleModuleTest extends TestCase
         $this->assertSame(['2026-11-02 07:00', '2026-11-04 07:00', '2026-11-09 07:00', '2026-11-11 07:00', '2026-11-16 07:00'], AcademicSession::orderBy('starts_at')->get()->map(fn ($s) => $s->starts_at->format('Y-m-d H:i'))->all());
         $this->get('/app/dashboard/admin/schedule?week=2026-11-02&semester=1')->assertInertia(fn (Assert $p) => $p->has('sessions', 2)->has('offerings', 1));
         $this->get('/app/dashboard/admin/schedule?week=2026-11-02&semester=2')->assertInertia(fn (Assert $p) => $p->has('sessions', 0)->has('offerings', 0));
+    }
+
+    public function test_semester_schedule_form_returns_to_its_period_without_a_referer_and_keeps_series_edits_in_planning(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-10-25 12:00', 'Africa/Kinshasa'));
+        $offering = $this->offering();
+        $this->actingAs($this->user());
+        $this->withSession(['_previous.url' => url('/app/dashboard/admin/teaching')]);
+        $payload = $this->semesterPayload($offering, [
+            'return_to_schedule' => true, 'schedule_week' => '2026-11-01',
+        ]);
+        $this->post('/app/dashboard/admin/schedule/semester', $payload)
+            ->assertRedirect(route('dashboard.admin.schedule.index', [
+                'academic_year_id' => $offering->academic_year_id, 'level_id' => $offering->level_id, 'week' => '2026-10-26',
+            ]))->assertSessionHasNoErrors();
+        $session = $offering->sessions()->orderBy('starts_at')->firstOrFail();
+        $this->put('/app/dashboard/admin/schedule/'.$session->id, $this->payload($offering, [
+            'scope' => 'semester', 'return_to_schedule' => true, 'schedule_week' => '2026-11-02', 'room' => 'Salle B',
+        ]))->assertRedirect(route('dashboard.admin.schedule.index', [
+            'academic_year_id' => $offering->academic_year_id, 'level_id' => $offering->level_id, 'week' => '2026-11-02',
+        ]))->assertSessionHasNoErrors();
+        $this->assertSame(3, $offering->sessions()->where('room', 'Salle B')->count());
     }
 
     public function test_semester_plan_is_atomic_if_the_last_occurrence_conflicts(): void

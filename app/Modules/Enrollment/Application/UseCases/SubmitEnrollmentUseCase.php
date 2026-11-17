@@ -3,6 +3,7 @@
 namespace App\Modules\Enrollment\Application\UseCases;
 
 use App\Mail\EnrollmentSubmitted;
+use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\Enrollment;
 use App\Models\User;
 use App\Modules\Enrollment\Application\DTOs\SubmitEnrollmentDTO;
@@ -50,7 +51,7 @@ class SubmitEnrollmentUseCase
                 return $enrollment; // Idempotence : déjà soumis, on renvoie tel quel
             }
 
-            if ($enrollment->status !== EnrollmentStatus::DRAFT) {
+            if (! $enrollment->status->canTransitionTo(EnrollmentStatus::SUBMITTED)) {
                 throw InvalidEnrollmentStateException::cannotTransition(
                     $enrollment->status,
                     EnrollmentStatus::SUBMITTED
@@ -60,16 +61,16 @@ class SubmitEnrollmentUseCase
             if ($enrollment->isExpired()) {
                 throw DraftExpiredException::forUuid($dto->uuid);
             }
-            if ($this->enrollmentRepository->checkUniqueness($dto->studentId, (int) $enrollment->level_id, (int) $enrollment->academic_year_id, $enrollment->id)) {
-                throw new InvalidEnrollmentStateException('Une candidature existe déjà pour ce niveau et cette année.');
-            }
-
-            // Valider la complétude
             $context = $this->validator->canSubmit($enrollment);
-
             $programId = $context['program'];
+            if ($this->enrollmentRepository->checkUniqueness($dto->studentId, (int) $enrollment->level_id, (int) $enrollment->academic_year_id, $programId, $enrollment->id)) {
+                throw new InvalidEnrollmentStateException('Une candidature existe déjà pour cette formation, ce niveau et cette année.');
+            }
             if ($programId !== null) {
-                $enrollment->form_snapshot = array_merge($enrollment->form_snapshot, ['academic_program_id' => $programId]);
+                $enrollment->form_snapshot = array_replace($enrollment->form_snapshot, [
+                    'academic_program_id' => $programId,
+                    'program' => AcademicProgram::findOrFail($programId)->name,
+                ]);
             }
             $enrollment->meta = array_merge($enrollment->meta ?? [], [
                 'submitted_at' => now()->toISOString(),

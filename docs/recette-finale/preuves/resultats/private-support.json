@@ -1,0 +1,45 @@
+{
+  "name": "private-support",
+  "module": "private-support",
+  "records": [
+    {
+      "id": "PRIVATE-01",
+      "actor": "Professeur et étudiant Droit",
+      "faculty": "law",
+      "action": "Retirer un support et tenter sa consultation et son téléchargement",
+      "expected": "Support non publié inaccessible même à son public",
+      "obtained": "Deux liens directs refusés HTTP403/404",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-support-prive-refuse-au-public.png"
+      ]
+    },
+    {
+      "id": "PRIVATE-02",
+      "actor": "Professeur et étudiant Droit",
+      "faculty": "law",
+      "action": "Republier le support et consulter sa fiche",
+      "expected": "Accès rétabli après publication",
+      "obtained": "Support à nouveau accessible sans création de doublon",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-support-republie-accessible.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/materials/4?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/resources/4/download?academic=7"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

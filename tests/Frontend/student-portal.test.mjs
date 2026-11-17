@@ -36,3 +36,25 @@ test('La fiche d’accueil affiche les coordonnées, le matricule et le nombre r
     const html=renderToStaticMarkup(React.createElement(module.exports.StudentIdentityCard,{academic:{id:7,name:'Étudiante Test',email:'etudiante@example.test',matricule:'MAT-007',student_status:'active',level:'Licence 1',year:'2026–2027'},courseCount:4}));
     assert.match(html,/etudiante@example.test/);assert.match(html,/MAT-007/);assert.match(html,/>4<\/strong>/);assert.match(html,/Licence 1/);assert.match(html,/courses\?academic=7/);
 });
+
+test('Le programme de formation différencie le niveau, le programme, la promotion et le groupe', () => {
+    const html = renderToStaticMarkup(React.createElement(module.exports.AcademicSummary, { academic: {
+        faculty: 'Sciences', year: '2026–2027', program: 'Informatique de gestion', level: 'Licence 2', promotion: 'Promotion 2025', group: 'Groupe B',
+        enrollment_status: 'confirmed', student_status: 'active',
+    } }));
+    assert.match(html, /Programme<\/span><strong>Informatique de gestion/);
+    assert.match(html, /Niveau<\/span><strong>Licence 2/);
+    assert.match(html, /Promotion<\/span><strong>Promotion 2025/);
+    assert.match(html, /Groupe<\/span><strong>Groupe B/);
+});
+
+test('Un cours obligatoire en attente de vérification reste visible sans lien vers une ressource', () => {
+    const render = (courses) => renderToStaticMarkup(React.createElement(module.exports.PedagogicalRegistrationNotice, { courses }));
+    assert.equal(render(), '');
+    assert.equal(render([]), '');
+    const html = render([{ id: 27, title: 'Bases de données' }]);
+    assert.match(html, /Inscription pédagogique en attente/);
+    assert.match(html, /Contactez la scolarité/);
+    assert.match(html, /<li>Bases de données<\/li>/);
+    assert.doesNotMatch(html, /href=/);
+});

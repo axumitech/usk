@@ -61,6 +61,15 @@ export type TeacherAnnouncementTarget = {
     groups: { id: number; label: string }[];
 };
 
+export type TeacherCalendarEvent = {
+    id: number | string;
+    title: string;
+    category: string;
+    category_label: string;
+    start_date: string;
+    end_date: string;
+};
+
 export type TeacherOverview = {
     year: number | null;
     semester: number | null;
@@ -77,6 +86,7 @@ export type TeacherOverview = {
         next: string;
         days: { date: string; weekday: string; day: string; is_today: boolean; sessions: TeacherSession[] }[];
     };
+    calendar_events?: TeacherCalendarEvent[];
     selected_session: TeacherScheduledSession | null;
     evaluations: { id: number; title: string; course: string; closes_at: string | null; url: string }[];
     submissions: { id: number; name: string; title: string; course: string; submitted_at: string; url: string }[];

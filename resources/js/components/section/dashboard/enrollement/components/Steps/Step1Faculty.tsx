@@ -23,6 +23,9 @@ export default function Step1Faculty({
     errors,
     setErrors,
 }: Props) {
+    const showProgramChoice = availablePrograms.length > 1 || (
+        !!formData.academic_program_id && !availablePrograms.some((program) => String(program.id) === formData.academic_program_id)
+    );
     return (
         <div className="enrollment-fields">
             {[
@@ -89,8 +92,31 @@ export default function Step1Faculty({
                     )}
                 </div>
             ))}
-            {availablePrograms.length === 1 && <p className="enrollment-info">Programme officiel : {availablePrograms[0].name} ({availablePrograms[0].code}).</p>}
-            {availablePrograms.length > 1 && <div className="enrollment-field"><label htmlFor="academic_program_id">Programme officiel <span className="enrollment-required">*</span></label><select id="academic_program_id" required value={formData.academic_program_id ?? ''} aria-invalid={!!errors.academic_program_id} onChange={event => setFormData(previous => ({ ...previous, academic_program_id: event.target.value }))}><option value="">Choisissez le programme correspondant à votre candidature</option>{availablePrograms.map(program => <option key={program.id} value={program.id}>{program.code} · {program.name}</option>)}</select>{errors.academic_program_id && <p role="alert" className="enrollment-field-error">{errors.academic_program_id}</p>}</div>}
+            {availablePrograms.length === 1 && !showProgramChoice && (
+                <p className="enrollment-info">Programme officiel : {availablePrograms[0].name} ({availablePrograms[0].code}).</p>
+            )}
+            {showProgramChoice && (
+                <div className="enrollment-field">
+                    <label htmlFor="academic_program_id">Programme officiel <span className="enrollment-required">*</span></label>
+                    <select
+                        id="academic_program_id"
+                        required={availablePrograms.length > 0}
+                        value={formData.academic_program_id ?? ''}
+                        aria-invalid={!!errors.academic_program_id}
+                        aria-describedby={errors.academic_program_id ? 'academic-program-error' : undefined}
+                        onChange={(event) => {
+                            setFormData((previous) => ({ ...previous, academic_program_id: event.target.value }));
+                            setErrors((previous) => ({ ...previous, academic_program_id: '' }));
+                        }}
+                    >
+                        <option value="">Choisissez le programme correspondant à votre candidature</option>
+                        {availablePrograms.map((program) => (
+                            <option key={program.id} value={program.id}>{program.code} · {program.name}</option>
+                        ))}
+                    </select>
+                    {errors.academic_program_id && <p id="academic-program-error" role="alert" className="enrollment-field-error">{errors.academic_program_id}</p>}
+                </div>
+            )}
             {(noLevelsForSelectedFaculty || !years.length || !faculties.length) && (
                 <p className="enrollment-info">
                     <AlertCircle size={19} />

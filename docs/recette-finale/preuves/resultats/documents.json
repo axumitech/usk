@@ -1,0 +1,223 @@
+{
+  "name": "documents",
+  "module": "documents",
+  "records": [
+    {
+      "id": "DOC-01",
+      "actor": "Appariteur / doyen Médecine",
+      "faculty": "institution",
+      "action": "Créer, approuver et activer un modèle specimen",
+      "expected": "Auteur et signataire distincts",
+      "obtained": "Type actif et modèle approuvé par le signataire fictif",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-document-catalogue-specimen.png"
+      ]
+    },
+    {
+      "id": "DOC-02",
+      "actor": "Appariteur / doyen Médecine",
+      "faculty": "institution",
+      "action": "Contrôler, approuver et émettre le PDF specimen",
+      "expected": "Émission après contrôle et signature",
+      "obtained": "Document archivé visible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-document-specimen-emis.png"
+      ]
+    },
+    {
+      "id": "DOC-03",
+      "actor": "Tiers public",
+      "faculty": "institution",
+      "action": "Vérifier le specimen via sa référence",
+      "expected": "Référence et statut sans identité ni notes",
+      "obtained": "Vérification publique minimale et PDF valide",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-document-verification-publique.png",
+        "../captures/usk-06-attestation-specimen.pdf"
+      ]
+    },
+    {
+      "id": "DOC-04",
+      "actor": "Étudiant Droit",
+      "faculty": "law",
+      "action": "Ouvrir directement le document Médecine",
+      "expected": "Refus HTTP",
+      "obtained": "Accès refusé HTTP 404",
+      "status": "VALIDÉ",
+      "proofs": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/official-documents?academic=1&type=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/official-documents/59f477a0-6b20-4651-8dbd-7722a1423e4a?academic=7"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

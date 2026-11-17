@@ -3,6 +3,7 @@
 namespace App\Modules\Student\Application\Services;
 
 use App\Models\AcademicYear;
+use App\Models\Student\AcademicAudit;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\FinancialAdjustment;
 use App\Models\Student\StudentObligation;
@@ -168,22 +169,45 @@ final class StudentFinanceService
         return $kind === null ? $statement['balance'] : ($statement['kinds'][$kind] ?? ['assessed' => false, 'currency' => $entry->currency, 'total_cents' => 0, 'waived_cents' => 0, 'due_cents' => 0, 'paid_cents' => 0, 'pending_cents' => 0, 'balance_cents' => 0, 'overdue_cents' => 0, 'credit_cents' => 0, 'financial_clearance_status' => 'unassessed']);
     }
 
-    public function firstTuitionInstallmentCovered(AcademicEnrollment $entry, ?array $tuitionBalance = null): bool
+    public function firstTuitionInstallment(AcademicEnrollment $entry, ?array $statement = null): array
     {
-        $first = $entry->obligations()->where('kind', 'tuition')->where('installment', 1)->first();
-        if ($first === null) {
-            return false;
+        $empty = ['currency' => $entry->currency, 'amount_cents' => null, 'paid_cents' => null,
+            'waived_cents' => null, 'remaining_cents' => null, 'due_at' => null];
+        try {
+            $statement ??= $this->statement($entry);
+        } catch (ValidationException) {
+            return ['status' => 'invalid'] + $empty;
         }
 
-        $balance = $tuitionBalance ?? $this->balance($entry, 'tuition');
+        $tuition = $statement['obligations']->where('kind', 'tuition');
+        $first = $tuition->firstWhere('installment', 1);
+        if ($first === null || $tuition->contains(fn ($line) => $line['amount_cents'] < 0)) {
+            return ['status' => $tuition->isEmpty() ? 'absent' : 'invalid'] + $empty;
+        }
 
-        return $first->amount_cents <= $balance['paid_cents'] + $balance['waived_cents'];
+        return ['status' => $first['remaining_cents'] === 0 ? 'covered' : 'due']
+            + array_intersect_key($first, $empty);
+    }
+
+    public function firstInstallmentReviewRequired(AcademicEnrollment $entry, array $installment): bool
+    {
+        return $entry->enrollment_status === 'confirmed' && $installment['status'] === 'due'
+            && AcademicAudit::where('entity_type', $entry->getTable())->where('entity_id', $entry->id)
+                ->where('action', 'academic_enrollment_first_installment_review_required')->exists();
+    }
+
+    public function flagFirstInstallmentShortfall(AcademicEnrollment $entry, int $actorId, string $reason): void
+    {
+        $installment = $this->firstTuitionInstallment($entry);
+        if ($installment['status'] === 'due') {
+            Audit::record($actorId, 'academic_enrollment_first_installment_review_required', $entry, $reason, $installment);
+        }
     }
 
     /** The caller must hold the enrollment row lock inside a transaction. */
     public function confirmPendingEnrollment(AcademicEnrollment $entry, ?int $actorId = null): void
     {
-        app(EnrollmentFinancialConfirmation::class)->apply($entry, $actorId, $this->firstTuitionInstallmentCovered($entry));
+        app(EnrollmentFinancialConfirmation::class)->apply($entry, $actorId);
     }
 
     public function assess(AcademicEnrollment $entry, User $actor, string $category, array $dates = [], string $reason = ''): bool
@@ -327,6 +351,8 @@ final class StudentFinanceService
                 throw ValidationException::withMessages(['payment' => 'Une procédure de remboursement existe. Traitez-la avant toute contrepassation.']);
             }
             $from = $payment->status;
+            $checkCoverage = $status === 'cancelled' && $from === 'confirmed' && $entry->enrollment_status === 'confirmed'
+                && $this->firstTuitionInstallment($entry)['status'] === 'covered';
             FinanceMutation::run(fn () => $payment->update(['status' => $status, 'confirmed_by' => $status === 'confirmed' ? $actor->id : $payment->confirmed_by, 'confirmed_at' => $status === 'confirmed' ? now() : $payment->confirmed_at]));
             if ($status === 'confirmed') {
                 app(FinanceReceiptService::class)->capture($payment, $entry);
@@ -337,6 +363,9 @@ final class StudentFinanceService
             Audit::record($actor->id, 'payment_'.$status, $payment, $reason, ['from' => $from, 'to' => $status, 'academic_enrollment_id' => $entry->id]);
             if ($status === 'confirmed' && $payment->kind === 'tuition') {
                 $this->confirmPendingEnrollment($entry, $actor->id);
+            }
+            if ($checkCoverage) {
+                $this->flagFirstInstallmentShortfall($entry, $actor->id, $reason);
             }
         });
     }

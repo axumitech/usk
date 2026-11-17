@@ -1,0 +1,23 @@
+{
+  "documents": {},
+  "results": {
+    "rule": 1,
+    "run": 1,
+    "results": [
+      {
+        "id": 1,
+        "reference": "927b9a00-e1f5-4fe7-b994-17238e62d26e",
+        "entry": 1
+      },
+      {
+        "id": 2,
+        "reference": "36454257-b4e0-4e40-86c1-fbcd3ec47763",
+        "entry": 13
+      }
+    ]
+  },
+  "limitations": [
+    "Règlement exclusivement synthétique repris de AcademicTeachingTest, sans adoption institutionnelle USK.",
+    "Signataires fictifs et attestation specimen. Diplômes et règlement institutionnel hors validation réelle."
+  ]
+}

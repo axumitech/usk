@@ -10,7 +10,6 @@ use App\Modules\Student\Application\Services\StudentNotifications;
 use App\Notifications\AcademicAssessmentNotice;
 use App\Notifications\AcademicEnrollmentChanged;
 use App\Notifications\AcademicScheduleNotice;
-use App\Notifications\EnrollmentDocumentReplacement;
 use App\Notifications\FinancialOperationNotice;
 use App\Notifications\LearningContentNotice;
 use App\Notifications\OfficialDocumentNotice;
@@ -19,26 +18,28 @@ use App\Notifications\StudentAdmissionActivated;
 use App\Notifications\StudentAppointmentNotice;
 use App\Notifications\TeacherAnnouncementNotice;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class EnrollmentNotificationController extends Controller
 {
-    public function open(Request $request, string $notification)
+    public function open(Request $request, string $notification, StudentNotifications $notifications)
     {
-        $notice = $request->user()->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, AcademicScheduleNotice::class])->findOrFail($notification);
+        $notice = $notifications->forAdmissionsStaff($request->user())->findOrFail($notification);
         if ($notice->type === AcademicScheduleNotice::class) {
             $notice->markAsRead();
             return to_route('dashboard.admin.schedule.absences', [], 303);
         }
-        $entry = \App\Models\Enrollment::findOrFail($notice->data['enrollment_id']);
+        $entry = Enrollment::findOrFail($notice->data['enrollment_id']);
+        Gate::authorize('review', $entry);
         $document = $entry->documents()->where('uuid', $notice->data['document_uuid'])->firstOrFail();
         $notice->markAsRead();
 
         return redirect('/app/dashboard/admin/enrollments/'.$entry->id.'?'.http_build_query(['document' => $document->uuid]).'#review-document-'.$document->uuid, 303);
     }
 
-    public function readAll(Request $request)
+    public function readAll(Request $request, StudentNotifications $notifications)
     {
-        $request->user()->unreadNotifications()->whereIn('type', [EnrollmentDocumentReplacement::class, \App\Notifications\AcademicScheduleNotice::class])->update(['read_at' => now()]);
+        $notifications->forAdmissionsStaff($request->user())->whereNull('read_at')->update(['read_at' => now()]);
 
         return back();
     }

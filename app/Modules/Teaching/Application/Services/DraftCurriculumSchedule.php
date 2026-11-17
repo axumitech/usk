@@ -21,11 +21,7 @@ class DraftCurriculumSchedule
     public function generate(CurriculumVersion $version, AcademicYear $year, int $actor, array $selectedRooms = []): array
     {
         $subjects = $version->units()->with('items')->get()->flatMap->items->keyBy('source_course_id');
-        $offerings = AcademicOffering::whereNull('curriculum_item_id')->whereNull('archived_at')->where('academic_year_id', $year->id)->whereIn('course_id', $subjects->keys())
-            ->when($version->program->academic_department_id, fn ($query, $department) => $query->where(
-                fn ($audience) => $audience->whereNull('academic_department_id')->orWhere('academic_department_id', $department)
-            ))
-            ->with(['course', 'professor'])->orderBy('id')->get()->groupBy('course_id');
+        $offerings = app(LegacyOfferingScope::class)->forCurriculum($version, $year->id, ['course', 'professor'])->groupBy('course_id');
 
         $first = Date::parse($year->start_date, self::ZONE);
         $last = Date::parse($year->end_date, self::ZONE);

@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { route } from 'ziggy-js';
 
 // Types pour les rôles
-type UserRole = 'user' | 'candidate' | 'student' | 'professor' | 'admin';
+type UserRole = 'user' | 'candidate' | 'student' | 'professor' | 'admin' | 'super admin';
 
 // Configuration des permissions par rôle
 const rolePermissions: Record<UserRole, string[]> = {
@@ -17,6 +17,7 @@ const rolePermissions: Record<UserRole, string[]> = {
     student: ['dashboard', 'enrollments'],
     professor: ['teaching'],
     admin: adminNavigation.map(({ id }) => id),
+    'super admin': adminNavigation.map(({ id }) => id),
 };
 
 const Sidebar = ({
@@ -41,7 +42,7 @@ const Sidebar = ({
     userRole?: UserRole | UserRole[] | null;
 }) => {
     const roles = Array.isArray(userRole) ? userRole : [userRole];
-    const isAdministration = roles.includes('admin');
+    const isAdministration = roles.includes('admin') || roles.includes('super admin');
     const page = usePage<{
         studentPortalActive?: boolean;
         teachingProfileActive?: boolean;

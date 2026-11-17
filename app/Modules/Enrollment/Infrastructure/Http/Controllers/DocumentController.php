@@ -74,10 +74,7 @@ class DocumentController extends Controller
     {
         $document = EnrollmentDocument::with('enrollment')->where('uuid', $uuid)->firstOrFail();
         abort_unless($document->enrollment, 404);
-        abort_unless($document->enrollment->student_id === $request->user()->id || ($request->user()->hasRole('admin') && $request->user()->can('manage academic access')), 403);
-        if ($document->enrollment->student_id !== $request->user()->id && $request->user()->academicFaculties()->exists()) {
-            abort_unless($request->user()->academicFaculties()->whereKey($document->enrollment->level->faculty_id)->exists(), 403);
-        }
+        abort_unless($request->user()->can('download', $document->enrollment), 403);
         $disk = Storage::disk($document->disk);
         abort_unless($disk->exists($document->path), 404, 'Ce fichier est indisponible.');
         $mime = $disk->mimeType($document->path);
@@ -96,15 +93,8 @@ class DocumentController extends Controller
 
             abort_unless($document->enrollment, 404);
 
-            // Vérifier que l'utilisateur a le droit d'accéder au document
-            if ($document->enrollment->student_id !== $request->user()->id && ! ($request->user()->hasRole('admin') && $request->user()->can('manage academic access'))) {
-                abort(403, 'Accès non autorisé');
-            }
-
-            if ($document->enrollment->student_id !== $request->user()->id && $request->user()->academicFaculties()->exists()) {
-            abort_unless($request->user()->academicFaculties()->whereKey($document->enrollment->level->faculty_id)->exists(), 403);
-        }
-        $disk = Storage::disk($document->disk);
+            abort_unless($request->user()->can('download', $document->enrollment), 403);
+            $disk = Storage::disk($document->disk);
             abort_unless($disk->exists($document->path), 404, 'Ce fichier est indisponible.');
 
             return $disk->download($document->path, $document->filename, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);

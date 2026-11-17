@@ -75,7 +75,7 @@ const Dashboard = ({
         (isStudentProfile || isStudentDocuments || isStudentPathway) && studentApp
             ? studentApp.options.find((option) => option.id === studentApp.academic_id)
             : undefined;
-    const administration = roles.includes('admin');
+    const administration = roles.includes('admin') || roles.includes('super admin');
     const teaching = roles.includes('professor') && (url.startsWith('/app/dashboard/teacher') || (!administration && !props.studentPortalActive));
     const teacherApp = !authPage && roles.includes('professor') && /^\/app\/dashboard\/teacher(?:[/?#]|$)/.test(url);
     const tone =

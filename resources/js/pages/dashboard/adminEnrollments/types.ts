@@ -7,6 +7,7 @@ export type Dossier = {
     matricule?: string;
     status: string;
     status_label: string;
+    academic_enrollment_status?: string | null;
     created_at: string;
     submitted_at?: string | null;
     requested_program?: string | null;

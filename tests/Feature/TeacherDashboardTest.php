@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicCalendarEvent;
 use App\Models\AcademicYear;
 use App\Models\Classes;
 use App\Models\Courses;
@@ -583,6 +584,36 @@ final class TeacherDashboardTest extends TestCase
         }
         $this->get($this->workplace(array_replace($parameters, ['week' => '2026-11-16', 'day' => '2026-11-16', 'session' => $overnight->id])))
             ->assertNotFound();
+    }
+
+    public function test_teacher_schedule_shows_only_calendar_entries_for_the_week_and_year_of_a_published_assignment(): void
+    {
+        $entry = $this->studentContext()->studentProfile->enrollments()->sole();
+        [$actor, $professor] = $this->professor();
+        $offering = $this->offering($entry, $professor, 'Méthodes');
+        $otherYear = AcademicYear::create([
+            'title' => 'Année sans affectation', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'open',
+        ]);
+        $period = AcademicSemester::create([
+            'academic_year_id' => $entry->academic_year_id, 'number' => 1, 'start_date' => '2026-10-01', 'end_date' => '2027-01-31',
+        ]);
+        AcademicCalendarEvent::create(['academic_year_id' => $entry->academic_year_id, 'category' => 'resit', 'title' => 'Rattrapages de cette année',
+            'start_date' => '2026-11-06', 'end_date' => '2026-11-10']);
+        AcademicCalendarEvent::create(['academic_year_id' => $entry->academic_year_id, 'category' => 'holiday', 'title' => 'Congés la semaine suivante',
+            'start_date' => '2026-11-16', 'end_date' => '2026-11-17']);
+        AcademicCalendarEvent::create(['academic_year_id' => $otherYear->id, 'category' => 'exam', 'title' => 'Examens d’une autre année',
+            'start_date' => '2026-11-09', 'end_date' => '2026-11-13']);
+        $parameters = ['view' => 'schedule', 'year' => $entry->academic_year_id, 'week' => '2026-11-09'];
+
+        $this->actingAs($actor)->get($this->workplace($parameters))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('overview.calendar_events', 2)->where('overview.calendar_events.0.id', 'semestre-'.$period->id)
+            ->where('overview.calendar_events.1.title', 'Rattrapages de cette année')->has('schedule.data', 0));
+        $this->assertDatabaseCount('academic_assessments', 0);
+        $this->get($this->workplace(array_replace($parameters, ['year' => $otherYear->id])))
+            ->assertInertia(fn (Assert $page) => $page->has('overview.calendar_events', 0));
+
+        $offering->update(['is_published' => false]);
+        $this->get($this->workplace($parameters))->assertInertia(fn (Assert $page) => $page->has('overview.calendar_events', 0));
     }
 
     public function test_session_detail_opens_attendance_with_week_context_and_student_roster(): void

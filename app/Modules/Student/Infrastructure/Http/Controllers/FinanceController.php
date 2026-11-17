@@ -16,6 +16,7 @@ use App\Models\Student\StudentPaymentProof;
 use App\Models\User;
 use App\Modules\Student\Application\Services\AcademicEnrollmentReadService;
 use App\Modules\Student\Application\Services\AcademicEnrollmentService;
+use App\Modules\Student\Application\Services\EnrollmentFinancialConfirmation;
 use App\Modules\Student\Application\Services\FeeTariffService;
 use App\Modules\Student\Application\Services\FinanceReceiptService;
 use App\Modules\Student\Application\Services\FinanceReconciliationService;
@@ -99,7 +100,7 @@ final class FinanceController extends Controller
             'filters' => $filters,
             'accountBackUrl' => $backUrl,
             'accountBackLabel' => $fromProofs ? 'Justificatifs de paiement' : ($fromConfirmations ? 'Inscriptions en attente' : 'Comptes étudiants'),
-            'enrollmentConfirmation' => $this->enrollmentConfirmation($entry, $actor, $finance, (bool) config('student.enrollment_requires_first_installment'), $statement['kinds']['tuition'] ?? null),
+            'enrollmentConfirmation' => $this->enrollmentConfirmation($entry, $actor, $finance, $statement),
             'statement' => $statement,
             'paymentProofs' => fn () => app(StudentPaymentProofs::class)->adminRows($entry, $statement['kind_titles']),
             'adjustments' => $entry->adjustments()->latest('id')->paginate(15, ['*'], 'adjustments_page')->withQueryString(),
@@ -247,26 +248,22 @@ final class FinanceController extends Controller
             'requiresPayment' => $requiresPayment,
             'entries' => $read->query($actor, $filters + ['status' => 'pending_confirmation'])
                 ->with('application')->latest('academic_enrollments.id')->paginate(15)->withQueryString()
-                ->through(fn (AcademicEnrollment $entry) => $read->row($entry) + $this->enrollmentConfirmation($entry, $actor, $finance, $requiresPayment)),
+                ->through(fn (AcademicEnrollment $entry) => $read->row($entry) + $this->enrollmentConfirmation($entry, $actor, $finance)),
         ]);
     }
 
-    private function enrollmentConfirmation(AcademicEnrollment $entry, User $actor, StudentFinanceService $finance, bool $requiresPayment, ?array $tuitionBalance = null): array
+    private function enrollmentConfirmation(AcademicEnrollment $entry, User $actor, StudentFinanceService $finance, ?array $statement = null): array
     {
-        $blocker = match (true) {
-            $entry->enrollment_status !== 'pending_confirmation' => null,
-            $entry->application?->status?->value !== 'validated' => 'Candidature à valider',
-            $entry->profile->student_status !== 'active' => 'Profil étudiant inactif',
-            $entry->academicYear->status !== 'open' => 'Année académique fermée',
-            $requiresPayment && ! $finance->firstTuitionInstallmentCovered($entry, $tuitionBalance) => 'Première tranche à couvrir',
-            default => null,
-        };
+        $installment = $finance->firstTuitionInstallment($entry, $statement);
 
         return [
             'status' => $entry->enrollment_status,
-            'blocker' => $blocker,
+            'blocker' => $entry->enrollment_status === 'pending_confirmation'
+                ? app(EnrollmentFinancialConfirmation::class)->blocker($entry, $installment) : null,
             'canConfirm' => $actor->can('manage', $entry),
             'context' => AcademicEnrollmentService::contextToken($entry),
+            'first_installment' => $installment,
+            'first_installment_review_required' => $finance->firstInstallmentReviewRequired($entry, $installment),
         ];
     }
 

@@ -302,9 +302,32 @@ final class AcademicAccessService
 
     public function offerings(AcademicEnrollment $entry): Builder
     {
-        return $this->contextOfferings($entry)
+        return $this->currentAudience($this->contextOfferings($entry), $entry);
+    }
+
+    private function currentAudience(Builder $offers, AcademicEnrollment $entry): Builder
+    {
+        return $offers
             ->where(fn ($q) => $q->whereNull('academic_department_id')->orWhere('academic_department_id', $entry->academic_department_id ?? -1))
             ->where(fn ($q) => $q->whereNull('class_id')->orWhere('class_id', $entry->class_id ?? -1));
+    }
+
+    /** Published mandatory courses in the student's current audience awaiting pedagogical registration. */
+    public function pendingMandatoryRegistrations(AcademicEnrollment $entry): Collection
+    {
+        if ($entry->enrollment_status !== 'confirmed' || $entry->academicYear->status !== 'open'
+            || $entry->profile->student_status !== 'active' || $entry->curriculum_version_id === null) {
+            return collect();
+        }
+
+        return $this->currentAudience($this->contextOfferings($entry, true), $entry)
+            ->whereNull('archived_at')->where('is_optional', false)
+            ->whereIn('curriculum_item_id', $this->curriculumItems($entry)?->pluck('id')->all() ?? [])
+            ->whereDoesntHave('registrations', fn ($rows) => $rows->where('academic_enrollment_id', $entry->id)
+                ->where(fn ($registered) => $registered->whereNull('withdrawn_at')->orWhere('withdrawal_kind', 'manual')))
+            ->with('curriculumItem:id,name')->get(['id', 'curriculum_item_id'])
+            ->pluck('curriculumItem')->unique('id')->sortBy('name')->values()
+            ->map(fn (CurriculumItem $item) => ['id' => $item->id, 'title' => $item->name]);
     }
 
     public function sessions(AcademicEnrollment $entry): Builder

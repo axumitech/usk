@@ -33,7 +33,7 @@ class EnrollmentController extends Controller
         ]);
         $base = $request->user()->enrollments();
         $counts = (clone $base)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
-        $query = (clone $base)->with(['level.faculty', 'academicYear', 'academicEnrollment:academic_enrollments.id,academic_enrollments.application_id'])->withCount([
+        $query = (clone $base)->with(['level.faculty', 'academicYear', 'academicEnrollment:academic_enrollments.id,academic_enrollments.application_id,academic_enrollments.enrollment_status'])->withCount([
             'documents',
             'documents as accepted_documents_count' => fn ($q) => $q->where('review_status', 'accepted'),
             'documents as correction_documents_count' => fn ($q) => $q->whereIn('review_status', ['rejected', 'correction_requested']),
@@ -44,13 +44,19 @@ class EnrollmentController extends Controller
         if ($term = trim($filters['q'] ?? '')) {
             $referenceId = preg_match('/^USK-(\d+)$/i', $term, $matches) ? (int) $matches[1] : -1;
             $query->where(fn ($q) => $q->where('id', $referenceId)->orWhere('matricule', 'like', "%{$term}%")
+                ->orWhere('form_snapshot->program', 'like', "%{$term}%")
                 ->orWhereHas('level', fn ($level) => $level->where('title', 'like', "%{$term}%")->orWhereHas('faculty', fn ($faculty) => $faculty->where('name', 'like', "%{$term}%")))
                 ->orWhereHas('academicYear', fn ($year) => $year->where('title', 'like', "%{$term}%")));
         }
         $enrollments = $query->latest()->orderByDesc('id')->paginate(9)->withQueryString();
-        $enrollments->through(function ($entry) {
+        $programs = AcademicProgram::whereIn('id', $enrollments->getCollection()->pluck('form_snapshot.academic_program_id')->filter(fn ($id) => is_numeric($id))->unique())
+            ->pluck('name', 'id');
+        $enrollments->through(function ($entry) use ($programs) {
             $data = Arr::only($entry->toArray(), ['id', 'uuid', 'reference', 'matricule', 'status', 'payment_status', 'created_at', 'enrolled_at', 'level', 'academic_year', 'documents_count', 'accepted_documents_count', 'correction_documents_count']);
             $data['academic_portal_url'] = $entry->academicEnrollment ? '/app/dashboard/student?application='.$entry->uuid : null;
+            $data['academic_enrollment_status'] = $entry->academicEnrollment?->enrollment_status;
+            $programId = $entry->form_snapshot['academic_program_id'] ?? null;
+            $data['requested_program'] = (is_numeric($programId) ? $programs->get((int) $programId) : null) ?? ($entry->form_snapshot['program'] ?? null);
             $data['analysis_started_at'] = $entry->meta['analysis_started_at'] ?? null;
             $data['analysis_completed_at'] = $entry->meta['analysis_completed_at'] ?? null;
             $data['corrections_requested_at'] = $entry->meta['corrections_requested_at'] ?? null;
@@ -126,7 +132,7 @@ class EnrollmentController extends Controller
             if ($status === 'cancelled') {
                 return;
             }
-            if (! in_array($status, ['draft', 'submitted', 'pending'], true)) {
+            if (! $entry->status->canTransitionTo(EnrollmentStatus::CANCELLED)) {
                 throw ValidationException::withMessages(['withdrawal' => 'Ce dossier a déjà fait l’objet d’une décision.']);
             }
             $entry->update(['status' => 'cancelled']);
@@ -154,6 +160,7 @@ class EnrollmentController extends Controller
         }
         $data['selected_document_uuid'] = $selected;
         $data['academic_portal_url'] = $enrollment->academicEnrollment ? '/app/dashboard/student?application='.$enrollment->uuid : null;
+        $data['academic_enrollment_status'] = $enrollment->academicEnrollment?->enrollment_status;
         if ($enrollment->academicEnrollment) {
             $financial = app(StudentFinanceService::class)->balance($enrollment->academicEnrollment);
             $data['payment_status'] = match ($financial['financial_clearance_status']) {
@@ -162,6 +169,8 @@ class EnrollmentController extends Controller
             $data['financial_portal_url'] = '/app/dashboard/student/fees?application='.$enrollment->uuid;
         }
         $data['submitted_at'] = $enrollment->meta['submitted_at'] ?? null;
+        $data['admitted_at'] = $enrollment->meta['validated_at'] ?? $enrollment->enrolled_at?->toDateString();
+        $data['admission_reason'] = $enrollment->meta['validation_reason'] ?? null;
         $data['requested_program'] = AcademicProgram::whereKey($enrollment->form_snapshot['academic_program_id'] ?? null)->value('name') ?? ($enrollment->form_snapshot['program'] ?? null);
         $data['declared_name'] = $enrollment->form_snapshot['name'] ?? null;
         $data['declared_email'] = $enrollment->form_snapshot['email'] ?? null;

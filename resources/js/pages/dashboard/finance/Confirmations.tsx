@@ -1,6 +1,8 @@
 import AdminModal from '@/components/admin/AdminModal';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import FirstInstallmentDetails from '@/components/student/FirstInstallmentDetails';
+import type { FirstInstallment } from '@/components/student/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ClipboardCheck, Search } from 'lucide-react';
 import { useState } from 'react';
@@ -17,6 +19,7 @@ type Entry = {
     blocker: string | null;
     canConfirm: boolean;
     context: string;
+    first_installment?: FirstInstallment | null;
 };
 
 export default function Confirmations({
@@ -97,6 +100,12 @@ export default function Confirmations({
                                     {entry.blocker ?? 'Prête à confirmer'}
                                 </span>
                             </header>
+                            {entry.first_installment && (
+                                <div className="me-notice flex-col">
+                                    <p className="font-semibold">Première tranche des frais académiques</p>
+                                    <FirstInstallmentDetails installment={entry.first_installment} />
+                                </div>
+                            )}
                             <div className="me-actions">
                                 <Link
                                     className="me-link"

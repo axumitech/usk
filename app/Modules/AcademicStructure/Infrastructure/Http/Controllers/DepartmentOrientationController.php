@@ -9,6 +9,7 @@ use App\Models\Level;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -25,6 +26,7 @@ class DepartmentOrientationController extends Controller
         $facultyId = DB::transaction(function () use ($request, $level, $ids) {
             $institution = University::where('context_key', 'current')->firstOrFail();
             $target = Level::whereHas('faculty', fn ($q) => $q->where('university_id', $institution->id))->lockForUpdate()->findOrFail($level);
+            abort_unless(TeachingScope::allows($request->user(), (int) $target->faculty_id), 403);
             $previous = $target->departmentOptions()->pluck('academic_departments.id')->all();
             $added = array_diff($ids, $previous);
             $removed = array_diff($previous, $ids);

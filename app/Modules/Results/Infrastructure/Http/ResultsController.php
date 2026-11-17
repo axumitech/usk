@@ -70,7 +70,7 @@ final class ResultsController
         $rows = $run?->results()->when($filters['q'] ?? null, fn ($q, $name) => $q->where(function ($q) use ($name) {
             $q->where('snapshot->matricule', 'like', '%'.$name.'%')->orWhere('snapshot->student', 'like', '%'.$name.'%');
         }))->orderBy('id')->paginate(25, ['*'], 'dossiers_page')->withQueryString()->through(fn ($row) => $this->summary($row, $run));
-        $members = User::role('admin')->permission(ResultsAccess::JURY)->whereNotNull('email_verified_at')
+        $members = User::administrators()->permission(ResultsAccess::JURY)->whereNotNull('email_verified_at')
             ->when($version, fn ($q) => $q->where(fn ($q) => $q->whereDoesntHave('academicFaculties')->orWhereHas('academicFaculties', fn ($faculty) => $faculty->whereKey($this->access->faculty($version)))))
             ->orderBy('id')->limit(100)->get()->map(fn ($member) => ['id' => $member->id, 'name' => $member->full_name]);
 

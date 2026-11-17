@@ -65,7 +65,7 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                 <PageHeading
                     title={applicantName(enrollment.student)}
                     description={`Référence ${enrollment.reference} · Créé le ${formatDate(enrollment.created_at)}`}
-                    action={<span className={`review-status is-${enrollment.status}`}>{enrollment.status_label}</span>}
+                    action={<span className={`review-status is-${enrollment.status}`}>{enrollment.status === 'pending' && correctionProofs.length ? 'Corrections attendues' : enrollment.status_label}</span>}
                 />
                 {enrollment.documents?.some((doc) => doc.needs_reexamination) && (
                     <div className="review-reexamination-banner">
@@ -129,6 +129,8 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                                     ['Année académique', enrollment.academic_year?.title || '—'],
                                     ['Soumission', enrollment.submitted_at ? formatDate(enrollment.submitted_at) : '—'],
                                     ['Programme', enrollment.requested_program || enrollment.snapshot?.program || '—'],
+                                    ['Inscription académique', enrollment.academic_enrollment_status === 'pending_confirmation'
+                                        ? 'À confirmer' : enrollment.academic_enrollment_status === 'confirmed' ? 'Confirmée' : '—'],
                                     [
                                         'Certification de l’étudiant',
                                         enrollment.snapshot?.isConfirmed ? 'Informations certifiées par l’étudiant' : 'Non confirmée',
@@ -394,31 +396,26 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                         <p>
                             {applicantName(enrollment.student)} · {enrollment.level?.title}
                         </p>
-                        {decision === 'reject' && (
-                            <div className="review-reason-field">
-                                <label htmlFor="rejection-reason">
-                                    Motif du rejet <span>(obligatoire)</span>
-                                </label>
-                                <textarea
-                                    id="rejection-reason"
-                                    required
-                                    minLength={3}
-                                    maxLength={1000}
-                                    rows={5}
-                                    value={form.data.reason}
-                                    onChange={(e) => form.setData('reason', e.target.value)}
-                                    placeholder="Expliquez clairement pourquoi la demande ne peut pas être acceptée…"
-                                    aria-invalid={!!form.errors.reason}
-                                    aria-describedby="rejection-help"
-                                />
-                                <small id="rejection-help">Ce texte sera visible par l’étudiant. {form.data.reason.length}/1000 caractères.</small>
-                                {form.errors.reason && (
-                                    <p className="review-error" role="alert">
-                                        {form.errors.reason}
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                        <div className="review-reason-field">
+                            <label htmlFor="admission-decision-reason">
+                                {decision === 'reject' ? 'Motif du rejet' : 'Motif de l’admission'}{' '}
+                                <span>{decision === 'reject' ? '(obligatoire)' : '(facultatif)'}</span>
+                            </label>
+                            <textarea
+                                id="admission-decision-reason"
+                                required={decision === 'reject'}
+                                minLength={decision === 'reject' ? 3 : undefined}
+                                maxLength={1000}
+                                rows={5}
+                                value={form.data.reason}
+                                onChange={(e) => form.setData('reason', e.target.value)}
+                                placeholder={decision === 'reject' ? 'Expliquez la décision…' : 'Dossier conforme aux exigences d’admission.'}
+                                aria-invalid={!!form.errors.reason}
+                                aria-describedby="admission-decision-help"
+                            />
+                            <small id="admission-decision-help">Ce texte sera visible par le candidat. {form.data.reason.length}/1000 caractères.</small>
+                            {form.errors.reason && <p className="review-error" role="alert">{form.errors.reason}</p>}
+                        </div>
                         {Object.entries(form.errors)
                             .filter(([key]) => key !== 'reason')
                             .map(([key, error]) => (

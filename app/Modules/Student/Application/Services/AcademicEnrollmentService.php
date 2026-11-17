@@ -30,7 +30,7 @@ final class AcademicEnrollmentService
         'completed' => [], 'cancelled' => [], 'transferred' => [],
     ];
 
-    public function __construct(private StudentFinanceService $finance, private CurriculumService $curricula) {}
+    public function __construct(private StudentFinanceService $finance, private CurriculumService $curricula, private EnrollmentFinancialConfirmation $confirmation) {}
 
     public static function contextToken(AcademicEnrollment $entry): string
     {
@@ -57,12 +57,17 @@ final class AcademicEnrollmentService
             // One lock order for all administrative changes: year, profile, enrollment, group.
             $year = AcademicYear::lockForUpdate()->findOrFail($entry->academic_year_id);
             StudentProfile::lockForUpdate()->findOrFail($entry->student_profile_id);
-            $entry = AcademicEnrollment::lockForUpdate()->findOrFail($entry->id);
+            $entry = AcademicEnrollment::lockForUpdate()->findOrFail($entry->id)->setRelation('academicYear', $year);
             if ($replay = $entry->changes()->where('operation_key', $data['operation_key'])->first()) {
                 if ($replay->request_hash !== $this->fingerprint($data) || $replay->action !== 'transition' || ($replay->after['enrollment_status'] ?? null) !== $data['enrollment_status']) {
                     $this->fail('operation_key', 'Cette référence désigne une autre opération.');
                 }
 
+                return $entry;
+            }
+            if ($entry->enrollment_status === 'confirmed' && $data['enrollment_status'] === 'confirmed'
+                && in_array($data['expected_status'] ?? null, ['pending_confirmation', 'under_review'], true)
+                && ! array_intersect(['academic_department_id', 'class_id', 'student_status', 'service_request_id', 'ends_at'], array_keys($data))) {
                 return $entry;
             }
             $this->assertContext($entry, $data);
@@ -87,11 +92,8 @@ final class AcademicEnrollmentService
                 $this->fail('enrollment_status', 'Utilisez la décision de transfert pour conserver le contexte précédent.');
             }
             if ($next === 'confirmed' && $next !== $entry->enrollment_status) {
-                if ($entry->application?->status?->value !== 'validated' || $entry->profile->student_status !== 'active') {
-                    $this->fail('enrollment_status', 'Une admission validée et un dossier actif sont requis.');
-                }
-                if (config('student.enrollment_requires_first_installment') && ! $this->finance->firstTuitionInstallmentCovered($entry)) {
-                    $this->fail('enrollment_status', 'La première tranche doit être couverte selon le module Finance.');
+                if ($blocker = $this->confirmation->blocker($entry, $this->finance->firstTuitionInstallment($entry))) {
+                    $this->fail('enrollment_status', $blocker.'.');
                 }
             }
             if (array_key_exists('academic_department_id', $data)) {
@@ -247,6 +249,12 @@ final class AcademicEnrollmentService
             'operation_key' => $data['operation_key'], 'request_hash' => $this->fingerprint($data), 'action' => $action, 'before' => $before, 'after' => $after,
             'reason' => $data['reason'], 'effective_at' => now(), 'ends_at' => $data['ends_at'] ?? null, 'created_at' => now(),
         ]);
+        if ($action === 'transition' && $entry->enrollment_status === 'confirmed'
+            && in_array($before['enrollment_status'], ['pending_confirmation', 'under_review'], true)) {
+            $this->confirmation->record($entry, $actor->id, $before['enrollment_status'], $data['reason'], $change);
+
+            return;
+        }
         Audit::record($actor->id, 'academic_enrollment_'.$action, $entry, $data['reason'], ['change_id' => $change->id, 'before' => $before, 'after' => $after]);
         $entry->profile->user->notify(new AcademicEnrollmentChanged([
             'academic_enrollment_id' => ($target ?? $entry)->id, 'action' => $action, 'status' => ($target ?? $entry)->enrollment_status,

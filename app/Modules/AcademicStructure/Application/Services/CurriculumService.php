@@ -18,6 +18,7 @@ use App\Models\Student\AcademicSession;
 use App\Models\User;
 use App\Modules\Student\Application\Services\Audit;
 use App\Modules\Teaching\Application\Services\DraftCurriculumSchedule;
+use App\Modules\Teaching\Application\Services\LegacyOfferingScope;
 use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -429,13 +430,10 @@ class CurriculumService
         $unitsByLevel = $version->units->groupBy('level_id');
         $yearId = $version->academic_year_id ?? $version->cohort?->academic_year_id;
         $historical = in_array($version->status, ['published', 'replaced', 'archived'], true);
-        $offerings = $historical ? collect() : AcademicOffering::whereNull('curriculum_item_id')->whereNull('archived_at')->where('academic_year_id', $yearId)
-            ->whereIn('course_id', $version->units->flatMap(fn ($unit) => $unit->items->pluck('source_course_id'))->all())
-            ->when($program->academic_department_id, fn ($query, $department) => $query->where(
-                fn ($audience) => $audience->whereNull('academic_department_id')->orWhere('academic_department_id', $department)
-            ))
-            ->with(['sessions' => fn ($query) => $query->whereNull('cancelled_at')->orderBy('starts_at')->orderBy('id'), 'professor', 'department', 'group.intake'])
-            ->orderBy('id')->get()->groupBy('level_id');
+        $offerings = $historical ? collect() : app(LegacyOfferingScope::class)->forCurriculum($version, $yearId, [
+            'sessions' => fn ($query) => $query->whereNull('cancelled_at')->orderBy('starts_at')->orderBy('id'),
+            'professor', 'department', 'group.intake',
+        ])->groupBy('level_id');
 
         $levels = $historical ? $program->levels->whereIn('id', $unitsByLevel->keys()) : $program->levels;
 
@@ -551,6 +549,7 @@ class CurriculumService
                 if ($action === 'publish' && $owned->academic_year_id !== null) {
                     AcademicYear::lockForUpdate()->findOrFail($owned->academic_year_id);
                 }
+                University::where('context_key', 'current')->lockForUpdate()->firstOrFail();
             }
             $version = $this->locked($owned);
             $this->checkRevision($version, $revision);

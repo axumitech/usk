@@ -19,6 +19,8 @@ interface EnrollmentRepositoryInterface
 
     public function findDraftForStudent(int $studentId): ?Enrollment;
 
+    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId): ?Enrollment;
+
     public function findByStudent(int $studentId, ?EnrollmentStatus $status = null): Collection;
 
     public function save(Enrollment $enrollment): Enrollment;
@@ -31,5 +33,5 @@ interface EnrollmentRepositoryInterface
 
     public function getExpiredDrafts(): Collection;
 
-    public function checkUniqueness(int $studentId, int $levelId, int $yearId, ?int $excludeId = null): bool;
+    public function checkUniqueness(int $studentId, int $levelId, int $yearId, ?int $programId, ?int $excludeId = null): bool;
 }
