@@ -1,19 +1,8 @@
 import { formatDate } from '@/lib/studentEnrollment';
 import { Link } from '@inertiajs/react';
-import {
-    ArrowUpRight,
-    CalendarDays,
-    FileText,
-    Info,
-    KeyRound,
-    LockKeyhole,
-    Mail,
-    Phone,
-    UserRound,
-    type LucideIcon,
-} from 'lucide-react';
+import { ArrowUpRight, CalendarDays, FileText, Info, KeyRound, LockKeyhole, Mail, Phone, UserRound, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { labels, money, type Academic, type Balance, type Permission } from './types';
+import { labels, money, type Academic, type Balance, type Permission, type PortalProps } from './types';
 export function EmptyState({ title, children, icon: Icon = FileText }: { title: string; children: ReactNode; icon?: LucideIcon }) {
     return (
         <div className="portal-empty">
@@ -118,9 +107,11 @@ export function AcademicSummary({ academic }: { academic: Academic }) {
         <section className="portal-academic-summary" aria-label="Votre inscription académique">
             {[
                 ['Faculté', academic.faculty],
-                ['Niveau / programme', academic.level],
                 ['Année académique', academic.year],
-                ['Promotion / groupe', academic.group || 'Non affecté'],
+                ['Programme', academic.program || 'Non renseigné'],
+                ['Niveau', academic.level],
+                ['Promotion', academic.promotion || 'Non affectée'],
+                ['Groupe', academic.group || 'Non affecté'],
                 ['Inscription académique', labels[academic.enrollment_status] || academic.enrollment_status],
                 ['Situation étudiante', labels[academic.student_status] || academic.student_status],
             ].map(([label, value]) => (
@@ -129,6 +120,23 @@ export function AcademicSummary({ academic }: { academic: Academic }) {
                     <strong>{value}</strong>
                 </div>
             ))}
+        </section>
+    );
+}
+export function PedagogicalRegistrationNotice({ courses = [] }: { courses?: PortalProps['pedagogical_registration_pending'] }) {
+    if (!courses.length) return null;
+
+    return (
+        <section className="portal-alert space-y-2" aria-labelledby="pedagogical-registration-title">
+            <h2 className="font-semibold" id="pedagogical-registration-title">
+                Inscription pédagogique en attente
+            </h2>
+            <p>Contactez la scolarité pour faire vérifier votre inscription aux enseignements obligatoires suivants.</p>
+            <ul className="list-disc ps-5">
+                {courses.map((course) => (
+                    <li key={course.id}>{course.title}</li>
+                ))}
+            </ul>
         </section>
     );
 }

@@ -12,7 +12,16 @@ import type { TeacherOverview, TeacherView } from './overviewTypes';
 import TeacherAnnouncementForm from './TeacherAnnouncementForm';
 import TeacherCourseDetail, { type TeacherCourseData } from './TeacherCourseDetail';
 import TeacherCourseList from './TeacherCourseList';
-import { TeacherAnnouncements, TeacherCourseRows, TeacherCover, TeacherHome, TeacherPanel, TeacherTimetable, teacherTitles } from './TeacherOverview';
+import {
+    TeacherAcademicCalendar,
+    TeacherAnnouncements,
+    TeacherCourseRows,
+    TeacherCover,
+    TeacherHome,
+    TeacherPanel,
+    TeacherTimetable,
+    teacherTitles,
+} from './TeacherOverview';
 import TeacherSessionDetail from './TeacherSessionDetail';
 import type { Offering, Page, Student } from './types';
 
@@ -152,9 +161,12 @@ export default function Teacher({ linked, photoUrl, offerings, selected, student
                     sessionDetail ? (
                         <TeacherSessionDetail session={sessionDetail} />
                     ) : (
-                        <TeacherPanel id="teacher-schedule" title="Planning de la semaine" icon={CalendarDays} className="teacher-schedule-panel">
-                            <TeacherTimetable data={overview} view={view} />
-                        </TeacherPanel>
+                        <>
+                            <TeacherPanel id="teacher-schedule" title="Planning de la semaine" icon={CalendarDays} className="teacher-schedule-panel">
+                                <TeacherTimetable data={overview} view={view} />
+                            </TeacherPanel>
+                            <TeacherAcademicCalendar events={overview.calendar_events} />
+                        </>
                     )
                 ) : view === 'announcements' ? (
                     <TeacherAnnouncements data={overview} full onAnnounce={announce} />

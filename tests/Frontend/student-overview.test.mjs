@@ -52,6 +52,7 @@ test('L’accueil présente l’horaire, les cours, les frais et les évaluation
     const props = base(); props.permissions.evaluations_participate = { allowed: false };
     props.data.upcoming_events = [{ id: 12, title: 'Examens de novembre', start_date: '2026-11-18', end_date: '2026-11-20', detail_url: '/app/dashboard/student/program/12?academic=7' }];
     const html = renderToStaticMarkup(React.createElement(Overview, props));
+    assert.match(html, /program\?academic=7[^>]*>Agenda académique/);
     assert.match(html, /program\/12\?academic=7[^>]*>.*Examens de novembre/);
     assert.ok(html.indexOf('Horaire du jour') < html.indexOf('Mes cours'));
     assert.ok(html.indexOf('Mes cours') < html.indexOf('Frais obligatoires'));

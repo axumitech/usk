@@ -128,7 +128,7 @@ export default function StudentOverview({
                         <h2 id="home-events-title">Prochains événements</h2>
                     </div>
                     <Link href={href('program')}>
-                        Programme <ArrowUpRight size={15} aria-hidden="true" />
+                        Agenda académique <ArrowUpRight size={15} aria-hidden="true" />
                     </Link>
                 </header>
                 {events.length ? (

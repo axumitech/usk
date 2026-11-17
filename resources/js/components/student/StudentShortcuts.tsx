@@ -29,7 +29,7 @@ const groups = [
             ['Justifier une absence', 'absences'],
         ],
     },
-    { label: 'Programme', icon: CalendarCheck, color: 'lime', items: [['Programme académique', 'program']] },
+    { label: 'Agenda', icon: CalendarCheck, color: 'lime', items: [['Agenda académique', 'program']] },
     {
         label: 'Évaluations',
         icon: ClipboardList,

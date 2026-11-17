@@ -478,9 +478,106 @@ class AcademicTeachingTest extends TestCase
         $wrong = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft']);
         $this->post('/app/dashboard/admin/teaching', array_replace($base, ['academic_year_id' => $wrong->id]))->assertSessionHasErrors('academic_semester_id');
         $this->invalid(fn () => $offer->update(['class_id' => null]), 'offering');
-        $this->assign($offer, $admin, $this->teacher(), 'lead');
-        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])->assertStatus(303);
+        $workspace = route('dashboard.admin.teaching.index', [
+            'offering' => $offer->id, 'year' => $entry->academic_year_id, 'program' => $program->id, 'version' => $version->id,
+        ]);
+        $this->from(route('dashboard.admin.teaching.index'))->post(route('dashboard.admin.teaching.team', $offer->id), [
+            'professor_id' => $this->teacher()->id, 'role' => 'lead', 'action' => 'assign', 'reason' => self::REASON,
+        ])->assertStatus(303)->assertRedirect($workspace)->assertSessionHasNoErrors();
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/status', ['action' => 'publish', 'reason' => self::REASON])
+            ->assertStatus(303)->assertRedirect($workspace);
         $this->assertTrue($offer->fresh()->is_published);
+    }
+
+    public function test_shared_catalogue_curriculum_publishes_only_the_legacy_group_of_its_program(): void
+    {
+        [$admin, , $entry, $firstProgram, $course, , , $units] = $this->context();
+        $secondProgram = app(StructureService::class)->save('program', [
+            'revision' => 0, 'reason' => self::REASON, 'is_active' => true,
+            'code' => 'P-SHARED', 'name' => 'Second programme', 'faculty_id' => $firstProgram->faculty_id,
+            'academic_cycle_id' => $firstProgram->academic_cycle_id, 'level_ids' => [$entry->level_id],
+        ], $admin);
+        $firstGroup = $this->group($entry, $firstProgram, 'Groupe premier programme');
+        $secondGroup = $this->group($entry, $secondProgram, 'Groupe second programme');
+        AcademicSemester::create([
+            'academic_year_id' => $entry->academic_year_id, 'number' => 1, 'start_date' => '2026-11-16', 'end_date' => '2026-11-20',
+        ]);
+        $teacher = $this->teacher();
+        $offers = [];
+        $sessions = [];
+        foreach ([$firstGroup->id, $secondGroup->id, null] as $index => $groupId) {
+            $offers[] = $offer = AcademicOffering::create([
+                'course_id' => $course->id, 'level_id' => $entry->level_id, 'class_id' => $groupId,
+                'academic_year_id' => $entry->academic_year_id, 'professor_id' => $teacher->id, 'is_published' => false,
+            ]);
+            if ($index === 1) {
+                continue;
+            }
+            $start = Carbon::parse('2026-11-17 08:00:00', 'UTC')->addDays($index);
+            $sessions[$index] = $offer->sessions()->create([
+                'starts_at' => $start->copy(), 'ends_at' => $start->addHour(), 'room' => 'Salle test', 'is_published' => false,
+            ]);
+        }
+
+        $service = app(CurriculumService::class);
+        $draft = $service->draft([
+            'academic_program_id' => $secondProgram->id, 'academic_year_id' => $entry->academic_year_id,
+            'code' => 'SHARED', 'name' => 'Maquette du second programme', 'reason' => self::REASON,
+        ], $admin);
+        $units[0]['items'][0]['cmi_hours'] = 2;
+        $service->saveDraft($draft->id, ['revision' => (int) $draft->revision, 'units' => $units, 'reason' => self::REASON], $admin);
+        $maquette = route('dashboard.admin.academic-structure.index', ['program' => $secondProgram->id, 'version' => $draft->id]);
+        $this->actingAs($admin)->post(route('dashboard.admin.academic-structure.versions.schedule', $draft->id), ['rooms' => ['Salle test']])
+            ->assertSessionHasNoErrors()->assertSessionHas('scheduleGeneration.sessions', 1);
+        $sessions[1] = $offers[1]->sessions()->sole();
+        ksort($sessions);
+        $this->assertDatabaseCount('academic_sessions', 3);
+        $workspace = $this->get($maquette)->assertInertia(fn (Assert $page) => $page
+            ->has('levelWorkspace.0.schedule', 1)
+            ->where('levelWorkspace.0.schedule.0.id', $offers[1]->id)
+            ->where('levelWorkspace.0.schedule.0.sessions.0.id', $sessions[1]->id));
+        $this->from($maquette)->post(route('dashboard.admin.academic-structure.versions.levels.approve', [$draft->id, $entry->level_id]), [
+            'revision' => $draft->fresh()->revision, 'signature' => $workspace->viewData('page')['props']['levelWorkspace'][0]['signature'],
+        ])->assertSessionHasNoErrors();
+        foreach (['validate', 'publish'] as $action) {
+            $this->post(route('dashboard.admin.academic-structure.versions.transition', $draft->id), [
+                'revision' => $draft->fresh()->revision, 'action' => $action, 'reason' => self::REASON,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $this->assertSame('published', $draft->fresh()->status);
+        $this->assertSame([false, true, false], array_map(fn ($offer) => $offer->fresh()->is_published, $offers));
+        $this->assertSame([false, true, false], array_map(fn ($session) => $session->fresh()->is_published, $sessions));
+    }
+
+    public function test_versioned_offer_can_coexist_with_a_legacy_group_of_another_program(): void
+    {
+        [$admin, , $entry, $program, $course, , $item] = $this->context();
+        $otherProgram = app(StructureService::class)->save('program', [
+            'revision' => 0, 'reason' => self::REASON, 'is_active' => true,
+            'code' => 'P-LEGACY', 'name' => 'Programme du groupe historique', 'faculty_id' => $program->faculty_id,
+            'academic_cycle_id' => $program->academic_cycle_id, 'level_ids' => [$entry->level_id],
+        ], $admin);
+        $otherGroup = $this->group($entry, $otherProgram, 'Groupe historique');
+        $legacy = AcademicOffering::create([
+            'course_id' => $course->id, 'level_id' => $entry->level_id, 'class_id' => $otherGroup->id,
+            'academic_year_id' => $entry->academic_year_id, 'professor_id' => $this->teacher()->id, 'is_published' => true,
+        ]);
+
+        $payload = ['academic_year_id' => $entry->academic_year_id, 'curriculum_item_id' => $item->id, 'reason' => self::REASON];
+        $url = route('dashboard.admin.teaching.store');
+        $this->actingAs($admin)->post($url, $payload)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->post($url, $payload)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('academic_offerings', 2);
+        $versioned = AcademicOffering::where('curriculum_item_id', $item->id)->sole();
+        $sameProgramGroup = $this->group($entry, $program, 'Groupe du public commun');
+        $this->post($url, $payload + ['class_id' => $sameProgramGroup->id])->assertSessionHasErrors('curriculum_item_id');
+
+        $this->assign($versioned, $admin, $this->teacher(), 'lead');
+        $this->post(route('dashboard.admin.teaching.status', $versioned->id), ['action' => 'publish', 'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertTrue($versioned->fresh()->is_published);
+        $this->assertTrue($legacy->fresh()->is_published);
+        $this->assertSame($otherGroup->id, $legacy->fresh()->class_id);
     }
 
     public function test_managed_resources_require_explicit_registration_and_stay_private_after_withdrawal(): void
@@ -491,14 +588,21 @@ class AcademicTeachingTest extends TestCase
         Storage::disk('local')->put('academic-resources/teaching-test.pdf', 'private course bytes');
         $resource = $offer->resources()->create(['kind' => 'material', 'title' => 'Support privé', 'path' => 'academic-resources/teaching-test.pdf', 'filename' => 'teaching-test.pdf', 'is_published' => true]);
         $courseUrl = '/app/dashboard/student/courses/'.$course->id.'?academic='.$entry->id;
+        $courseListUrl = '/app/dashboard/student/courses?academic='.$entry->id;
         $download = '/app/dashboard/student/resources/'.$resource->id.'/download?academic='.$entry->id;
         $this->actingAs($student)->get($courseUrl)->assertNotFound();
+        $this->get($courseListUrl)->assertInertia(fn (Assert $page) => $page->has('pedagogical_registration_pending', 1)
+            ->where('pedagogical_registration_pending.0.id', $offer->curriculum_item_id));
         $this->get($download)->assertNotFound();
         $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertForbidden();
-        $this->actingAs($admin)->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
+        $offerUrl = route('dashboard.admin.teaching.index', ['offering' => $offer->id]);
+        $this->actingAs($admin)->get($offerUrl)->assertInertia(fn (Assert $page) => $page->where('missingRegistrations', 1));
+        $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
         $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
         $this->assertDatabaseCount('academic_course_registrations', 1);
+        $this->get($offerUrl)->assertInertia(fn (Assert $page) => $page->where('missingRegistrations', 0));
         $this->actingAs($student)->get($courseUrl)->assertOk();
+        $this->get($courseListUrl)->assertInertia(fn (Assert $page) => $page->has('pedagogical_registration_pending', 0));
         $this->get($download)->assertForbidden();
         AccessRule::create(['academic_year_id' => $entry->academic_year_id, 'feature' => 'materials_download', 'mode' => 'open', 'is_active' => true]);
         $this->get($download)->assertDownload('teaching-test.pdf');
@@ -512,7 +616,9 @@ class AcademicTeachingTest extends TestCase
         $this->post('/app/dashboard/admin/teaching/'.$offer->id.'/sync', ['reason' => self::REASON])->assertStatus(303);
         $this->assertDatabaseCount('academic_course_registrations', 1);
         $this->assertNotNull($registration->fresh()->withdrawn_at);
+        $this->get($offerUrl)->assertInertia(fn (Assert $page) => $page->where('missingRegistrations', 0));
         $this->actingAs($student)->get($download)->assertNotFound();
+        $this->get($courseListUrl)->assertInertia(fn (Assert $page) => $page->has('pedagogical_registration_pending', 0));
         $this->post($submit, ['body' => 'Tentative après retrait.'])->assertNotFound();
         $this->assertDatabaseHas('academic_submissions', ['academic_enrollment_id' => $entry->id, 'academic_resource_id' => $assignment->id, 'version' => 2]);
         $this->assertDatabaseHas('academic_resources', ['id' => $resource->id]);

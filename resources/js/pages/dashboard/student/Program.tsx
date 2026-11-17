@@ -1,5 +1,5 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import { studentHref } from '@/components/student/navigation';
+import { studentHref, studentSectionLabels } from '@/components/student/navigation';
 import { groupProgramEvents, programMonthLabel, programPeriod, type ProgramEvent } from '@/components/student/programCalendar';
 import { StudentYearSelect, type StudentChromeData } from '@/components/student/StudentChrome';
 import { Head, Link } from '@inertiajs/react';
@@ -62,12 +62,12 @@ function ProgramCover({
             <Link
                 className="student-agenda-header-action"
                 href={event ? `${program.index_url}#student-program-event-${event.id}` : studentHref('overview', program.academic_id, 'home-events')}
-                aria-label={event ? 'Retour au programme académique' : 'Retour à l’accueil'}
+                aria-label={event ? 'Retour à l’agenda académique' : 'Retour à l’accueil'}
             >
                 <ArrowLeft size={22} aria-hidden="true" />
             </Link>
             <div className="student-agenda-heading">
-                <h1>{event?.title ?? 'Programme académique'}</h1>
+                <h1>{event?.title ?? studentSectionLabels.program}</h1>
                 {event ? (
                     <p>
                         {event.category_label} · {program.year}
@@ -324,7 +324,7 @@ export default function Program({ program, studentChrome }: { program: StudentPr
     const academicYear = studentChrome?.options.find((year) => year.id === program.academic_id);
     return (
         <Dashboard>
-            <Head title={program.event?.title ?? 'Programme académique'} />
+            <Head title={program.event?.title ?? studentSectionLabels.program} />
             <div className="student-program student-agenda">
                 <ProgramCover program={program} archived={Boolean(academicYear && !academicYear.is_current)} studentChrome={studentChrome} />
                 <div className="student-agenda-body student-program-content">

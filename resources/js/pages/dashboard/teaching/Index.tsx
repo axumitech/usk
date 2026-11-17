@@ -14,6 +14,9 @@ type Props = {
     offerings: Page<Offering>;
     summary: { total: number; published: number; archived: number };
     selected: Offering | null;
+    missingRegistrations: number | null;
+    publicationBlocker: string | null;
+    registrationOpen: boolean;
     canPublish: boolean;
     canRegister: boolean;
     students: Page<Student> | null;
@@ -27,7 +30,7 @@ type Props = {
     programs: Ref[];
     versions: (Ref & { code: string; status: string })[];
     items: (Ref & { is_optional: boolean; unit: { code: string; level_id: number; level_title: string; period_code: string } })[];
-    groups: { id: number; level_id: number; intake: { name: string } | null }[];
+    groups: { id: number; level_id: number; name: string; promotion: string }[];
     semesters: { id: number; number: number; start_date: string; end_date: string }[];
     units: (Ref & { code: string; version: { code: string } })[];
 };
@@ -41,7 +44,7 @@ export default function Teaching(props: Props) {
     const base = route('dashboard.admin.teaching.index');
     const offer = props.selected;
     const edit = props.canPublish && offer?.status !== 'archived';
-    const register = props.canRegister && offer?.item_id && offer.status === 'published';
+    const register = props.canRegister && props.registrationOpen;
     const show = (
         title: string,
         action: string,
@@ -215,7 +218,7 @@ export default function Teaching(props: Props) {
                                                         )
                                                         .map((group) => ({
                                                             value: group.id,
-                                                            label: `${group.intake?.name ?? 'Groupe'} · #${group.id}`,
+                                                            label: `${group.name} · ${group.promotion} · #${group.id}`,
                                                         })),
                                             },
                                             {
@@ -295,15 +298,24 @@ export default function Teaching(props: Props) {
                     <>
                         <section className="portal-panel">
                             <Context offer={offer} />
+                            {edit && offer.status === 'draft' && (
+                                <p>{props.publicationBlocker ?? 'Offre prête à publier. Les séances sont publiées depuis Horaires.'}</p>
+                            )}
                             <div className="student-dossier-links">
                                 {edit && offer.status === 'draft' && (
                                     <button
                                         className="admin-primary"
-                                        disabled={!offer.teacher}
+                                        disabled={Boolean(props.publicationBlocker)}
                                         onClick={() =>
-                                            show('Publier l’offre', route('dashboard.admin.teaching.status', offer.id), [reason], {
-                                                action: 'publish',
-                                            })
+                                            show(
+                                                'Publier l’offre',
+                                                route('dashboard.admin.teaching.status', offer.id),
+                                                [reason],
+                                                { action: 'publish' },
+                                                offer.item_id
+                                                    ? 'Les étudiants du public indiqué pourront consulter le cours après inscription pédagogique. Les séances sont publiées depuis Horaires.'
+                                                    : 'Le cours sera visible aux étudiants de ce niveau et de cette année, selon le groupe, le département et les règles d’option de l’offre. Les séances sont publiées depuis Horaires.',
+                                            )
                                         }
                                     >
                                         Publier après contrôle
@@ -359,6 +371,13 @@ export default function Teaching(props: Props) {
                         </section>
                         <section className="portal-panel" id="registrations">
                             <h3>Inscriptions pédagogiques</h3>
+                            {props.missingRegistrations !== null && (
+                                <p>
+                                    {props.missingRegistrations === 0
+                                        ? 'Aucune inscription pédagogique en attente pour cette offre obligatoire.'
+                                        : `${props.missingRegistrations} inscription(s) pédagogique(s) en attente pour cette offre obligatoire.`}
+                                </p>
+                            )}
                             {!offer.item_id && (
                                 <p>Le public de cette offre historique est déterminé par le niveau, le groupe et les dérogations existantes.</p>
                             )}

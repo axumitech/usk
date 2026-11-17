@@ -40,11 +40,7 @@ final class StudentNotifications
     {
         $query = $user->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, AcademicScheduleNotice::class]);
         if ($user->academicFaculties()->exists()) {
-            $grammar = $query->getBaseQuery()->getGrammar();
-            // Notifications store JSON as text. PostgreSQL needs a cast before extracting the identifier.
-            $enrollmentId = $user->getConnection()->getDriverName() === 'pgsql'
-                ? "CAST(\"data\" AS JSONB)->>'enrollment_id'"
-                : $grammar->wrap('data->enrollment_id');
+            $enrollmentId = $this->dataField($query, 'enrollment_id');
             $visible = AcademicStaffScope::apply(Enrollment::query(), $user)->selectRaw('CAST(enrollments.id AS VARCHAR)');
             $query->where(fn ($notice) => $notice->where('type', AcademicScheduleNotice::class)
                 ->orWhereIn(DB::raw("CAST($enrollmentId AS VARCHAR)"), $visible));
@@ -98,10 +94,20 @@ final class StudentNotifications
     {
         $query = $user->notifications()->whereIn('type', array_keys(self::KINDS));
         if ($teacherOnly) {
-            $query->where('type', AcademicScheduleNotice::class)->whereNull('data->academic_enrollment_id')->whereNotNull('data->offering_id');
+            $query->where('type', AcademicScheduleNotice::class)
+                ->whereNull(DB::raw($this->dataField($query, 'academic_enrollment_id')))
+                ->whereNotNull(DB::raw($this->dataField($query, 'offering_id')));
         }
 
         return $query;
+    }
+
+    private function dataField(MorphMany $query, string $field): string
+    {
+        // Notification payloads are JSON encoded in a text column.
+        return $query->getRelated()->getConnection()->getDriverName() === 'pgsql'
+            ? "CAST(\"data\" AS JSONB)->>'".$field."'"
+            : $query->getBaseQuery()->getGrammar()->wrap('data->'.$field);
     }
 
     private function present(DatabaseNotification $notice): array

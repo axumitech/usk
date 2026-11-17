@@ -369,6 +369,9 @@ class StudentPortalController extends Controller
 
         $courseResults = $section === 'courses' && $permissions['results_view']['allowed']
             ? app(StudentResultPeriods::class)->publishedCredits($entry) : null;
+        $curriculum = $this->access->curriculumContext($entry);
+        $group = $entry->group;
+        $promotion = $entry->promotion ?? $group?->promotion;
 
         return Inertia::render('dashboard/student/Portal', [
             'lifecycle' => $lifecycle,
@@ -391,7 +394,7 @@ class StudentPortalController extends Controller
             'department_options' => $entry->academic_department_id === null && $this->canChooseDepartment($entry)
                 ? $entry->level->departmentOptions()->where('faculty_id', $entry->level->faculty_id)->where('is_active', true)->orderBy('name')->get(['academic_departments.id', 'name'])->makeHidden('pivot')
                 : [],
-            'curriculum' => $this->access->curriculumContext($entry),
+            'curriculum' => $curriculum,
             'overview' => $section === 'overview' ? app(StudentOverviewService::class)->summary($entry, $permissions, $balance, $scheduleWeek) : null,
             'profile_completion' => $section === 'overview'
                 ? fn () => app(StudentProfileCompletion::class)->summary($entry, $studentChrome['photo_url'] !== null) : null,
@@ -407,7 +410,17 @@ class StudentPortalController extends Controller
             'profile_edit_field' => $section === 'profile' && $request->query('view') === 'personal'
                 ? app(StudentProfileCompletion::class)->editField($request->query('edit')) : null,
             'welcome_pending' => $entry->profile->welcome_seen_at === null,
-            'section' => $section, 'academic' => ['id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference, 'matricule' => $studentChrome['matricule'], 'application_status' => $entry->application->status->value, 'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status, 'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title, 'group' => $entry->group?->intake?->name, 'fee_category' => $entry->fee_category, 'name' => $studentChrome['name'], 'email' => $entry->profile->user->email, 'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $studentChrome['photo_url']],
+            'section' => $section, 'academic' => [
+                'id' => $entry->id, 'application_uuid' => $entry->application->uuid, 'reference' => $entry->application->reference,
+                'matricule' => $studentChrome['matricule'], 'application_status' => $entry->application->status->value,
+                'student_status' => $entry->profile->student_status, 'enrollment_status' => $entry->enrollment_status,
+                'level' => $entry->level->title, 'faculty' => $entry->level->faculty->name, 'year' => $entry->academicYear->title,
+                'program' => $curriculum['program'] ?? $promotion?->program?->name ?? $entry->admissionCohort?->program?->name,
+                'promotion' => $promotion?->name ?? $curriculum['promotion'] ?? null,
+                'group' => \App\Modules\Teaching\Application\Services\CourseAudience::groupLabel($group),
+                'fee_category' => $entry->fee_category, 'name' => $studentChrome['name'], 'email' => $entry->profile->user->email,
+                'phone' => $entry->profile->personal_details['phone'] ?? null, 'photo_url' => $studentChrome['photo_url'],
+            ],
             'studentChrome' => $studentChrome,
             'finance_schedule' => $financeSection ? collect($statement['schedules'])->flatten(1)->sortBy(fn ($line) => $line['due_at'] ?? '9999-12-31')->values() : [],
             'first_installment' => $firstInstallment,
@@ -432,6 +445,8 @@ class StudentPortalController extends Controller
             'schedule_day' => $scheduleInput['day'] ?? null,
             'schedule_view' => $scheduleInput['view'] ?? 'week',
             'calendar_events' => $calendarEvents,
+            'pedagogical_registration_pending' => fn () => in_array($section, ['courses', 'overview'], true) && $permissions['courses_view']['allowed']
+                ? $this->access->pendingMandatoryRegistrations($entry) : [],
             'courses' => $courses, 'sessions' => $sessions, 'upcoming_sessions' => $sessions->filter(fn ($session) => $session['ends_at']->gte(now()))->values(), 'resources' => $resources, 'work_pagination' => $workPagination, 'activity_filter' => $workFilter['activity'] ?? null,
             'work_id' => isset($workFilter['work']) ? (int) $workFilter['work'] : null, 'assignment_counts' => $assignmentCounts,
             'evaluation_view' => $evaluationView, 'evaluation_counts' => $evaluationCounts,

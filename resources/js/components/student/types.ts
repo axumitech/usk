@@ -9,6 +9,8 @@ export type Academic = {
     faculty: string;
     level: string;
     year: string;
+    program?: string | null;
+    promotion?: string | null;
     group: string | null;
     application_status: string;
     student_status: string;
@@ -242,6 +244,7 @@ export type PortalProps = {
     } | null;
     lifecycle?: { reference: string; kind: string; status: string; decided_at: string }[];
     course_credits?: { earned: number | null; remaining: number | null; compensated: number | null; planned: number | null } | null;
+    pedagogical_registration_pending?: { id: number; title: string }[];
     progression_credits?: { earned: number; remaining: number; reference: string } | null;
     progression: {
         id: number;
