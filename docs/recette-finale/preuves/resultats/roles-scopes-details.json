@@ -1,0 +1,277 @@
+{
+  "actors": [
+    {
+      "key": "institutional",
+      "role": "admin",
+      "faculty": null,
+      "assertions": 7
+    },
+    {
+      "key": "dean_med",
+      "role": "admin",
+      "faculty": 1,
+      "permissions": [
+        "manage academic access",
+        "publish academic content",
+        "view dashboard",
+        "approve official documents",
+        "manage academic results",
+        "deliberate academic results",
+        "publish official results"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=3",
+          "status": 404
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "vice_med",
+      "role": "admin",
+      "faculty": 1,
+      "permissions": [
+        "manage academic access",
+        "publish academic content",
+        "view dashboard",
+        "approve official documents",
+        "manage academic results",
+        "deliberate academic results",
+        "publish official results"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=3",
+          "status": 404
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "registrar_med",
+      "role": "admin",
+      "faculty": 1,
+      "permissions": [
+        "manage academic access",
+        "view dashboard",
+        "manage official documents",
+        "issue official documents"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/schedule",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "finance_med",
+      "role": "admin",
+      "faculty": 1,
+      "permissions": [
+        "manage academic access",
+        "manage academic finance",
+        "view dashboard"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/finance?academic=1",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/finance?academic=7",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/schedule",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "dean_law",
+      "role": "admin",
+      "faculty": 2,
+      "permissions": [
+        "manage academic access",
+        "publish academic content",
+        "view dashboard",
+        "approve official documents",
+        "manage academic results",
+        "deliberate academic results",
+        "publish official results"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=3",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=1",
+          "status": 404
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "vice_law",
+      "role": "admin",
+      "faculty": 2,
+      "permissions": [
+        "manage academic access",
+        "publish academic content",
+        "view dashboard",
+        "approve official documents",
+        "manage academic results",
+        "deliberate academic results",
+        "publish official results"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=3",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/teaching?offering=1",
+          "status": 404
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "registrar_law",
+      "role": "admin",
+      "faculty": 2,
+      "permissions": [
+        "manage academic access",
+        "view dashboard",
+        "manage official documents",
+        "issue official documents"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/finance",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/schedule",
+          "status": 403
+        }
+      ]
+    },
+    {
+      "key": "finance_law",
+      "role": "admin",
+      "faculty": 2,
+      "permissions": [
+        "manage academic access",
+        "manage academic finance",
+        "view dashboard"
+      ],
+      "routes": [
+        {
+          "path": "/app/dashboard/admin/student-academic/7",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/student-academic/1",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/finance?academic=7",
+          "status": 200
+        },
+        {
+          "path": "/app/dashboard/admin/finance?academic=1",
+          "status": 403
+        },
+        {
+          "path": "/app/dashboard/admin/schedule",
+          "status": 403
+        }
+      ]
+    }
+  ],
+  "failures": []
+}

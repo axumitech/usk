@@ -1,0 +1,77 @@
+{
+  "name": "admission-negative",
+  "module": "admission-negative",
+  "records": [
+    {
+      "id": "ADM-NEG-CAMPAGNE",
+      "actor": "Candidat Droit / doyen Droit",
+      "faculty": "law",
+      "action": "Fermer une campagne et sélectionner cette formation",
+      "expected": "Message de fermeture et poursuite indisponible",
+      "obtained": "Message visible, bouton désactivé, aucune candidature soumise",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-negative-campagne-fermee.png"
+      ]
+    },
+    {
+      "id": "ADM-NEG-CAMPAGNE-RESTOREE",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Rétablir la configuration de campagne initiale",
+      "expected": "État, dates et pièces identiques à la configuration initiale",
+      "obtained": "Configuration initiale contrôlée après enregistrement",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-negative-campagne-restauree.png"
+      ]
+    },
+    {
+      "id": "ADM-NEG-INCOMPLET",
+      "actor": "Candidat Droit",
+      "faculty": "law",
+      "action": "Tenter de poursuivre le dossier sans justificatif obligatoire",
+      "expected": "Pièce exigée et candidature conservée en brouillon",
+      "obtained": "Erreur de validation visible, aucune inscription ni rôle étudiant",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-negative-dossier-incomplet.png"
+      ]
+    },
+    {
+      "id": "ADM-NEG-CORRECTION",
+      "actor": "Doyen Droit / candidat Droit",
+      "faculty": "law",
+      "action": "Demander une correction, remplacer la pièce et consulter l’historique",
+      "expected": "Version2 à réexaminer, ancien verdict conservé, aucune inscription créée",
+      "obtained": "Version2 pending, événements document_reviewed et document_replaced conservés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-negative-nouvelle-version-a-reexaminer.png",
+        "../captures/usk-06-admission-negative-historique-remplacement.png"
+      ]
+    },
+    {
+      "id": "ADM-NEG-REJET",
+      "actor": "Doyen Droit / candidat Droit",
+      "faculty": "law",
+      "action": "Prononcer un rejet motivé et consulter la décision",
+      "expected": "Rejet visible, motif conservé, aucune inscription ni rôle étudiant",
+      "obtained": "Statut rejected confirmé par sonde et motif visible au propriétaire",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-negative-rejet-motive.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 422 (Unprocessable Content)",
+      "url": "http://127.0.0.1:51415/app/dashboard/enrollments/create"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

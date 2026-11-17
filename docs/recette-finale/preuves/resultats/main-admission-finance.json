@@ -1,0 +1,137 @@
+{
+  "name": "main-admission-finance",
+  "module": "main-admission-finance",
+  "records": [
+    {
+      "id": "ADM-01",
+      "actor": "Candidat",
+      "faculty": "med",
+      "action": "Créer le compte puis vérifier l’adresse fictive",
+      "expected": "Compte user vérifié",
+      "obtained": "Formulaire de création et lien signé exécutés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-candidat-compte-cree.png"
+      ]
+    },
+    {
+      "id": "ADM-02",
+      "actor": "Candidat",
+      "faculty": "med",
+      "action": "Vérifier les pièces exigées par la campagne ouverte",
+      "expected": "Attestation fictive requise",
+      "obtained": "Programme officiel et document de campagne affichés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-candidat-piece-obligatoire.png"
+      ]
+    },
+    {
+      "id": "ADM-03",
+      "actor": "Candidat",
+      "faculty": "med",
+      "action": "Déposer la pièce et soumettre sa candidature",
+      "expected": "Dossier submitted",
+      "obtained": "Candidature transmise et UUID conservé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-candidat-dossier-soumis.png"
+      ]
+    },
+    {
+      "id": "ISO-ADM",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Ouvrir le dossier Médecine par lien direct",
+      "expected": "403 ou404",
+      "obtained": "Refus HTTP 403",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-doyen-droit-refus-medecine.png"
+      ]
+    },
+    {
+      "id": "ADM-04",
+      "actor": "Doyen Médecine / candidat",
+      "faculty": "med",
+      "action": "Examiner, motiver l’admission et consulter la décision",
+      "expected": "Admis et inscription en attente",
+      "obtained": "Décision enregistrée, rôle étudiant attribué et annualité pending_confirmation",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-admission-decision-medecine.png",
+        "../captures/usk-06-candidat-admission-recue.png"
+      ]
+    },
+    {
+      "id": "FIN-01",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Saisir un versement fictif en attente",
+      "expected": "La première tranche reste due",
+      "obtained": "Versement pending10USD, reste50USD",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-versement-en-attente.png"
+      ]
+    },
+    {
+      "id": "FIN-02",
+      "actor": "Étudiant et agent financier Médecine",
+      "faculty": "med",
+      "action": "Déposer et contrôler la preuve du versement existant",
+      "expected": "Rapprochement unique, paiement partiel insuffisant",
+      "obtained": "Un seul versement10USD confirmé, reste40USD",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-justificatif-rapproche.png"
+      ]
+    },
+    {
+      "id": "FIN-03",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Affecter un paiement à la deuxième obligation",
+      "expected": "Première tranche impayée, confirmation bloquée",
+      "obtained": "Paiement affecté à l’autre tranche, reste40USD sur la première",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mauvaise-affectation-refusee.png"
+      ]
+    },
+    {
+      "id": "FIN-04",
+      "actor": "Agent financier / étudiant Médecine",
+      "faculty": "med",
+      "action": "Confirmer puis reconnecter pour vérifier les droits",
+      "expected": "Inscription confirmed, notification unique",
+      "obtained": "Première tranche soldée, audit et notification uniques",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-inscription-confirmee-finances.png"
+      ]
+    },
+    {
+      "id": "FIN-05",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Ouvrir une inscription sans barème",
+      "expected": "Confirmation bloquée et motif visible",
+      "obtained": "Barème requis absent, bouton de confirmation indisponible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-bareme-absent-refus.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/enrollments/13"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

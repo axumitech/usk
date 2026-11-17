@@ -1,0 +1,69 @@
+{
+  "name": "history-group",
+  "module": "history-group",
+  "records": [
+    {
+      "id": "HIST-med",
+      "actor": "Étudiant med",
+      "faculty": "med",
+      "action": "Consulter son inscription de l’année précédente",
+      "expected": "Historique annuel et contexte personnel",
+      "obtained": "Année précédente et inscription terminée consultées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-historique-annuel-med.png"
+      ]
+    },
+    {
+      "id": "HIST-law",
+      "actor": "Étudiant law",
+      "faculty": "law",
+      "action": "Consulter son inscription de l’année précédente",
+      "expected": "Historique annuel et contexte personnel",
+      "obtained": "Année précédente et inscription terminée consultées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-historique-annuel-law.png"
+      ]
+    },
+    {
+      "id": "GROUP-01",
+      "actor": "Appariteur Médecine",
+      "faculty": "med",
+      "action": "Changer le groupe A vers B après remise d’un devoir",
+      "expected": "Affectation historisée sans effacer les copies",
+      "obtained": "Groupe B appliqué, copies et décisions conservées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-changement-groupe-historise.png"
+      ]
+    },
+    {
+      "id": "GROUP-02",
+      "actor": "Étudiant Médecine",
+      "faculty": "med",
+      "action": "Ouvrir un ancien support de groupe et la copie d’un camarade",
+      "expected": "Liens directs protégés après changement",
+      "obtained": "Support ancien public et copie d’un autre étudiant refusés HTTP403/404",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-changement-groupe-refus-copie-autrui.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/materials/1?academic=13"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/submissions/1/versions/1?academic=13"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

@@ -1,0 +1,474 @@
+[
+  {
+    "file": "captures/usk-06-admission-decision-medecine.png",
+    "sha256": "07c9276a081bac548a8d3fd2efd3cf1540fe941f9fb341dbfc60eb6adbd5239c"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-campagne-fermee.png",
+    "sha256": "3d05b5df07a79291064d1eeb673a0d89e73b2685b3b420d17b8ad215272e4f10"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-campagne-restauree.png",
+    "sha256": "2ba9c2ca9bac4fbf9722a8a8487998b395e0be0266c2c4956a128fc53cf0b4a2"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-dossier-incomplet.png",
+    "sha256": "4123c70a168a1367303df592145ff8610f6278cd0a6638508946de197841f653"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-historique-remplacement.png",
+    "sha256": "eb458e254b12fdc409c93d5cc53811a7ed7864057ea10e6ddf315a8643eeb751"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-nouvelle-version-a-reexaminer.png",
+    "sha256": "7fccc9ebaf7ba6d52a9e63ffc19f7364ec77a28ff8be79094d46f6e7393fdfcd"
+  },
+  {
+    "file": "captures/usk-06-admission-negative-rejet-motive.png",
+    "sha256": "aed74e98a194c2a3a0176ec50ee87c530bb649e56ea723ee4fb02160e4b15c32"
+  },
+  {
+    "file": "captures/usk-06-attestation-specimen-etudiant.pdf",
+    "sha256": "cbf5d06f13606ae4796662944d4539ce7104379840e69cb25d4bb2f30a5d082a"
+  },
+  {
+    "file": "captures/usk-06-attestation-specimen-rendu.png",
+    "sha256": "2edd0ed476106e62fcfc748d3d61503a5a74de72b4334ffd603abdaa5f39233f"
+  },
+  {
+    "file": "captures/usk-06-attestation-specimen.pdf",
+    "sha256": "cbf5d06f13606ae4796662944d4539ce7104379840e69cb25d4bb2f30a5d082a"
+  },
+  {
+    "file": "captures/usk-06-bareme-absent-refus.png",
+    "sha256": "39bb41172891eece6ff1ee3501c4910c967976c6fe612f1c2afea49f77bdfe07"
+  },
+  {
+    "file": "captures/usk-06-calendrier-academique.png",
+    "sha256": "df392f865db6012df8df87d49766bbd2241dca7b40a9c030e3e38b9f16b4d69e"
+  },
+  {
+    "file": "captures/usk-06-candidat-admission-recue.png",
+    "sha256": "90cd2cbda59d821d462513fcd3572d4214163bc6de12626a1c319784f45c0643"
+  },
+  {
+    "file": "captures/usk-06-candidat-compte-cree.png",
+    "sha256": "f73381c1d7fa06d62bda411c2b53cbabebde6e416a4d418037e74795e4c14031"
+  },
+  {
+    "file": "captures/usk-06-candidat-dossier-soumis.png",
+    "sha256": "ba6910f683384e2c5999697a7a1f843071b621ce961245ae568a576d0149ffef"
+  },
+  {
+    "file": "captures/usk-06-candidat-piece-obligatoire.png",
+    "sha256": "fe53938cf1aa1a79c945cf7e427513be9f7e7a86199cfe052e1c44ad239a599e"
+  },
+  {
+    "file": "captures/usk-06-changement-groupe-historise.png",
+    "sha256": "24d6f946a266a06e52518d429f49c0e03fa07fa8114ca38b4d13457291cc70db"
+  },
+  {
+    "file": "captures/usk-06-changement-groupe-refus-copie-autrui.png",
+    "sha256": "b650b5f472d47d523630052f33e872cebbe73ecb25d219a5860bdaf18d6e9417"
+  },
+  {
+    "file": "captures/usk-06-conflit-horaire-refuse.png",
+    "sha256": "e8538f4a392f048b04d9f2b7c5a6fc8235fa15e89b086b2832027ab2323b4b11"
+  },
+  {
+    "file": "captures/usk-06-document-bibliotheque-etudiant.png",
+    "sha256": "ef31cf2743eb8e6085f48832b9fb2628347647d79c152d078749859be339791f"
+  },
+  {
+    "file": "captures/usk-06-document-catalogue-specimen.png",
+    "sha256": "7fbc154f99a4c561df09f0c266a191290de495442f99bb0a809dae0026bab799"
+  },
+  {
+    "file": "captures/usk-06-document-specimen-emis.png",
+    "sha256": "24ffc94029ca689682fefb149f1126777657922e2561166e0da6afd8d4fdbb49"
+  },
+  {
+    "file": "captures/usk-06-document-verification-publique.png",
+    "sha256": "6dcb1d09e1819cfc273192ab5fabfcd175bea47da279bb07e641a90823284a53"
+  },
+  {
+    "file": "captures/usk-06-doyen-droit-refus-medecine.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-etudiant-law-7-correction.png",
+    "sha256": "50633236b80285c5f2cfcf157cc8165eadc1b7bc1c1aa3cc880e5a5db75cd29a"
+  },
+  {
+    "file": "captures/usk-06-etudiant-law-7-travail-transmis.png",
+    "sha256": "6da5a084c0dc0adca0f3ec84e08a02aa9eb967d1cfc1e8c6be57a26b8f070b8a"
+  },
+  {
+    "file": "captures/usk-06-etudiant-med-1-correction.png",
+    "sha256": "e56ce06cc0c5e79b42e14c98f4465e59213f0eacc906ad5a0c902e13bca2e575"
+  },
+  {
+    "file": "captures/usk-06-etudiant-med-1-travail-transmis.png",
+    "sha256": "beb5f4d33dbb2af848e107b6a61e82eadf9a3fc1b3c38427512bd97dc96986c1"
+  },
+  {
+    "file": "captures/usk-06-etudiant-med-13-correction.png",
+    "sha256": "4ee4a68003a0b70da6f416a22b47371b0ae2f57fc129136d77c8aee7b7a05698"
+  },
+  {
+    "file": "captures/usk-06-etudiant-med-13-travail-transmis.png",
+    "sha256": "84ed28f9bcd232e1973aa1b83773ec5da78b07522542ef32adcbefe1e56443bd"
+  },
+  {
+    "file": "captures/usk-06-etudiant-tardif-attente-pedagogique.png",
+    "sha256": "ae1fcc568a40fc1a7fc758500cc1070528ea524048ece0abe175d1dd38939824"
+  },
+  {
+    "file": "captures/usk-06-etudiant-tardif-inscrit-pedagogiquement.png",
+    "sha256": "594876b24cbb0dbeb49bffc1bc97e69cd37e3309eac05f55caddc31918e69e59"
+  },
+  {
+    "file": "captures/usk-06-etudiant-v1-apres-publication-v2.png",
+    "sha256": "af5d066e3febf8a3b760fa86370d0913e3ec3c13ce26c0437ce520d88ba3e876"
+  },
+  {
+    "file": "captures/usk-06-finance-remboursement-autorise.png",
+    "sha256": "11bdc288a107c5ec315d92f872bad7f7ede2bb170cd69a5f07b821a477c331f4"
+  },
+  {
+    "file": "captures/usk-06-finance-remboursement-demande.png",
+    "sha256": "96f5cbae4177ad9503d7d504344f5681fb3a36119b85e513e3fa1f67e8bd2d80"
+  },
+  {
+    "file": "captures/usk-06-finance-remboursement-etudiant-informe.png",
+    "sha256": "c9e4b918716f5da0148a6faa6a267ffb979a0723e30c495d70b8601e39adfe68"
+  },
+  {
+    "file": "captures/usk-06-finance-remboursement-notification.png",
+    "sha256": "487e1ca6329222cb5f7c2de592e7953019683a1a8c54d0241df05242fd1a7a9d"
+  },
+  {
+    "file": "captures/usk-06-finance-remboursement-reexamen-administratif.png",
+    "sha256": "70965619f53acf38f55e3f113501e62a3ba486212af349030497157c44ba01a6"
+  },
+  {
+    "file": "captures/usk-06-historique-annuel-law.png",
+    "sha256": "65a6c24e2fdfe7eb8d83d586b81cdb2cbbd7df90d3c4353dc2b79259dc75eca3"
+  },
+  {
+    "file": "captures/usk-06-historique-annuel-med.png",
+    "sha256": "80b1cc40dcf3d32902c7cf9a2ca00b24f0bdf6acd1321fabe470434de5df7460"
+  },
+  {
+    "file": "captures/usk-06-horaire-v2-publie.png",
+    "sha256": "5d5e5a54c0e91ccca419116cc86cf8280306efebde367c6f431a59a734244087"
+  },
+  {
+    "file": "captures/usk-06-inscription-confirmee-finances.png",
+    "sha256": "4af57fc5c9ee3286d7c33a04998d715a33cddd89351e280ad7526df4b00537e2"
+  },
+  {
+    "file": "captures/usk-06-justificatif-rapproche.png",
+    "sha256": "2cfcb6e3e3a6702cdf96cccd58a7ba05143ee700b8298f573b978389015a9ad5"
+  },
+  {
+    "file": "captures/usk-06-law-refus-correction-autre-faculte.png",
+    "sha256": "b650b5f472d47d523630052f33e872cebbe73ecb25d219a5860bdaf18d6e9417"
+  },
+  {
+    "file": "captures/usk-06-maquette-v2-brouillon.png",
+    "sha256": "f3d8aff21ab3b0e4ee1bb92ef7c9d7170fc7e4baeab739d1721ae23b9eebceae"
+  },
+  {
+    "file": "captures/usk-06-maquette-v2-publiee.png",
+    "sha256": "a18ba11ba6542d384d32e3bfe8bea4bcf816f077a6c57e5d318a35309f62b20d"
+  },
+  {
+    "file": "captures/usk-06-mauvaise-affectation-refusee.png",
+    "sha256": "2c8e575befcd6e38556fe1f3b278524481cda450aa952472aba18737c2284709"
+  },
+  {
+    "file": "captures/usk-06-med-refus-correction-autre-faculte.png",
+    "sha256": "b650b5f472d47d523630052f33e872cebbe73ecb25d219a5860bdaf18d6e9417"
+  },
+  {
+    "file": "captures/usk-06-mobile-candidate-accueil.png",
+    "sha256": "e9d76c7e2be871286e0ef3859361fc8ce54012d894a654f01b669d6c088979ea"
+  },
+  {
+    "file": "captures/usk-06-mobile-candidate-candidatures.png",
+    "sha256": "e688be93857bc4f90fc562d94574974dc4774c944063db1bf7685917f4bf4d39"
+  },
+  {
+    "file": "captures/usk-06-mobile-dean_med-accueil.png",
+    "sha256": "82b9cfa00a966e172892efbcb76af98d2e15e87cb9ca9088f4b362cada93acfb"
+  },
+  {
+    "file": "captures/usk-06-mobile-dean_med-admissions.png",
+    "sha256": "731b59b93c7a019396861a1db3ff310da851bf68922de56e7dbbaa1a3bd0d8cd"
+  },
+  {
+    "file": "captures/usk-06-mobile-dean_med-planning.png",
+    "sha256": "5c30533ea73cf4cc801c62392a6bf85d679859de97283afc53a3830dc6bb460d"
+  },
+  {
+    "file": "captures/usk-06-mobile-finance_med-accueil.png",
+    "sha256": "fb9f3e75de9363986018108e6e888fff090d67c6b89288b98edfda94ccd66fae"
+  },
+  {
+    "file": "captures/usk-06-mobile-finance_med-admissions.png",
+    "sha256": "731b59b93c7a019396861a1db3ff310da851bf68922de56e7dbbaa1a3bd0d8cd"
+  },
+  {
+    "file": "captures/usk-06-mobile-finance_med-finances.png",
+    "sha256": "5aa09abb59e34cee4ae57f8520ad47e3adc62dba8b01d6681f40d2cdbfca098b"
+  },
+  {
+    "file": "captures/usk-06-mobile-institutional-accueil.png",
+    "sha256": "92f114ad22ab14c648f9ebbf3aeaa2cb9236e7f099d2f715ace1b3515a26cd62"
+  },
+  {
+    "file": "captures/usk-06-mobile-institutional-admissions.png",
+    "sha256": "8e03e5936b22513ad9a25dd1c9f0a447ba08bd24f79e57144d7583e3eae5a1d3"
+  },
+  {
+    "file": "captures/usk-06-mobile-institutional-finances.png",
+    "sha256": "64f154e6521bbbcf5fcc925cc04ff6fa5b352fc328987bdef473a03928824a71"
+  },
+  {
+    "file": "captures/usk-06-mobile-institutional-planning.png",
+    "sha256": "a840d2c728cf745723cca27691a18e4eeb236862f14dd41a64a3bef55a4d9d04"
+  },
+  {
+    "file": "captures/usk-06-mobile-law-correction.png",
+    "sha256": "97cfbc670486eeac90e6c8f11a3be45817188320a053aee47471a546c6c95244"
+  },
+  {
+    "file": "captures/usk-06-mobile-med-correction.png",
+    "sha256": "43e54e51e101ade4db4c836e40e866f5f714e024d103747ac7cf73c8e8f9a9cc"
+  },
+  {
+    "file": "captures/usk-06-mobile-registrar_med-accueil.png",
+    "sha256": "06f2f7547b48e2786d5c472edba805dd309c98882d6280328179b50a7fc3f5b1"
+  },
+  {
+    "file": "captures/usk-06-mobile-registrar_med-admissions.png",
+    "sha256": "731b59b93c7a019396861a1db3ff310da851bf68922de56e7dbbaa1a3bd0d8cd"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_law-accueil.png",
+    "sha256": "77770e4c6f6bef645d1956faedae2902735158c82317535c44473fadb0545a8d"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_law-cours.png",
+    "sha256": "909d0e2a8ca394fb4054f88f8a96257213a4a6836a08223dc516ff1e8465a9c1"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_law-finances.png",
+    "sha256": "b799adb1dd458da1991598a94cc1519444f841942b68d74acecd7320abb0213d"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_law-planning.png",
+    "sha256": "69ebd4fa23fd5be8aac2c7c501377551ed43b5b96a8c6895dd1aa16626c32e69"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_med-accueil.png",
+    "sha256": "0afe647527296107b1669f37cf571c4bd23f618377720283701d6d41964fb074"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_med-cours.png",
+    "sha256": "484dc2c8a71554c2fd71100f5fec6cfff0fb770f19ccdaad3484b9d27901e0bd"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_med-finances.png",
+    "sha256": "0470d998607bb0374412595578f7671afd8e9b92500da309ac8c6796d9cb059f"
+  },
+  {
+    "file": "captures/usk-06-mobile-student_med-planning.png",
+    "sha256": "b509425e949863a90eaa99c9d99de7f462bf0726ddde8b9f7bee3c37b3f2a303"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_law-accueil.png",
+    "sha256": "1b31668929dbb29125f40f2ac08418f1b764aaa7ba902a995b4f33bb7effd4af"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_law-cours.png",
+    "sha256": "ecb48283d4c9895ef12fa5efcde543b7e450bf88039042ca4469bded3e537489"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_law-planning.png",
+    "sha256": "84bf8bcc69307221eb9ea77ae149c5dad08a86ba1d5ed1c06d8c4c36f03de1d5"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_med-accueil.png",
+    "sha256": "b33b1749fbb67543af59258392196ba9403237547a0e4247b3db597714569f5f"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_med-cours.png",
+    "sha256": "63172fc94827d0690f3c3f9a7aeff99ec1238f79e4c07a27df1e0ac699c01822"
+  },
+  {
+    "file": "captures/usk-06-mobile-teacher_med-planning.png",
+    "sha256": "eba5c63a4a6651cc45555a6e7ead7a6d5f393bcc1f60b59dcdd03c42e38e3b21"
+  },
+  {
+    "file": "captures/usk-06-mobile-vice_med-accueil.png",
+    "sha256": "82b9cfa00a966e172892efbcb76af98d2e15e87cb9ca9088f4b362cada93acfb"
+  },
+  {
+    "file": "captures/usk-06-mobile-vice_med-admissions.png",
+    "sha256": "731b59b93c7a019396861a1db3ff310da851bf68922de56e7dbbaa1a3bd0d8cd"
+  },
+  {
+    "file": "captures/usk-06-mobile-vice_med-planning.png",
+    "sha256": "5c30533ea73cf4cc801c62392a6bf85d679859de97283afc53a3830dc6bb460d"
+  },
+  {
+    "file": "captures/usk-06-offre-v2-publiee.png",
+    "sha256": "fdd326dcc264669bfa0bbb40fa1e91b8dd5b8c2b482d0a37511eb93dbcadad7a"
+  },
+  {
+    "file": "captures/usk-06-prof-law-7-correction-finalisee.png",
+    "sha256": "7fee27198c70e6fb600eb46ea607a4e0f36558f7b55ba677595ef360388512ac"
+  },
+  {
+    "file": "captures/usk-06-prof-law-annonce.png",
+    "sha256": "5a4c215c6ad8c76ca21ec1c04f8cad5db4bd30a4da99d2d4575e106a0f75935e"
+  },
+  {
+    "file": "captures/usk-06-prof-law-dashboard.png",
+    "sha256": "3b5502d90aca19e67e4edbc3db5f00ab149fca12d15e5b9c29a289e4a86ce690"
+  },
+  {
+    "file": "captures/usk-06-prof-law-devoir-publie.png",
+    "sha256": "fe74c89e515f3e7064d1bd822840b705705512c2c63a566e1c5fa20ee2964846"
+  },
+  {
+    "file": "captures/usk-06-prof-law-support-publie.png",
+    "sha256": "eaa5ee00c1ef50ebc5cf7cb036687ea4823121f53c897a71dd10dab0bfd5487c"
+  },
+  {
+    "file": "captures/usk-06-prof-med-1-correction-finalisee.png",
+    "sha256": "20f5baa9791664555825bf4ae4f938456d9d891abb1bb0b2f870e556dc16e63d"
+  },
+  {
+    "file": "captures/usk-06-prof-med-13-correction-finalisee.png",
+    "sha256": "d88370208eae669dc6ed5b1558128833c6d57e0559951c1551fd081fc123d373"
+  },
+  {
+    "file": "captures/usk-06-prof-med-annonce.png",
+    "sha256": "ecb801ace5be3adb72e2f43ce25b2722e7c369dad94c1cb980e4e03847dd96be"
+  },
+  {
+    "file": "captures/usk-06-prof-med-dashboard.png",
+    "sha256": "003201783782288e711570f17bb829c32e27f1eb57a2c89db6d9b9d15c6619fb"
+  },
+  {
+    "file": "captures/usk-06-prof-med-devoir-publie.png",
+    "sha256": "9d554a0fed52f9c759578fcdd89ef6bdd5709aa1399e8d0aacaf0739836d1c4a"
+  },
+  {
+    "file": "captures/usk-06-prof-med-support-publie.png",
+    "sha256": "710eeac6f5d4603f797f74c7ad81dd56983a4ab07d74d1c457fce6473374e556"
+  },
+  {
+    "file": "captures/usk-06-responsable-law-corrections-validees.png",
+    "sha256": "886bb0a524a519591eda546a4a7e78dc2e4cfe12520b42ca9421ca111faa6643"
+  },
+  {
+    "file": "captures/usk-06-responsable-med-corrections-validees.png",
+    "sha256": "84d48187702731e2a424e27fb8c7c16011c609122eff7d6b093a799bc158475f"
+  },
+  {
+    "file": "captures/usk-06-resultats-etudiant-publies.png",
+    "sha256": "f14d7b188cfff8ab264ca61795c20753aafce99c6fe1fd4a2e5957e11248d4b5"
+  },
+  {
+    "file": "captures/usk-06-resultats-jury-synthetique-publies.png",
+    "sha256": "73a9fd7373e36ee91e54797ed5be5d6ae038a624e34c3a04c293dc7cf382ada7"
+  },
+  {
+    "file": "captures/usk-06-roles-dean_law-dashboard.png",
+    "sha256": "05abd5421d6444550752ab01b32ddcf071621dcb0f41f78d647266109cdc5ef1"
+  },
+  {
+    "file": "captures/usk-06-roles-dean_law-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-dean_med-dashboard.png",
+    "sha256": "4e5f8d0ab093c6d49c86de476cf34581719e7b7891c27a349d3ea381bef05593"
+  },
+  {
+    "file": "captures/usk-06-roles-dean_med-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-finance_law-dashboard.png",
+    "sha256": "5ad6210d36ce56f99239cc1e7f289086fe39b1924cfb03a808d09d9a7ad0ec4b"
+  },
+  {
+    "file": "captures/usk-06-roles-finance_law-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-finance_med-dashboard.png",
+    "sha256": "dd6a0b27728f6091cc7497d7b5e49c7528c0faf5c424cc64bcbdf623c19e2967"
+  },
+  {
+    "file": "captures/usk-06-roles-finance_med-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-institutionnel.png",
+    "sha256": "a7e60e08b1ddddba0b5a5763b66f24381bc0c80cc8aa1792b022be9ba8963a7f"
+  },
+  {
+    "file": "captures/usk-06-roles-registrar_law-dashboard.png",
+    "sha256": "f842c1f03508bf5727ab16e1ad0f2b5360cef3752a3d6010dd0d2fbde7c82ec9"
+  },
+  {
+    "file": "captures/usk-06-roles-registrar_law-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-registrar_med-dashboard.png",
+    "sha256": "de51c65001f294346b95b8342f32e0e2cdbe1ff2936f6344aeff2ed5280f9818"
+  },
+  {
+    "file": "captures/usk-06-roles-registrar_med-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-vice_law-dashboard.png",
+    "sha256": "05abd5421d6444550752ab01b32ddcf071621dcb0f41f78d647266109cdc5ef1"
+  },
+  {
+    "file": "captures/usk-06-roles-vice_law-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-roles-vice_med-dashboard.png",
+    "sha256": "4e5f8d0ab093c6d49c86de476cf34581719e7b7891c27a349d3ea381bef05593"
+  },
+  {
+    "file": "captures/usk-06-roles-vice_med-dossier-autre-faculte-refuse.png",
+    "sha256": "ec0a2ef04c8e4493b27973b1f60e8f6e85b6d30917eeef887e1f4d6dd626d01b"
+  },
+  {
+    "file": "captures/usk-06-structure-cycles-programmes.png",
+    "sha256": "d9d72bd03c2566ad618b9a8b6ce8d0965394c92cf72ab25957821aa611f1140a"
+  },
+  {
+    "file": "captures/usk-06-support-prive-refuse-au-public.png",
+    "sha256": "b650b5f472d47d523630052f33e872cebbe73ecb25d219a5860bdaf18d6e9417"
+  },
+  {
+    "file": "captures/usk-06-support-republie-accessible.png",
+    "sha256": "eb8377730b40016b3709bc1a966d20e52d231c1b11c7aa782b46446b43ab56b6"
+  },
+  {
+    "file": "captures/usk-06-versement-en-attente.png",
+    "sha256": "dd6a0b27728f6091cc7497d7b5e49c7528c0faf5c424cc64bcbdf623c19e2967"
+  }
+]
