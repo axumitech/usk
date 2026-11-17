@@ -1,0 +1,34 @@
+{
+  "name": "late-history",
+  "module": "late-history",
+  "records": [
+    {
+      "id": "LATE-01",
+      "actor": "Appariteur / étudiant Médecine",
+      "faculty": "med",
+      "action": "Affecter un nouvel inscrit au groupe et signaler la participation manquante",
+      "expected": "Cours réservé jusqu’à inscription pédagogique",
+      "obtained": "Affectation historisée et avertissement compréhensible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-tardif-attente-pedagogique.png"
+      ]
+    },
+    {
+      "id": "LATE-02",
+      "actor": "Appariteur / étudiant Médecine",
+      "faculty": "med",
+      "action": "Synchroniser explicitement l’offre pour l’étudiant tardif",
+      "expected": "Accès pédagogique après décision",
+      "obtained": "Cours et enseignant visibles après synchronisation",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-tardif-inscrit-pedagogiquement.png"
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

@@ -1,5 +1,5 @@
 import AdminModal from '@/components/admin/AdminModal';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import { messages, type Props, type ScheduleGeneration, type Version } from './types';
 
@@ -280,6 +280,9 @@ export function Transition({
         (item) =>
             item.id !== version.id && item.academic_year_id === version.academic_year_id && item.admission_cohort_id === version.admission_cohort_id,
     );
+    const scheduled = context.levelWorkspace.flatMap((level) =>
+        level.schedule.filter((offering) => offering.sessions.length > 0).map((offering) => ({ ...offering, level: level.title })),
+    );
     const submit = (event: FormEvent) => {
         event.preventDefault();
         form.post(route('dashboard.admin.academic-structure.versions.transition', version.id), { preserveScroll: true, onSuccess: onClose });
@@ -289,7 +292,7 @@ export function Transition({
             title={titles[action]}
             description={
                 action === 'publish'
-                    ? 'La publication rend les séances approuvées visibles dans l’horaire des étudiants concernés.'
+                    ? 'La version devient la référence pédagogique du programme. Les offres historiques approuvées ci-dessous et leurs séances deviennent visibles selon les droits de leur public.'
                     : 'Les inscriptions déjà rattachées conservent leur version. Cette décision est enregistrée dans l’historique.'
             }
             onClose={onClose}
@@ -302,6 +305,30 @@ export function Transition({
                 <p>
                     {version.code} · {version.name}
                 </p>
+                {action === 'publish' && (
+                    <section aria-label="Enseignements concernés par la publication">
+                        <p>
+                            {scheduled.length} offre(s) historique(s) et {scheduled.reduce((total, offering) => total + offering.sessions.length, 0)}
+                            {' '}séance(s) associée(s) dans la revue approuvée.
+                        </p>
+                        {scheduled.length > 0 && (
+                            <ul>
+                                {scheduled.map((offering) => (
+                                    <li key={offering.id}>
+                                        {offering.course} · {offering.level} · {offering.audience} · {offering.sessions.length} séance(s)
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <p>
+                            Les offres historiques dont le programme reste ambigu demandent une vérification dans Enseignements.
+                            Les offres versionnées et leurs inscriptions pédagogiques se préparent aussi dans cet espace.
+                        </p>
+                        <Link href={route('dashboard.admin.teaching.index', { year: version.academic_year_id || undefined })}>
+                            Vérifier les enseignements de l’année
+                        </Link>
+                    </section>
+                )}
                 {action === 'publish' && current.length > 0 && (
                     <label className="admin-field">
                         Version publiée à remplacer

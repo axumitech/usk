@@ -9,24 +9,24 @@ export default function Step3Academic({
     removeFile,
     previews,
     uploadingKeys,
-}: DocumentStepProps) {
+    officialProgram = false,
+}: DocumentStepProps & { officialProgram?: boolean }) {
     return (
         <div className="enrollment-fields">
             <div className="enrollment-field">
-                <label htmlFor="program">
-                    Programme d’études <span className="enrollment-required">*</span>
-                </label>
+                <label htmlFor="program">Programme d’études {!officialProgram && <span className="enrollment-required">*</span>}</label>
                 <input
                     id="program"
                     value={formData.program}
                     placeholder="Indiquez le programme ou la filière souhaitée"
-                    required
+                    required={!officialProgram}
+                    readOnly={officialProgram}
                     aria-invalid={!!errors.program}
                     aria-describedby={`program-help${errors.program ? ' program-error' : ''}`}
                     onChange={(e) => handleFieldChange('program', e.target.value)}
                 />
                 <p id="program-help" className="enrollment-field-help">
-                    Précisez le programme correspondant à votre projet d’études.
+                    {officialProgram ? 'Ce programme correspond à votre choix de formation.' : 'Précisez le programme correspondant à votre projet d’études.'}
                 </p>
                 {errors.program && (
                     <p id="program-error" className="enrollment-field-error" role="alert">

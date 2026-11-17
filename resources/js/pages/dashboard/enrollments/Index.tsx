@@ -1,6 +1,6 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import { formatDate, nextStep, statusLabels, type StudentEnrollment } from '@/lib/studentEnrollment';
+import { correctionsRequired, formatDate, nextStep, statusLabels, type StudentEnrollment } from '@/lib/studentEnrollment';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRight, CheckCircle2, Clock3, FileCheck2, FilePenLine, FolderOpen, GraduationCap, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
@@ -33,17 +33,17 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
     };
     return (
         <Dashboard>
-            <Head title="Mes inscriptions" />
+            <Head title="Mes candidatures" />
             <div className="student-enrollments" data-dashboard-arrival-grid>
                 <header className="student-page-heading">
                     <div>
                         <span>MON PARCOURS À L’USK</span>
-                        <h1>Mes inscriptions</h1>
+                        <h1>Mes candidatures</h1>
                         <p>Chaque étape de votre candidature, dans un seul espace.</p>
                     </div>
                     <Link href="/app/dashboard/enrollments/create" className="student-primary">
                         <Plus size={17} />
-                        Nouvelle inscription
+                        Nouvelle candidature
                     </Link>
                 </header>
                 {success && (
@@ -56,7 +56,7 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                         { label: 'Dossiers', value: stats.total, icon: FolderOpen },
                         { label: 'Brouillons', value: stats.draft, icon: FilePenLine },
                         { label: 'En cours', value: stats.in_progress, icon: Clock3 },
-                        { label: 'Validés', value: stats.validated, icon: CheckCircle2 },
+                        { label: 'Admis', value: stats.validated, icon: CheckCircle2 },
                     ].map((item) => (
                         <div key={item.label}>
                             <item.icon size={21} strokeWidth={1.5} />
@@ -119,8 +119,8 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                                 <article key={entry.id} className="student-enrollment-card">
                                     <header>
                                         <span className="student-reference">{entry.reference}</span>
-                                        <span className={`student-badge is-${entry.status}`}>
-                                            {statusLabels[entry.status] || 'Statut à confirmer'}
+                                        <span className={`student-badge is-${correctionsRequired(entry) ? 'correction_requested' : entry.status}`}>
+                                            {correctionsRequired(entry) ? 'Correction demandée' : statusLabels[entry.status] || 'Statut à confirmer'}
                                         </span>
                                     </header>
                                     <div className="student-card-program">
@@ -129,7 +129,10 @@ export default function Index({ enrollments, filters, stats, success }: Props) {
                                         </span>
                                         <div>
                                             <p>{entry.level?.faculty?.name || 'Faculté à choisir'}</p>
-                                            <h3>{entry.level?.title || 'Formation à compléter'}</h3>
+                                            <h3>{entry.requested_program || entry.level?.title || 'Formation à compléter'}</h3>
+                                            {entry.requested_program && entry.level?.title && entry.requested_program !== entry.level.title && (
+                                                <p>{entry.level.title}</p>
+                                            )}
                                         </div>
                                     </div>
                                     <dl className="student-card-facts">

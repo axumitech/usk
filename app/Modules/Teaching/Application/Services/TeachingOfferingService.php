@@ -63,8 +63,11 @@ final class TeachingOfferingService
                 || (int) $prerequisite->version->academic_program_id !== (int) $program->id)) {
                 throw ValidationException::withMessages(['required_unit_id' => 'Le prérequis doit être une autre UE publiée de ce programme.']);
             }
-            $overlap = AcademicOffering::where('academic_year_id', $year->id)->where('course_id', $course->id)->whereNull('archived_at')
-                ->where(fn ($q) => $q->whereNull('curriculum_item_id')->orWhere('curriculum_item_id', $item->id))
+            $overlap = AcademicOffering::where('academic_year_id', $year->id)->where('course_id', $course->id)
+                ->where('level_id', $unit->level_id)->whereNull('archived_at')
+                ->where(fn ($q) => $q->where('curriculum_item_id', $item->id)->orWhere(fn ($legacy) => $legacy->whereNull('curriculum_item_id')
+                    ->whereDoesntHave('group.promotion', fn ($promotion) => $promotion->where('academic_year_id', $year->id)
+                        ->where('level_id', $unit->level_id)->where('academic_program_id', '!=', $program->id))))
                 ->when($group, fn ($q) => $q->where(fn ($q) => $q->whereNull('class_id')->orWhere('class_id', $group->id)))
                 ->when($program->academic_department_id, fn ($q, $id) => $q->where(fn ($q) => $q->whereNull('academic_department_id')->orWhere('academic_department_id', $id)))->exists();
             if ($overlap) {
@@ -92,16 +95,29 @@ final class TeachingOfferingService
             if ($action === 'archive' && $offering->archived_at || $action === 'publish' && $offering->is_published && ! $offering->archived_at) {
                 return;
             }
-            if ($action === 'publish' && ! $offering->archived_at && $offering->professor?->is_active && in_array($offering->academicYear->status, ['draft', 'open'], true)
-                && (! $offering->curriculum_item_id || $offering->curriculumItem->unit->version->published_at)) {
+            if ($action === 'publish') {
+                if ($blocker = $this->publicationBlocker($offering)) {
+                    throw ValidationException::withMessages(['offering' => $blocker]);
+                }
                 $offering->update(['is_published' => true]);
             } elseif ($action === 'archive') {
                 // Keep publication history; registered students may still consult past sessions.
                 $offering->update(['archived_at' => now()]);
             } else {
-                throw ValidationException::withMessages(['offering' => 'La publication exige un responsable actif et une offre non archivée dans une année ouverte ou préparée.']);
+                throw ValidationException::withMessages(['offering' => 'Action inconnue pour cette offre.']);
             }
             Audit::record($actor->id, 'teaching_offering_'.$action, $offering, $reason);
         }, 3);
+    }
+
+    public function publicationBlocker(AcademicOffering $offering): ?string
+    {
+        return match (true) {
+            (bool) $offering->archived_at => 'Cette offre est archivée.',
+            ! in_array($offering->academicYear->status, ['draft', 'open'], true) => 'La publication exige une année ouverte ou en préparation.',
+            ! $offering->professor?->is_active => 'Affectez un enseignant responsable actif avant de publier.',
+            $offering->curriculum_item_id && ! $offering->curriculumItem?->unit?->version?->published_at => 'Publiez la maquette avant l’offre.',
+            default => null,
+        };
     }
 }

@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-17",
+  "sqlite": {
+    "tests": 539,
+    "passed": 539,
+    "assertions": 161482
+  },
+  "postgres": {
+    "tests": 266,
+    "passed": 265,
+    "errors": 1,
+    "fixture": "UniversityFinanceTest.php:544, TARIF-AUTRE dépasse varchar(10)"
+  },
+  "concurrency": {
+    "tests": 9,
+    "passed": 9,
+    "assertions": 62
+  },
+  "frontend": {
+    "tests": 118,
+    "passed": 118
+  },
+  "typescript": "passed",
+  "eslint": "passed",
+  "vite": "passed_with_warnings",
+  "php_syntax": {
+    "files": 39,
+    "errors": 0
+  },
+  "browser": {
+    "modules": 12,
+    "scenarios": 89,
+    "failed": 0,
+    "javascript_errors": 0,
+    "desktop_routes": 44,
+    "mobile_screens": 31
+  }
+}

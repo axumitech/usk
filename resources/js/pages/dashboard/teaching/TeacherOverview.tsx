@@ -27,7 +27,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
-import type { TeacherAnnouncement, TeacherCourse, TeacherOverview, TeacherView } from './overviewTypes';
+import type { TeacherAnnouncement, TeacherCalendarEvent, TeacherCourse, TeacherOverview, TeacherView } from './overviewTypes';
 
 const date = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: zone });
 const weekRange = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: zone });
@@ -392,6 +392,38 @@ export function TeacherTimetable({ data, view }: { data: TeacherOverview; view: 
     );
 }
 
+export function TeacherAcademicCalendar({ events = [] }: { events?: TeacherCalendarEvent[] }) {
+    if (!events.length) return null;
+
+    return (
+        <TeacherPanel id="teacher-calendar" title="Calendrier académique" icon={CalendarDays}>
+            <ul className="teacher-list" role="list">
+                {events.map((event) => (
+                    <li key={event.id} className="teacher-row">
+                        <span className="teacher-symbol">
+                            <CalendarDays size={17} aria-hidden="true" />
+                        </span>
+                        <span className="teacher-row-copy">
+                            <strong>{event.title}</strong>
+                            <small>{event.category_label}</small>
+                            <small>
+                                {event.start_date === event.end_date ? (
+                                    <time dateTime={event.start_date}>{dateLabel(event.start_date)}</time>
+                                ) : (
+                                    <>
+                                        Du <time dateTime={event.start_date}>{dateLabel(event.start_date)}</time> au{' '}
+                                        <time dateTime={event.end_date}>{dateLabel(event.end_date)}</time>
+                                    </>
+                                )}
+                            </small>
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        </TeacherPanel>
+    );
+}
+
 function QuickActions({ data, onAnnounce }: { data: TeacherOverview; onAnnounce?: () => void }) {
     const actions = [
         { href: data.links.create_assessment, title: 'Créer une évaluation', icon: Plus, tone: 'mint' },
@@ -618,6 +650,7 @@ export function TeacherHome({ data, onAnnounce }: { data: TeacherOverview; onAnn
                     <TeacherPanel id="teacher-schedule" title="Mon emploi du temps" icon={CalendarDays} more={data.links.schedule}>
                         <TeacherTimetable data={data} view="home" />
                     </TeacherPanel>
+                    <TeacherAcademicCalendar events={data.calendar_events} />
                     <TeacherPanel id="teacher-courses" title="Mes cours" icon={BookOpen} more={data.links.courses}>
                         <TeacherCourseRows courses={data.courses} />
                     </TeacherPanel>

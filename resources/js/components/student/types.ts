@@ -9,6 +9,8 @@ export type Academic = {
     faculty: string;
     level: string;
     year: string;
+    program?: string | null;
+    promotion?: string | null;
     group: string | null;
     application_status: string;
     student_status: string;
@@ -29,6 +31,15 @@ export type Balance = {
     overdue_cents: number;
     credit_cents: number;
     financial_clearance_status: string;
+};
+export type FirstInstallment = {
+    status: 'absent' | 'invalid' | 'due' | 'covered';
+    currency: string;
+    amount_cents: number | null;
+    paid_cents: number | null;
+    waived_cents: number | null;
+    remaining_cents: number | null;
+    due_at?: string | null;
 };
 export type AssessmentActivity = {
     category: string;
@@ -210,6 +221,8 @@ export type PortalProps = {
     profile_edit_field?: string | null;
     profile_completion?: StudentProfileCompletion | null;
     finance_schedule?: FinanceDueLine[];
+    first_installment?: FirstInstallment | null;
+    first_installment_review_required?: boolean;
     finance_details?: {
         obligations: FinanceObligation[];
         kinds?: Record<string, Balance>;
@@ -231,6 +244,7 @@ export type PortalProps = {
     } | null;
     lifecycle?: { reference: string; kind: string; status: string; decided_at: string }[];
     course_credits?: { earned: number | null; remaining: number | null; compensated: number | null; planned: number | null } | null;
+    pedagogical_registration_pending?: { id: number; title: string }[];
     progression_credits?: { earned: number; remaining: number; reference: string } | null;
     progression: {
         id: number;

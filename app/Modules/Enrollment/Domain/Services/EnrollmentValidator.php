@@ -4,6 +4,7 @@ namespace App\Modules\Enrollment\Domain\Services;
 
 use App\Models\AcademicStructure\AdmissionCampaign;
 use App\Models\Enrollment;
+use App\Models\Level;
 use App\Modules\AdmissionCondition\Application\UseCases\GetRequirementsFor;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ class EnrollmentValidator
         $snapshot = $enrollment->form_snapshot ?? [];
         $fields = Validator::make($snapshot, [
             'faculty_id' => 'required|integer|min:1', 'level_id' => 'required|integer|min:1', 'year_id' => 'required|integer|min:1',
-            'name' => 'required|string|max:255', 'email' => 'required|email|max:254', 'program' => 'required|string|max:255',
+            'name' => 'required|string|max:255', 'email' => 'required|email|max:254', 'program' => 'nullable|string|max:255',
             'isConfirmed' => 'accepted',
         ]);
         if ($fields->fails()) {
@@ -28,6 +29,9 @@ class EnrollmentValidator
             throw new InvalidEnrollmentStateException('Le niveau, la faculté et l’année ne correspondent pas au dossier.');
         }
         $program = $this->available($enrollment);
+        if ($program === null && blank($snapshot['program'] ?? null)) {
+            throw new InvalidEnrollmentStateException('Indiquez la formation souhaitée avant de transmettre le dossier.');
+        }
         $requirements = $this->requiredDocuments($enrollment, $program);
 
         $documents = $enrollment->documents()->get()->keyBy('key');
@@ -54,22 +58,9 @@ class EnrollmentValidator
             throw new InvalidEnrollmentStateException('Ce niveau ou cette faculté ne reçoit plus de candidatures pour cette année.');
         }
 
-        $choice = $enrollment->form_snapshot['academic_program_id'] ?? null;
-        if ($choice !== null && $choice !== '' && filter_var($choice, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
-            throw new InvalidEnrollmentStateException('Le programme sélectionné est invalide.');
-        }
-        $programs = $level->programs()->openForAdmission()->pluck('academic_programs.id');
-        if (($level->programs()->exists() && $programs->isEmpty()) || ($choice && ! $programs->contains((int) $choice))) {
-            throw new InvalidEnrollmentStateException('Le programme choisi n’est pas ouvert pour ce niveau.');
-        }
-        if ($programs->count() > 1 && ! $choice) {
-            if (! $checkCampaignWindow && empty($enrollment->meta['submitted_at'])) {
-                return null; // A historical dossier can be reviewed without guessing its program.
-            }
-            throw new InvalidEnrollmentStateException('Choisissez explicitement le programme officiel pour ce niveau.');
-        }
-
-        $programId = $choice ? (int) $choice : $programs->first();
+        // A submitted legacy dossier can be reviewed without guessing its program.
+        $programId = $this->programForLevel($level, $enrollment->form_snapshot['academic_program_id'] ?? null,
+            allowOmission: ! $checkCampaignWindow && empty($enrollment->meta['submitted_at']));
         if ($checkCampaignWindow && $programId !== null) {
             $campaign = AdmissionCampaign::forContext($programId, $year->id, $level->id);
             if ($campaign && ! $campaign->acceptsApplications()) {
@@ -78,6 +69,22 @@ class EnrollmentValidator
         }
 
         return $programId;
+    }
+
+    public function programForLevel(Level $level, mixed $choice, bool $allowOmission = false): ?int
+    {
+        if ($choice !== null && $choice !== '' && filter_var($choice, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+            throw new InvalidEnrollmentStateException('Le programme sélectionné est invalide.');
+        }
+        $programs = $level->programs()->openForAdmission()->pluck('academic_programs.id');
+        if (($level->programs()->exists() && $programs->isEmpty()) || ($choice && ! $programs->contains((int) $choice))) {
+            throw new InvalidEnrollmentStateException('Le programme choisi n’est pas ouvert pour ce niveau.');
+        }
+        if ($programs->count() > 1 && ! $choice && ! $allowOmission) {
+            throw new InvalidEnrollmentStateException('Choisissez explicitement le programme officiel pour ce niveau.');
+        }
+
+        return $choice ? (int) $choice : ($programs->count() === 1 ? (int) $programs->first() : null);
     }
 
     public function requiredDocuments(Enrollment $enrollment, ?int $programId = null): array

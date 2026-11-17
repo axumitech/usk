@@ -127,7 +127,8 @@ class AdminEnrollmentManagementTest extends TestCase
         $this->actingAs($admin)->from('/app/dashboard/admin/enrollments/'.$dossier->id)->post('/app/dashboard/admin/enrollments/'.$dossier->id.'/validate')->assertRedirect()->assertSessionHasNoErrors();
         $fresh = $dossier->fresh();
         $this->assertSame('validated', $fresh->status->value);
-        $this->assertNotNull($fresh->enrolled_at);
+        $this->assertNull($fresh->enrolled_at);
+        $this->assertNotNull($fresh->meta['validated_at']);
         $this->assertSame('unpaid', $fresh->payment_status->value);
         $this->assertSame($admin->id, $fresh->meta['validated_by']);
         $this->assertDatabaseHas('enrollment_events', ['enrollment_id' => $dossier->id, 'event' => 'validated', 'actor_id' => $admin->id]);

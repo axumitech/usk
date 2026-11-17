@@ -1,0 +1,440 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "actors": [
+    {
+      "key": "institutional",
+      "faculty": null,
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-institutional-accueil.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/admin/schedule",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-institutional-planning.png"
+        },
+        {
+          "key": "admissions",
+          "path": "/app/dashboard/admin/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-institutional-admissions.png"
+        },
+        {
+          "key": "finances",
+          "path": "/app/dashboard/admin/finance",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-institutional-finances.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "dean_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-dean_med-accueil.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/admin/schedule",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-dean_med-planning.png"
+        },
+        {
+          "key": "admissions",
+          "path": "/app/dashboard/admin/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-dean_med-admissions.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "vice_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-vice_med-accueil.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/admin/schedule",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-vice_med-planning.png"
+        },
+        {
+          "key": "admissions",
+          "path": "/app/dashboard/admin/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-vice_med-admissions.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "registrar_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-registrar_med-accueil.png"
+        },
+        {
+          "key": "admissions",
+          "path": "/app/dashboard/admin/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-registrar_med-admissions.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "finance_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-finance_med-accueil.png"
+        },
+        {
+          "key": "admissions",
+          "path": "/app/dashboard/admin/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-finance_med-admissions.png"
+        },
+        {
+          "key": "finances",
+          "path": "/app/dashboard/admin/finance",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-finance_med-finances.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "teacher_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_med-accueil.png"
+        },
+        {
+          "key": "cours",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_med-cours.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_med-planning.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "teacher_law",
+      "faculty": "law",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_law-accueil.png"
+        },
+        {
+          "key": "cours",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_law-cours.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/teacher",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-teacher_law-planning.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "student_med",
+      "faculty": "med",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard/student",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_med-accueil.png"
+        },
+        {
+          "key": "cours",
+          "path": "/app/dashboard/student/courses",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_med-cours.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/student/schedule",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_med-planning.png"
+        },
+        {
+          "key": "finances",
+          "path": "/app/dashboard/student/fees",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_med-finances.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "student_law",
+      "faculty": "law",
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard/student",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_law-accueil.png"
+        },
+        {
+          "key": "cours",
+          "path": "/app/dashboard/student/courses",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_law-cours.png"
+        },
+        {
+          "key": "planning",
+          "path": "/app/dashboard/student/schedule",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_law-planning.png"
+        },
+        {
+          "key": "finances",
+          "path": "/app/dashboard/student/fees",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-student_law-finances.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    },
+    {
+      "key": "candidate",
+      "faculty": null,
+      "pages": [
+        {
+          "key": "accueil",
+          "path": "/app/dashboard/student",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-candidate-accueil.png"
+        },
+        {
+          "key": "candidatures",
+          "path": "/app/dashboard/enrollments",
+          "status": 200,
+          "dimensions": {
+            "viewport": 390,
+            "document": 390,
+            "body": 390
+          },
+          "proof": "../captures/usk-06-mobile-candidate-candidatures.png"
+        }
+      ],
+      "javascript_errors": [],
+      "console_errors": [],
+      "failed_requests": []
+    }
+  ],
+  "failures": []
+}

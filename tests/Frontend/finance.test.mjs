@@ -15,7 +15,7 @@ async function load(path, imports = {}) {
     vm.runInNewContext(output, { module, exports: module.exports, route: (name, value) => `/route/${name}?${typeof value === 'object' ? new URLSearchParams(value) : `id=${value}`}`, URLSearchParams, crypto: { randomUUID: () => 'operation-key' }, require(name) {
         if (name in imports) return imports[name];
         if (name.endsWith('.css')) return {};
-        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, preserveScroll, ...props }) => React.createElement('a', { ...props, 'data-inertia': 'true', 'data-preserve-scroll': preserveScroll || undefined }, children), useForm: data => ({ data, errors: {}, processing: false }) };
+        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, preserveScroll, ...props }) => React.createElement('a', { ...props, 'data-inertia': 'true', 'data-preserve-scroll': preserveScroll || undefined }, children), useForm: data => ({ data, errors: {}, processing: false }), usePage: () => ({ props: {} }) };
         if (name === '@/components/layouts/Dashboard/Dashboard') return { default: ({ children }) => React.createElement('div', {}, children) };
         if (name === '../studentAcademic/AcademicForm' || name === '@/components/admin/AdminModal') return { default: () => null };
         if (name === '@/components/admin/Pagination' || name === '@/components/admin/FeedbackToast') return { default: () => null };
@@ -31,10 +31,17 @@ const charts = await load('pages/dashboard/finance/FinanceCharts.tsx');
 const overview = await load('pages/dashboard/finance/FinanceOverview.tsx', { './FinanceCharts': charts });
 const enrollment = await load('lib/studentEnrollment.ts');
 const accountOverview = await load('pages/dashboard/finance/FinanceAccountOverview.tsx', { '@/lib/studentEnrollment': enrollment });
-const account = await load('pages/dashboard/finance/FinanceAccount.tsx', { './FinanceAccountOverview': accountOverview });
+const installmentDetails = await load('components/student/FirstInstallmentDetails.tsx', {
+    '@/lib/studentEnrollment': enrollment,
+    './types': { money: (value, currency) => `${value} ${currency}` },
+});
+const installmentImport = { '@/components/student/FirstInstallmentDetails': installmentDetails };
+const accountImports = { ...installmentImport, './FinanceAccountOverview': accountOverview };
+const account = await load('pages/dashboard/finance/FinanceAccount.tsx', accountImports);
+const Confirmations = (await load('pages/dashboard/finance/Confirmations.tsx', installmentImport)).default;
 let capturedPaymentForm;
 const AccountActions = (await load('pages/dashboard/finance/FinanceAccount.tsx', {
-    './FinanceAccountOverview': accountOverview,
+    ...accountImports,
     react: { useState: (value) => [value, (updated) => { capturedPaymentForm = updated; }] },
 })).default;
 const Finance = (await load('pages/dashboard/finance/Index.tsx', { './FinanceOverview': overview, './FinanceAccount': account })).default;
@@ -279,4 +286,43 @@ test('Le compte distingue les justificatifs à contrôler des versements déjà 
     assert.match(html, /aria-label="Refuser le justificatif EN-ATTENTE"/);
     assert.doesNotMatch(html, /aria-label="Valider le justificatif DEJA-SAISI"/);
     assert.match(html, /Versement à confirmer/);
+});
+
+test('La file expose le solde de première tranche et respecte le blocage de confirmation', () => {
+    const base = {
+        id: 7, name: 'Étudiant', level: 'L1', year: '2026-2027', faculty: 'Sciences',
+        canConfirm: true, context: 'enrollment-context',
+    };
+    const tranche = { status: 'due', currency: 'USD', amount_cents: 2500, paid_cents: 0, waived_cents: 0, remaining_cents: 2500 };
+    const renderQueue = (entry) => renderToStaticMarkup(React.createElement(Confirmations, {
+        entries: { data: [{ ...base, ...entry }], total: 1, current_page: 1 }, filters: {}, requiresPayment: true,
+    }));
+    const blocked = renderQueue({ blocker: 'Première tranche à couvrir', first_installment: tranche });
+    assert.match(blocked, /Reste dû sur cette tranche<\/dt><dd[^>]*>2500 USD/);
+    assert.doesNotMatch(blocked, /Confirmer l’inscription<\/button>/);
+    assert.match(
+        renderQueue({ blocker: null, first_installment: { ...tranche, status: 'covered', paid_cents: 2500, remaining_cents: 0 } }),
+        /Confirmer l’inscription<\/button>/,
+    );
+});
+
+test('Le compte signale le réexamen financier tout en affichant l’inscription confirmée', () => {
+    const html = renderToStaticMarkup(React.createElement(Finance, {
+        ...page,
+        selected: { id: 1, name: 'Étudiant', year: '2026-2027' },
+        accountBackUrl: '/finance',
+        accountBackLabel: 'Comptes étudiants',
+        enrollmentConfirmation: {
+            status: 'confirmed',
+            canConfirm: false,
+            first_installment: { status: 'due', currency: 'USD', amount_cents: 2500, paid_cents: 2000, waived_cents: 0, remaining_cents: 500 },
+            first_installment_review_required: true,
+        },
+        pendingPaymentCount: 0,
+        statement: { balance: { currency: 'USD', assessed: true }, schedules: {}, obligations: [], kinds: {}, kind_titles: {} },
+    }));
+    assert.match(html, /Inscription confirmée/);
+    assert.match(html, /Reste dû sur cette tranche<\/dt><dd[^>]*>500 USD/);
+    assert.match(html, /La couverture de la première tranche nécessite un réexamen administratif/);
+    assert.doesNotMatch(html, /Confirmer l’inscription<\/button>/);
 });

@@ -6,7 +6,6 @@ use App\Modules\Site\Application\UseCases\GetSiteInfo;
 use App\Modules\Student\Application\Services\StudentNotifications;
 use App\Modules\Teaching\Application\Services\LearningAccess;
 use App\Notifications\AcademicScheduleNotice;
-use App\Notifications\EnrollmentDocumentReplacement;
 use Closure;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -104,14 +103,14 @@ class HandleInertiaRequests extends Middleware
                 if (! $request->user()?->hasRole('admin') || ! $request->user()->can('manage academic access')) {
                     return null;
                 }
-                $query = $request->user()->notifications()->whereIn('type', [\App\Notifications\EnrollmentDocumentReplacement::class, \App\Notifications\AcademicScheduleNotice::class]);
+                $query = app(StudentNotifications::class)->forAdmissionsStaff($request->user());
 
                 return [
                     'unread_count' => (clone $query)->whereNull('read_at')->count(),
                     'items' => $query->orderByRaw('read_at IS NOT NULL')->latest()->limit(15)->get()->map(fn ($notice) => [
                         'id' => $notice->id, 'reference' => $notice->data['reference'], 'student_name' => $notice->data['student_name'] ?? null,
                         'filename' => $notice->data['filename'] ?? '', 'version' => $notice->data['version'] ?? null,
-                        'kind' => $notice->type === \App\Notifications\AcademicScheduleNotice::class ? 'schedule' : 'document', 'status' => $notice->data['status'] ?? null,
+                        'kind' => $notice->type === AcademicScheduleNotice::class ? 'schedule' : 'document', 'status' => $notice->data['status'] ?? null,
                         'created_at' => $notice->created_at->toISOString(), 'read_at' => $notice->read_at?->toISOString(),
                         'open_url' => route('dashboard.admin.notifications.open', $notice->id),
                     ]),

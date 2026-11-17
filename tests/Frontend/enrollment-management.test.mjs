@@ -34,6 +34,14 @@ const Landing = (await load('components/student/ModuleLanding.tsx')).default;
 const Scolarite = (await load('components/student/StudentSchoolServices.tsx')).default;
 const entry = { id: 7, year: '2026-2027', level: 'Niveau 1', status: 'confirmed', matricule: 'PERMANENT', faculty: 'Faculté', program: 'Programme historique', curriculum: 'V1', promotion: 'Promotion annuelle', group: 'Groupe A', requirements: ['Contrôle administratif à terminer.'], renewal: null };
 
+test('L’inscription en attente donne accès aux frais du contexte concerné', () => {
+    const html = renderToStaticMarkup(React.createElement(MyEnrollments, {
+        entries: { data: [{ ...entry, status: 'pending_confirmation' }, { ...entry, id: 12 }] }, changes: { data: [] },
+    }));
+    assert.match(html, /href="\/route\/dashboard\.student\.index\?section=fees&amp;academic=7#finance-first-installment">Suivre la première tranche<\/a>/);
+    assert.doesNotMatch(html, /section=fees&amp;academic=12/);
+});
+
 test('L’entrée Inscriptions ouvre la page annuelle et les changements utilisent les demandes existantes', () => {
     const administration = navigation.studentModules.find(item => item.id === 'services');
     assert.equal(administration.items.find(item => item.label === 'Inscriptions').section, 'enrollments');

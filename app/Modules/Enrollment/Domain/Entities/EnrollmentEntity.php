@@ -56,14 +56,14 @@ final class EnrollmentEntity
 
     public function submit(Matricule $matricule): void
     {
-        if (!$this->status->canTransitionTo(EnrollmentStatus::PENDING)) {
+        if (!$this->status->canTransitionTo(EnrollmentStatus::SUBMITTED)) {
             throw InvalidEnrollmentStateException::cannotTransition(
                 $this->status,
-                EnrollmentStatus::PENDING
+                EnrollmentStatus::SUBMITTED
             );
         }
 
-        $this->status = EnrollmentStatus::PENDING;
+        $this->status = EnrollmentStatus::SUBMITTED;
         $this->matricule = $matricule;
         $this->draftExpiresAt = null;
     }

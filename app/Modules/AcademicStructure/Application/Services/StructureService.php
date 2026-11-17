@@ -17,6 +17,7 @@ use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
 use App\Models\User;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,9 @@ class StructureService
     public function save(string $kind, array $data, User $actor, ?int $id = null): Model
     {
         Gate::forUser($actor)->authorize('manage', AcademicProgram::class);
+        if (in_array($kind, ['university', 'cycle', 'faculty-context', 'year-context'], true)) {
+            abort_if($actor->academicFaculties()->exists(), 403);
+        }
 
         return DB::transaction(function () use ($kind, $data, $actor, $id) {
             $institution = University::where('context_key', 'current')->lockForUpdate()->first();
@@ -60,6 +64,8 @@ class StructureService
                     $promotion = AcademicPromotion::findOrFail($data['academic_promotion_id']);
                     $program = $this->program($promotion->academic_program_id);
                     $group = Classes::lockForUpdate()->findOrFail($id);
+                    abort_unless(TeachingScope::allows($actor, (int) $program->faculty_id)
+                        && TeachingScope::allows($actor, (int) $group->faculty_id), 403);
                     if ((int) $group->faculty_id !== (int) $program->faculty_id || (int) $group->level_id !== (int) $promotion->level_id || ($group->academic_promotion_id !== null && (int) $group->academic_promotion_id !== $promotion->id)) {
                         throw ValidationException::withMessages(['group' => 'Ce groupe ne correspond pas à la promotion ou possède déjà un rattachement historique.']);
                     }
@@ -94,15 +100,18 @@ class StructureService
                 };
                 $model = $id ? $class::lockForUpdate()->findOrFail($id) : new $class;
                 if ($model->exists) {
-                    $owner = match ($kind) {
-                        'cycle' => (int) $model->university_id,
-                        'department', 'program' => (int) Faculty::findOrFail($model->faculty_id)->university_id,
-                        default => (int) $this->program($model->academic_program_id)->faculty->university_id,
-                    };
-                    abort_unless($owner === $institution->id, 404);
+                    if ($kind === 'cycle') {
+                        abort_unless((int) $model->university_id === $institution->id, 404);
+                    } else {
+                        $faculty = in_array($kind, ['department', 'program'], true)
+                            ? Faculty::where('university_id', $institution->id)->findOrFail($model->faculty_id)
+                            : $this->program($model->academic_program_id)->faculty;
+                        abort_unless(TeachingScope::allows($actor, $faculty->id), 403);
+                    }
                 }
                 if (in_array($kind, ['department', 'program'], true)) {
-                    Faculty::where('university_id', $institution->id)->findOrFail($data['faculty_id']);
+                    $faculty = Faculty::where('university_id', $institution->id)->findOrFail($data['faculty_id']);
+                    abort_unless(TeachingScope::allows($actor, $faculty->id), 403);
                     if ($model->exists && (int) $model->faculty_id !== (int) $data['faculty_id']) {
                         throw ValidationException::withMessages(['faculty_id' => 'Le propriétaire d’un référentiel existant ne peut pas être remplacé.']);
                     }
@@ -125,6 +134,7 @@ class StructureService
                 }
                 if (in_array($kind, ['cohort', 'promotion'], true)) {
                     $program = $this->program($data['academic_program_id']);
+                    abort_unless(TeachingScope::allows($actor, (int) $program->faculty_id), 403);
                     $this->year($data['academic_year_id']);
                     if ($model->exists && ((int) $model->academic_program_id !== $program->id || (int) $model->academic_year_id !== (int) $data['academic_year_id'])) {
                         throw ValidationException::withMessages(['academic_program_id' => 'Le contexte historique ne peut pas être changé.']);

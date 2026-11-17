@@ -8,7 +8,9 @@ class UpdateAcademicYearRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        return $user?->can('manage academic access') && ! $user->academicFaculties()->exists();
     }
 
     public function rules(): array

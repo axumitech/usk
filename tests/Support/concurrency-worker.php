@@ -5,6 +5,7 @@ use App\Models\AcademicYear;
 use App\Models\Enrollment;
 use App\Models\Level;
 use App\Models\Student\AcademicAudit;
+use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\ServiceRequest;
 use App\Models\Student\StudentPayment;
 use App\Models\User;
@@ -16,12 +17,14 @@ use App\Modules\Enrollment\Application\UseCases\SubmitEnrollmentUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Enrollment\Domain\Services\MatriculeGenerator;
+use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\StudentAppointmentBooking;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 require dirname(__DIR__, 2).'/vendor/autoload.php';
@@ -54,6 +57,19 @@ try {
         $payment = StudentPayment::findOrFail($first);
         app(StudentFinanceService::class)->transition($payment, User::findOrFail($second), 'confirmed', 'Concurrent test confirmation');
         $result = $payment->fresh()->status;
+    } elseif ($mode === 'enrollment-confirmation') {
+        $entry = AcademicEnrollment::findOrFail(abs((int) $first));
+        if ($first < 0) {
+            config(['student.enrollment_auto_confirmation' => true]);
+            DB::transaction(fn () => app(StudentFinanceService::class)->confirmPendingEnrollment(AcademicEnrollment::lockForUpdate()->findOrFail($entry->id)), 3);
+        } else {
+            app(AcademicEnrollmentService::class)->transition($entry, User::findOrFail($second), [
+                'enrollment_status' => 'confirmed', 'expected_status' => 'pending_confirmation',
+                'expected_context' => AcademicEnrollmentService::contextToken($entry),
+                'operation_key' => (string) Str::uuid(), 'reason' => 'Vérification manuelle de la première tranche.',
+            ]);
+        }
+        $result = $entry->fresh()->enrollment_status;
     } elseif ($mode === 'appointment-booking') {
         $ticket = ServiceRequest::findOrFail($first);
         $date = sprintf('%s-%s-%s', substr($second, 0, 4), substr($second, 4, 2), substr($second, 6, 2));

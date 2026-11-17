@@ -1,0 +1,537 @@
+{
+  "name": "roles-scopes",
+  "module": "roles-scopes",
+  "records": [
+    {
+      "id": "ROLE-INSTITUTION",
+      "actor": "Administrateur institutionnel",
+      "faculty": "institution",
+      "action": "Consulter dossiers, offres et comptes financiers des deux facultés",
+      "expected": "Accès aux deux facultés pour le compte institutionnel",
+      "obtained": "Six routes accessibles, périmètre institutionnel affiché",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-institutionnel.png"
+      ]
+    },
+    {
+      "id": "ROLE-dean_med",
+      "actor": "dean med",
+      "faculty": "med",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-dean_med-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-dean_med-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-vice_med",
+      "actor": "vice med",
+      "faculty": "med",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-vice_med-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-vice_med-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-registrar_med",
+      "actor": "registrar med",
+      "faculty": "med",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "4 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-registrar_med-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-registrar_med-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-finance_med",
+      "actor": "finance med",
+      "faculty": "med",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-finance_med-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-finance_med-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-dean_law",
+      "actor": "dean law",
+      "faculty": "law",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-dean_law-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-dean_law-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-vice_law",
+      "actor": "vice law",
+      "faculty": "law",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-vice_law-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-vice_law-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-registrar_law",
+      "actor": "registrar law",
+      "faculty": "law",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "4 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-registrar_law-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-registrar_law-dashboard.png"
+      ]
+    },
+    {
+      "id": "ROLE-finance_law",
+      "actor": "finance law",
+      "faculty": "law",
+      "action": "Contrôler les liens directs de sa faculté et les accès hors délégation",
+      "expected": "Dossier propre accessible, autre faculté refusée et permissions métier respectées",
+      "obtained": "5 accès directs contrôlés",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-roles-finance_law-dossier-autre-faculte-refuse.png",
+        "../captures/usk-06-roles-finance_law-dashboard.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=3"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=3"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=3"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=3"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/schedule"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/schedule"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/login"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "A bad HTTP response code (500) was received when fetching the script.",
+      "url": "http://127.0.0.1:51415/app/dashboard"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/teaching?offering=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/schedule"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/student-academic/1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/finance?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/admin/schedule"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

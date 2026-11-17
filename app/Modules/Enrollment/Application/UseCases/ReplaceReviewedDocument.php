@@ -3,6 +3,7 @@
 namespace App\Modules\Enrollment\Application\UseCases;
 
 use App\Models\Enrollment;
+use App\Models\User;
 use App\Models\EnrollmentDocument;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use Illuminate\Http\UploadedFile;
@@ -48,7 +49,9 @@ final class ReplaceReviewedDocument
                     'student_name' => \App\Mail\TransactionalEmail::recipientName($entry->student),
                     'document_uuid' => $document->uuid, 'filename' => $document->filename, 'version' => $document->version,
                 ]);
-                \App\Models\User::role('admin')->permission('manage academic access')
+                User::administrators()->permission('manage academic access')
+                    ->where(fn ($staff) => $staff->whereDoesntHave('academicFaculties')
+                        ->orWhereHas('academicFaculties', fn ($faculties) => $faculties->whereKey($entry->level?->faculty_id)))
                     ->each(fn ($admin) => $admin->notify($notice));
 
                 return ['id' => $entry->id, 'document' => $document->only(['uuid', 'filename', 'version'])];

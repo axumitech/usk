@@ -6,11 +6,14 @@ namespace App\Modules\Enrollment\Application\UseCases;
 
 use App\Models\Enrollment;
 use App\Models\EnrollmentDocument;
+use App\Models\Level;
 use App\Models\User;
 use App\Modules\Enrollment\Application\DTOs\SaveProgressDTO;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
+use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Enrollment\Domain\Repositories\DocumentRepositoryInterface;
 use App\Modules\Enrollment\Domain\Repositories\EnrollmentRepositoryInterface;
+use App\Modules\Enrollment\Domain\Services\EnrollmentValidator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +25,8 @@ class SaveProgressUseCase
 {
     public function __construct(
         private readonly EnrollmentRepositoryInterface $repository,
-        private readonly DocumentRepositoryInterface $documentRepository
+        private readonly DocumentRepositoryInterface $documentRepository,
+        private readonly EnrollmentValidator $validator,
     ) {}
 
     public function execute(SaveProgressDTO $dto): Enrollment
@@ -55,18 +59,9 @@ class SaveProgressUseCase
             }
         }
 
-        // Chercher un brouillon existant UNIQUEMENT si un UUID est fourni
         $enrollment = $dto->uuid
             ? Enrollment::where('uuid', $dto->uuid)->lockForUpdate()->first()
             : null;
-
-        if (! $dto->uuid) {
-            $enrollment = Enrollment::forStudent($dto->studentId)->drafts()
-                ->where('level_id', $dto->formSnapshot['level_id'] ?? null)
-                ->where('academic_year_id', $dto->formSnapshot['year_id'] ?? null)
-                ->where(fn ($query) => $query->whereNull('draft_expires_at')->orWhere('draft_expires_at', '>', now()))
-                ->latest('id')->lockForUpdate()->first();
-        }
 
         if ($dto->uuid && ! $enrollment) {
             throw ValidationException::withMessages(['uuid' => 'Ce brouillon est introuvable.']);
@@ -82,38 +77,29 @@ class SaveProgressUseCase
             throw ValidationException::withMessages(['uuid' => 'Ce brouillon a expiré. Commencez un nouveau dossier.']);
         }
 
-        if (! $enrollment) {
-            // Créer un nouveau brouillon
-            $enrollment = new Enrollment([
-                'student_id' => $dto->studentId,
-                'level_id' => $dto->formSnapshot['level_id'] ?? null,
-                'academic_year_id' => $dto->formSnapshot['year_id'] ?? null,
-                'status' => EnrollmentStatus::DRAFT->value,
-                'last_step' => $dto->lastStep,
-                'form_snapshot' => $dto->formSnapshot,
-                'draft_expires_at' => Carbon::now()->addDays(30),
-            ]);
-        } else {
-            // Mettre à jour le brouillon existant
-            $enrollment->last_step = $dto->lastStep;
-            $enrollment->form_snapshot = array_merge(
-                $enrollment->form_snapshot ?? [],
-                $dto->formSnapshot
-            );
-            $enrollment->draft_expires_at = Carbon::now()->addDays(30);
+        $snapshot = array_replace($enrollment?->form_snapshot ?? [], $dto->formSnapshot);
+        $levelId = (int) ($snapshot['level_id'] ?? $enrollment?->level_id) ?: null;
+        $yearId = (int) ($snapshot['year_id'] ?? $enrollment?->academic_year_id) ?: null;
+        $programId = $this->draftProgram($snapshot, $levelId);
 
-            // Extraire les IDs depuis le snapshot si disponibles
-            if (! empty($dto->formSnapshot['level_id'])) {
-                $enrollment->level_id = $dto->formSnapshot['level_id'];
-            }
-            if (! empty($dto->formSnapshot['year_id'])) {
-                $enrollment->academic_year_id = $dto->formSnapshot['year_id'];
-            }
+        if (! $dto->uuid && ($enrollment = $this->repository->findDraftForContext($dto->studentId, $levelId, $yearId, $programId))) {
+            $existing = $enrollment->form_snapshot ?? [];
+            $snapshot = array_replace($existing, $snapshot);
+            // A retry without a draft identifier must not remove files already saved in this context.
+            $snapshot['documents'] = array_replace($existing['documents'] ?? [], $dto->formSnapshot['documents'] ?? []);
         }
-
-        $snapshot = $enrollment->form_snapshot ?? [];
+        if ($programId !== null || array_key_exists('academic_program_id', $snapshot)) {
+            $snapshot['academic_program_id'] = $programId;
+        }
         unset($snapshot['cardNumber'], $snapshot['cvv']);
-        $enrollment->form_snapshot = $snapshot;
+        $enrollment ??= new Enrollment(['student_id' => $dto->studentId, 'status' => EnrollmentStatus::DRAFT]);
+        $enrollment->fill([
+            'level_id' => $levelId,
+            'academic_year_id' => $yearId,
+            'last_step' => $dto->lastStep,
+            'form_snapshot' => $snapshot,
+            'draft_expires_at' => Carbon::now()->addDays(30),
+        ]);
 
         // Vérifier l'unicité avant de sauvegarder
         if ($enrollment->level_id && $enrollment->academic_year_id) {
@@ -121,12 +107,13 @@ class SaveProgressUseCase
                 $enrollment->student_id,
                 $enrollment->level_id,
                 $enrollment->academic_year_id,
-                $enrollment->id // Exclure l'inscription actuelle si elle existe déjà
+                $programId,
+                $enrollment->id,
             );
 
             if ($exists) {
                 throw ValidationException::withMessages([
-                    'uniqueness' => 'Vous avez déjà une inscription active pour ce niveau et cette année académique.',
+                    'uniqueness' => 'Vous avez déjà une candidature pour cette formation, ce niveau et cette année académique.',
                 ]);
             }
         }
@@ -207,5 +194,27 @@ class SaveProgressUseCase
         }
 
         return $enrollment;
+    }
+
+    private function draftProgram(array $snapshot, ?int $levelId): ?int
+    {
+        if ($levelId === null) {
+            if (! empty($snapshot['academic_program_id'])) {
+                throw ValidationException::withMessages(['form_snapshot.academic_program_id' => 'Choisissez le niveau de ce programme.']);
+            }
+
+            return null;
+        }
+
+        $level = Level::findOrFail($levelId);
+        if (! empty($snapshot['faculty_id']) && (int) $snapshot['faculty_id'] !== (int) $level->faculty_id) {
+            throw ValidationException::withMessages(['form_snapshot.level_id' => 'Le niveau n’appartient pas à la faculté choisie.']);
+        }
+
+        try {
+            return $this->validator->programForLevel($level, $snapshot['academic_program_id'] ?? null, allowOmission: true);
+        } catch (InvalidEnrollmentStateException $exception) {
+            throw ValidationException::withMessages(['form_snapshot.academic_program_id' => $exception->getMessage()]);
+        }
     }
 }

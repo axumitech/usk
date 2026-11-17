@@ -11,6 +11,7 @@ use App\Models\Student\AcademicSemester;
 use App\Models\Student\AcademicSession;
 use App\Models\Student\AssessmentRecord;
 use App\Models\User;
+use App\Modules\AcademicYear\Application\AcademicCalendar;
 use App\Modules\Assessment\Application\AssessmentAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,7 @@ final class TeacherDashboard
         private AssessmentAccess $assessmentAccess,
         private TeacherAnnouncementPublisher $announcementPublisher,
         private AttendanceAccess $attendance,
+        private AcademicCalendar $calendar,
     ) {}
 
     public function periods(Builder $offerings, array $input, ?AcademicOffering $selected, bool $linked, ?AcademicSession $session = null): array
@@ -256,6 +258,8 @@ final class TeacherDashboard
             'stats' => ['courses' => $courses->count(), 'students' => $students, 'assessments' => $active?->count(), 'resources' => $materials->count()],
             'courses' => $courseRows,
             'week' => $this->week($schedule, $week, $periods['day'], $parameters),
+            'calendar_events' => $periods['year'] && in_array($view, ['home', 'schedule'], true) && $courses->contains('is_published', true)
+                ? $this->calendar->week($periods['year'], $week) : [],
             'selected_session' => $selectedSession,
             'evaluations' => $active ? $active->with('resource.offering.course', 'resource.offering.curriculumItem')->latest('id')->limit(4)->get()
                 ->map(fn (AcademicAssessment $assessment) => [
@@ -293,7 +297,7 @@ final class TeacherDashboard
             if (count($rows) < 6) {
                 $rows[] = [
                     'id' => $course->id, 'title' => $this->courseTitle($course), 'level' => $course->level->title, 'faculty' => $course->level->faculty?->name,
-                    'group' => $course->group?->intake?->name, 'students' => $count, 'url' => $this->workspaceUrl($parameters + ['offering' => $course->id]),
+                    'group' => CourseAudience::groupLabel($course->group), 'students' => $count, 'url' => $this->workspaceUrl($parameters + ['offering' => $course->id]),
                 ];
             }
         }

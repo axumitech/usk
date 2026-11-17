@@ -72,20 +72,15 @@ export default function MyEnrollments({ entries, changes, studentChrome }: Props
                                         </div>
                                     ))}
                                 </dl>
-                                {(entry.requirements.length > 0 || entry.status === 'pending_confirmation') && (
+                                {entry.requirements.length > 0 && (
                                     <div className="me-notice">
                                         <Info size={18} aria-hidden="true" />
                                         <div>
-                                            {entry.requirements.length > 0 && (
-                                                <ul>
-                                                    {entry.requirements.map((requirement) => (
-                                                        <li key={requirement}>{requirement}</li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                            {entry.status === 'pending_confirmation' && (
-                                                <p>La confirmation dépend des contrôles administratifs et des conditions financières applicables.</p>
-                                            )}
+                                            <ul>
+                                                {entry.requirements.map((requirement) => (
+                                                    <li key={requirement}>{requirement}</li>
+                                                ))}
+                                            </ul>
                                         </div>
                                     </div>
                                 )}
@@ -97,6 +92,14 @@ export default function MyEnrollments({ entries, changes, studentChrome }: Props
                                     >
                                         Consulter l’inscription <ArrowUpRight size={16} aria-hidden="true" />
                                     </Link>
+                                    {entry.status === 'pending_confirmation' && (
+                                        <Link
+                                            className="me-link"
+                                            href={`${route('dashboard.student.index', { section: 'fees', academic: entry.id })}#finance-first-installment`}
+                                        >
+                                            Suivre la première tranche
+                                        </Link>
+                                    )}
                                     <Link className="me-link" href={route('dashboard.student.index', { section: 'requests', academic: entry.id })}>
                                         Demander une correction ou un changement
                                     </Link>

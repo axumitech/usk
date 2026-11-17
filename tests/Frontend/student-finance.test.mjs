@@ -8,16 +8,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
-const module = { exports: {} };
-const source = await readFile(new URL('../../resources/js/components/student/StudentFinance.tsx', import.meta.url), 'utf8');
-vm.runInNewContext(
-    ts.transpileModule(source, {
+async function loadStudentFinanceComponent(name, imports = {}) {
+    const module = { exports: {} };
+    const source = await readFile(new URL(`../../resources/js/components/student/${name}.tsx`, import.meta.url), 'utf8');
+    const { outputText } = ts.transpileModule(source, {
         compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
-    }).outputText,
-    {
+    });
+    vm.runInNewContext(outputText, {
         module,
         exports: module.exports,
         require(name) {
+            if (name in imports) return imports[name];
             if (name === '@inertiajs/react') {
                 return {
                     Link: ({ children, ...props }) => React.createElement('a', props, children),
@@ -28,16 +29,19 @@ vm.runInNewContext(
             if (name === '@/lib/studentEnrollment') return { formatDate: (date) => date };
             if (name === '@/components/admin/Pagination') return { default: () => null };
             if (name === './navigation') return { studentHref: (section, academic) => `/app/dashboard/student/${section}?academic=${academic}` };
-            if (name === './types') return { labels: {}, money: (cents, currency) => `${(cents / 100).toFixed(2)} ${currency}` };
+            if (name === './types') return { labels: { confirmed: 'Confirmée' }, money: (cents, currency) => `${(cents / 100).toFixed(2)} ${currency}` };
             if (name.endsWith('.css')) return {};
             return require(name);
         },
-    },
-);
+    });
+    return module.exports;
+}
+const installmentDetails = await loadStudentFinanceComponent('FirstInstallmentDetails');
+const StudentFinance = (await loadStudentFinanceComponent('StudentFinance', { './FirstInstallmentDetails': installmentDetails })).default;
 
 const renderFinance = (extra) =>
     renderToStaticMarkup(
-        React.createElement(module.exports.default, {
+        React.createElement(StudentFinance, {
             section: 'fees',
             academic: { id: 7, level: 'L3 Informatique', year: '2026-2027' },
             balance: {
@@ -56,6 +60,44 @@ const renderFinance = (extra) =>
             ...extra,
         }),
     );
+
+test('Le suivi isole la première tranche des versements en attente et des autres frais', () => {
+    const html = renderFinance({
+        academic: { id: 7, level: 'L3 Informatique', year: '2026-2027', enrollment_status: 'pending_confirmation' },
+        first_installment: {
+            status: 'due', currency: 'USD', amount_cents: 8000, paid_cents: 1200, waived_cents: 800, remaining_cents: 6000, due_at: '2026-12-10',
+        },
+        payment_proofs: {
+            submissions: [
+                { id: 1, status: 'pending', submitted_at: '2026-11-18', kind_label: 'Frais académiques', amount_cents: 2000, currency: 'USD', method: 'bank_transfer' },
+            ],
+        },
+    });
+    assert.match(html, /id="finance-first-installment"/);
+    assert.match(html, /Inscription en attente de confirmation/);
+    assert.match(html, /Montant attendu<\/dt><dd[^>]*>80\.00 USD/);
+    assert.match(html, /Versements validés sur cette tranche<\/dt><dd[^>]*>12\.00 USD/);
+    assert.match(html, /Remises et aides approuvées<\/dt><dd[^>]*>8\.00 USD/);
+    assert.match(html, /Reste dû sur cette tranche<\/dt><dd[^>]*>60\.00 USD/);
+    assert.match(html, /Un justificatif de versement est en cours de vérification/);
+});
+
+test('Le suivi distingue une première tranche couverte de la confirmation annuelle', () => {
+    const academic = { id: 7, level: 'L3 Informatique', year: '2026-2027', enrollment_status: 'pending_confirmation' };
+    const covered = { status: 'covered', currency: 'USD', amount_cents: 8000, paid_cents: 8000, waived_cents: 0, remaining_cents: 0 };
+    assert.match(
+        renderFinance({ academic, section: 'annual-fees', first_installment: covered }),
+        /La première tranche est couverte\. Le service des inscriptions doit encore confirmer votre inscription/,
+    );
+    const confirmed = renderFinance({
+        academic: { ...academic, enrollment_status: 'confirmed' },
+        first_installment: { ...covered, status: 'due', paid_cents: 0, remaining_cents: 8000 },
+        first_installment_review_required: true,
+    });
+    assert.match(confirmed, /Inscription confirmée/);
+    assert.match(confirmed, /La couverture de la première tranche doit être réexaminée/);
+    assert.doesNotMatch(confirmed, /doit encore confirmer votre inscription/);
+});
 
 test('La jauge exclut les versements en attente et les crédits non affectés', () => {
     const html = renderFinance();

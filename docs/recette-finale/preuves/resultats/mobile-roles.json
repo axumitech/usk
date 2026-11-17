@@ -1,0 +1,151 @@
+{
+  "name": "mobile-roles",
+  "module": "mobile-roles",
+  "records": [
+    {
+      "id": "MOBILE-institutional",
+      "actor": "Administrateur institutionnel",
+      "faculty": null,
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "4 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-institutional-accueil.png",
+        "../captures/usk-06-mobile-institutional-planning.png",
+        "../captures/usk-06-mobile-institutional-admissions.png",
+        "../captures/usk-06-mobile-institutional-finances.png"
+      ]
+    },
+    {
+      "id": "MOBILE-dean_med",
+      "actor": "Doyen Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "3 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-dean_med-accueil.png",
+        "../captures/usk-06-mobile-dean_med-planning.png",
+        "../captures/usk-06-mobile-dean_med-admissions.png"
+      ]
+    },
+    {
+      "id": "MOBILE-vice_med",
+      "actor": "Vice-doyen Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "3 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-vice_med-accueil.png",
+        "../captures/usk-06-mobile-vice_med-planning.png",
+        "../captures/usk-06-mobile-vice_med-admissions.png"
+      ]
+    },
+    {
+      "id": "MOBILE-registrar_med",
+      "actor": "Appariteur Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "2 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-registrar_med-accueil.png",
+        "../captures/usk-06-mobile-registrar_med-admissions.png"
+      ]
+    },
+    {
+      "id": "MOBILE-finance_med",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "3 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-finance_med-accueil.png",
+        "../captures/usk-06-mobile-finance_med-admissions.png",
+        "../captures/usk-06-mobile-finance_med-finances.png"
+      ]
+    },
+    {
+      "id": "MOBILE-teacher_med",
+      "actor": "Professeur Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "3 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-teacher_med-accueil.png",
+        "../captures/usk-06-mobile-teacher_med-cours.png",
+        "../captures/usk-06-mobile-teacher_med-planning.png"
+      ]
+    },
+    {
+      "id": "MOBILE-teacher_law",
+      "actor": "Professeur Droit",
+      "faculty": "law",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "3 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-teacher_law-accueil.png",
+        "../captures/usk-06-mobile-teacher_law-cours.png",
+        "../captures/usk-06-mobile-teacher_law-planning.png"
+      ]
+    },
+    {
+      "id": "MOBILE-student_med",
+      "actor": "Étudiant Médecine",
+      "faculty": "med",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "4 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-student_med-accueil.png",
+        "../captures/usk-06-mobile-student_med-cours.png",
+        "../captures/usk-06-mobile-student_med-planning.png",
+        "../captures/usk-06-mobile-student_med-finances.png"
+      ]
+    },
+    {
+      "id": "MOBILE-student_law",
+      "actor": "Étudiant Droit",
+      "faculty": "law",
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "4 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-student_law-accueil.png",
+        "../captures/usk-06-mobile-student_law-cours.png",
+        "../captures/usk-06-mobile-student_law-planning.png",
+        "../captures/usk-06-mobile-student_law-finances.png"
+      ]
+    },
+    {
+      "id": "MOBILE-candidate",
+      "actor": "Candidat",
+      "faculty": null,
+      "action": "Connexion par formulaire et consultation mobile des écrans essentiels",
+      "expected": "Pages autorisées accessibles et contexte du compte conservé, sans exception JavaScript",
+      "obtained": "2 écrans consultés à 390 × 844",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-candidate-accueil.png",
+        "../captures/usk-06-mobile-candidate-candidatures.png"
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

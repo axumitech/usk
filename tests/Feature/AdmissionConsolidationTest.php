@@ -10,12 +10,15 @@ use App\Models\AdmissionCondition;
 use App\Models\Enrollment;
 use App\Models\Faculty;
 use App\Models\Level;
+use App\Models\LevelDetail;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
+use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -42,12 +45,16 @@ class AdmissionConsolidationTest extends TestCase
             'name' => 'Candidature locale', 'email' => $candidate->email, 'program' => $level->title, 'isConfirmed' => true, 'documents' => []];
     }
 
-    public function test_campaign_controls_requirements_and_receipt_is_sent_once_before_annual_confirmation(): void
+    public function test_campaign_admission_and_payment_lead_to_one_annual_confirmation(): void
     {
         Mail::fake();
         Storage::fake('temp');
         Storage::fake('local');
         [$admin, $candidate, $faculty, $level, $year] = $this->context();
+        config(['student.enrollment_auto_confirmation' => false]);
+        $candidate->forceFill(['nationality_code' => 'CD'])->save();
+        LevelDetail::create(['level_id' => $level->id, 'price' => '100.00', 'price_foreign' => '140.00',
+            'price_national_first' => '50.00', 'price_national_second' => '50.00', 'price_foreign_first' => '70.00', 'price_foreign_second' => '70.00']);
         $structure = app(StructureService::class);
         $common = ['revision' => 0, 'reason' => 'Configuration de test', 'is_active' => true];
         $university = $structure->save('university', $common + ['code' => 'TEST', 'name' => 'Université de test'], $admin);
@@ -122,6 +129,23 @@ class AdmissionConsolidationTest extends TestCase
                 ->where('currentEnrollment.cohort', $cohort->fresh()->name)
                 ->where('currentEnrollment.promotion', $promotion->name));
         $this->assertSame($entry->matricule, $candidate->fresh()->studentProfile->matricule);
+
+        $financeUrl = '/app/dashboard/admin/student-academic';
+        $this->post($financeUrl.'/'.$academic->id.'/fees', ['category' => 'national', 'reason' => 'Barème de test applicable à la candidature.'])->assertSessionHasNoErrors();
+        $this->actingAs($candidate->fresh())->get('/app/dashboard/student/fees?academic='.$academic->id)->assertInertia(fn (Assert $page) => $page
+            ->where('academic.enrollment_status', 'pending_confirmation')->where('first_installment.remaining_cents', 5000));
+        $this->actingAs($admin)->post($financeUrl.'/'.$academic->id.'/payments', [
+            'amount' => '50.00', 'kind' => 'tuition', 'method' => 'bank_transfer', 'reference' => 'TRANCHE-ADMISSION', 'note' => 'Versement synthétique.',
+        ])->assertSessionHasNoErrors();
+        $payment = $academic->payments()->sole();
+        $this->post($financeUrl.'/payments/'.$payment->id.'/status', ['status' => 'confirmed', 'reason' => 'Versement rapproché avec le relevé.'])->assertSessionHasNoErrors();
+        $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
+        $this->post('/app/dashboard/admin/finance/confirmations/'.$academic->id, [
+            'operation_key' => (string) Str::uuid(), 'expected_context' => AcademicEnrollmentService::contextToken($academic->fresh()),
+            'reason' => 'Première tranche contrôlée dans le dossier.',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($candidate->fresh())->get('/app/dashboard/student/fees?academic='.$academic->id)->assertInertia(fn (Assert $page) => $page
+            ->where('academic.enrollment_status', 'confirmed')->where('first_installment.status', 'covered'));
     }
 
     public function test_closed_year_expiry_withdrawal_and_duplicate_draft_behaviour(): void

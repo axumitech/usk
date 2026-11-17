@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import '../../../css/student-finance.css';
+import FirstInstallmentDetails from './FirstInstallmentDetails';
 import { studentHref } from './navigation';
 import {
     labels,
@@ -363,6 +364,31 @@ function coveredAmount(balance: Balance) {
     return Math.max(0, balance.due_cents - balance.balance_cents);
 }
 
+function EnrollmentPaymentSummary({ props }: { props: PortalProps }) {
+    const installment = props.first_installment;
+    if (!installment) return null;
+
+    const { enrollment_status: status } = props.academic;
+    const statusLabel = status === 'pending_confirmation' ? 'en attente de confirmation' : (labels[status] ?? status).toLowerCase();
+    const proofUnderReview = props.payment_proofs?.submissions.some((submission) => submission.status === 'pending');
+
+    return (
+        <section id="finance-first-installment" className="sf-panel scroll-mt-24" aria-label="Première tranche et inscription">
+            <PanelHeading title="Première tranche des frais académiques" description={`Inscription ${statusLabel}`} icon={Wallet} />
+            <FirstInstallmentDetails installment={installment} />
+            {proofUnderReview && <p>Un justificatif de versement est en cours de vérification par la comptabilité.</p>}
+            {status === 'pending_confirmation' && installment.status === 'covered' && (
+                <p>La première tranche est couverte. Le service des inscriptions doit encore confirmer votre inscription.</p>
+            )}
+            {props.first_installment_review_required && (
+                <p className="portal-alert" role="status">
+                    La couverture de la première tranche doit être réexaminée. Contactez le service financier pour connaître la suite.
+                </p>
+            )}
+        </section>
+    );
+}
+
 function AnnualFees({ props, feesUrl }: { props: PortalProps; feesUrl: string }) {
     const { academic, balance, finance_details: details, finance_schedule: schedule = [] } = props;
     const obligations = details?.obligations ?? [];
@@ -425,7 +451,8 @@ function AnnualFees({ props, feesUrl }: { props: PortalProps; feesUrl: string })
                     </dl>
                 </section>
             </div>
-            {balance.assessed && !obligations.some((line) => line.kind === 'tuition') && (
+            <EnrollmentPaymentSummary props={props} />
+            {!props.first_installment && balance.assessed && !obligations.some((line) => line.kind === 'tuition') && (
                 <div className="sf-notices">
                     <p>
                         <CircleAlert size={18} aria-hidden="true" />
@@ -681,7 +708,7 @@ export default function StudentFinance(props: PortalProps) {
     const percent = balance.due_cents > 0 ? (balance.balance_cents === 0 ? 100 : Math.min(99, Math.round((covered / balance.due_cents) * 100))) : 0;
     const progressVisible = balance.assessed && balance.due_cents > 0;
     const pending = balance.pending_cents > 0;
-    const tuitionUnbilled = balance.assessed && details && !details.obligations.some((line) => line.kind === 'tuition');
+    const tuitionUnbilled = !props.first_installment && balance.assessed && details && !details.obligations.some((line) => line.kind === 'tuition');
     const recent = details?.recent_payments ?? [];
     const hasReceipt = Boolean(details?.receipt_payments?.length);
     const actions = [
@@ -804,6 +831,7 @@ export default function StudentFinance(props: PortalProps) {
                     )}
                 </section>
             </div>
+            <EnrollmentPaymentSummary props={props} />
             {(tuitionUnbilled || pending || balance.credit_cents > 0 || balance.overdue_cents > 0) && (
                 <div className="sf-notices">
                     {tuitionUnbilled && (

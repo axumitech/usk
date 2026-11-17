@@ -108,6 +108,8 @@ function SessionForm({
                       activity_type: data.activity_type,
                       excluded_dates: data.exclusions.split(/[,\s]+/).filter(Boolean),
                       is_published: data.is_published,
+                      return_to_schedule: true,
+                      schedule_week: selectedPeriod?.start_date ?? week,
                   }
                 : {
                       academic_offering_id: data.academic_offering_id,
@@ -120,6 +122,8 @@ function SessionForm({
                       is_published: data.is_published,
                       repeat_count: data.repeat_count,
                       scope: session ? data.scope : undefined,
+                      return_to_schedule: true,
+                      schedule_week: data.starts_at.slice(0, 10),
                   },
         );
         const options = { preserveScroll: true, onSuccess: onClose };

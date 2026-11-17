@@ -1,0 +1,83 @@
+{
+  "name": "results",
+  "module": "results",
+  "records": [
+    {
+      "id": "DOC-05",
+      "actor": "Étudiant Médecine",
+      "faculty": "institution",
+      "action": "Consulter et télécharger son specimen",
+      "expected": "Document réservé au propriétaire",
+      "obtained": "Téléchargement identique à l’archive émise",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-document-bibliotheque-etudiant.png",
+        "../captures/usk-06-attestation-specimen-etudiant.pdf"
+      ]
+    },
+    {
+      "id": "RES-PRIVATE",
+      "actor": "Étudiant Médecine",
+      "faculty": "institution",
+      "action": "Consulter les résultats avant publication",
+      "expected": "Aucun résultat préparé accessible",
+      "obtained": "Résultats préparés absents du portail étudiant",
+      "status": "VALIDÉ",
+      "proofs": []
+    },
+    {
+      "id": "RES-QUORUM",
+      "actor": "Vice-doyen Médecine",
+      "faculty": "institution",
+      "action": "Tenter une ouverture avec un seul présent",
+      "expected": "Refus et jury encore préparé",
+      "obtained": "Quorum insuffisant refusé",
+      "status": "VALIDÉ",
+      "proofs": []
+    },
+    {
+      "id": "RES-01",
+      "actor": "Vice-doyen / doyen Médecine",
+      "faculty": "institution",
+      "action": "Règlement test, quorum, décisions et publication",
+      "expected": "Workflow complet avec double contrôle",
+      "obtained": "Délibération publiée avec décisions tracées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-resultats-jury-synthetique-publies.png"
+      ]
+    },
+    {
+      "id": "RES-02",
+      "actor": "Étudiant Médecine",
+      "faculty": "institution",
+      "action": "Consulter le résultat officiel de recette",
+      "expected": "Résultat réservé au propriétaire",
+      "obtained": "Résultat visible dans espace étudiant",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-resultats-etudiant-publies.png"
+      ]
+    },
+    {
+      "id": "RES-03",
+      "actor": "Étudiant Droit",
+      "faculty": "law",
+      "action": "Ouvrir le résultat Médecine par lien direct",
+      "expected": "Refus HTTP",
+      "obtained": "Accès refusé HTTP 404",
+      "status": "VALIDÉ",
+      "proofs": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/results?academic=7&official=927b9a00-e1f5-4fe7-b994-17238e62d26e"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

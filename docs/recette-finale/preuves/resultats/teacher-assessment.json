@@ -1,0 +1,357 @@
+{
+  "name": "teacher-assessment",
+  "module": "teacher-assessment",
+  "records": [
+    {
+      "id": "PROF-med-ESPACE",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Consulter son tableau de bord et ses cours",
+      "expected": "Ses affectations accessibles",
+      "obtained": "Dashboard affiché",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-dashboard.png"
+      ]
+    },
+    {
+      "id": "PROF-med-SUPPORT",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Créer un support privé puis le publier",
+      "expected": "Support publié dans son enseignement",
+      "obtained": "Support publié avec fichier privé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-support-publie.png"
+      ]
+    },
+    {
+      "id": "PROF-med-ANNONCE",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Consulter l’annonce créée pendant la recette",
+      "expected": "Annonce ciblée disponible",
+      "obtained": "Annonce déjà créée retrouvée",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-annonce.png"
+      ]
+    },
+    {
+      "id": "PROF-med-DEVOIR",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Créer et publier un devoir individuel noté",
+      "expected": "Devoir publié, ouvert, barème de 20",
+      "obtained": "Évaluation 1, ressource 3",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-devoir-publie.png"
+      ]
+    },
+    {
+      "id": "ETUD-med-1-REMISE",
+      "actor": "Étudiant med, dossier 1",
+      "faculty": "med",
+      "action": "Consulter support et annonce, remettre un devoir",
+      "expected": "Copie reçue dans son inscription",
+      "obtained": "Travail transmis, version 1 visible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-med-1-travail-transmis.png"
+      ]
+    },
+    {
+      "id": "ETUD-med-13-REMISE",
+      "actor": "Étudiant med, dossier 13",
+      "faculty": "med",
+      "action": "Consulter support et annonce, remettre un devoir",
+      "expected": "Copie reçue dans son inscription",
+      "obtained": "Travail transmis, version 1 visible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-med-13-travail-transmis.png"
+      ]
+    },
+    {
+      "id": "PROF-med-1-CORRECTION",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Consulter copie, noter et finaliser la correction",
+      "expected": "Correction finalisée à 16/20",
+      "obtained": "Correction déjà finalisée contrôlée sur sa fiche",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-1-correction-finalisee.png"
+      ]
+    },
+    {
+      "id": "PROF-med-13-CORRECTION",
+      "actor": "Professeur med",
+      "faculty": "med",
+      "action": "Consulter copie, noter et finaliser la correction",
+      "expected": "Correction finalisée à 16/20",
+      "obtained": "Copie consultée et correction finalisée",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-med-13-correction-finalisee.png"
+      ]
+    },
+    {
+      "id": "ETUD-med-CORRECTION-PRIVEE",
+      "actor": "Étudiant med",
+      "faculty": "med",
+      "action": "Ouvrir une correction avant validation et publication",
+      "expected": "Appréciation privée indisponible",
+      "obtained": "Correction masquée et lien direct refusé 404",
+      "status": "VALIDÉ",
+      "proofs": []
+    },
+    {
+      "id": "RESP-med-TRANSMISSION",
+      "actor": "Responsable med",
+      "faculty": "med",
+      "action": "Valider les corrections et publier les appréciations",
+      "expected": "Transmission et appréciation publiées",
+      "obtained": "Corrections validées et diffusées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-responsable-med-corrections-validees.png"
+      ]
+    },
+    {
+      "id": "ETUD-med-1-CORRECTION",
+      "actor": "Étudiant med",
+      "faculty": "med",
+      "action": "Lire sa correction autorisée",
+      "expected": "Note 16/20 et appréciation personnelle",
+      "obtained": "Note et appréciation affichées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-med-1-correction.png"
+      ]
+    },
+    {
+      "id": "ETUD-med-13-CORRECTION",
+      "actor": "Étudiant med",
+      "faculty": "med",
+      "action": "Lire sa correction autorisée",
+      "expected": "Note 16/20 et appréciation personnelle",
+      "obtained": "Note et appréciation affichées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-med-13-correction.png"
+      ]
+    },
+    {
+      "id": "PROF-law-ESPACE",
+      "actor": "Professeur law",
+      "faculty": "law",
+      "action": "Consulter son tableau de bord et ses cours",
+      "expected": "Ses affectations accessibles",
+      "obtained": "Dashboard affiché",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-law-dashboard.png"
+      ]
+    },
+    {
+      "id": "PROF-law-SUPPORT",
+      "actor": "Professeur law",
+      "faculty": "law",
+      "action": "Créer un support privé puis le publier",
+      "expected": "Support publié dans son enseignement",
+      "obtained": "Support publié avec fichier privé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-law-support-publie.png"
+      ]
+    },
+    {
+      "id": "PROF-law-ANNONCE",
+      "actor": "Professeur law",
+      "faculty": "law",
+      "action": "Publier une annonce du cours",
+      "expected": "Annonce ciblée créée",
+      "obtained": "Formulaire soumis",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-law-annonce.png"
+      ]
+    },
+    {
+      "id": "PROF-law-DEVOIR",
+      "actor": "Professeur law",
+      "faculty": "law",
+      "action": "Créer et publier un devoir individuel noté",
+      "expected": "Devoir publié, ouvert, barème de 20",
+      "obtained": "Évaluation 2, ressource 6",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-law-devoir-publie.png"
+      ]
+    },
+    {
+      "id": "ETUD-law-7-REMISE",
+      "actor": "Étudiant law, dossier 7",
+      "faculty": "law",
+      "action": "Consulter support et annonce, remettre un devoir",
+      "expected": "Copie reçue dans son inscription",
+      "obtained": "Travail transmis, version 1 visible",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-law-7-travail-transmis.png"
+      ]
+    },
+    {
+      "id": "PROF-law-7-CORRECTION",
+      "actor": "Professeur law",
+      "faculty": "law",
+      "action": "Consulter copie, noter et finaliser la correction",
+      "expected": "Correction finalisée à 16/20",
+      "obtained": "Copie consultée et correction finalisée",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-prof-law-7-correction-finalisee.png"
+      ]
+    },
+    {
+      "id": "ETUD-law-CORRECTION-PRIVEE",
+      "actor": "Étudiant law",
+      "faculty": "law",
+      "action": "Ouvrir une correction avant validation et publication",
+      "expected": "Appréciation privée indisponible",
+      "obtained": "Correction masquée et lien direct refusé 404",
+      "status": "VALIDÉ",
+      "proofs": []
+    },
+    {
+      "id": "RESP-law-TRANSMISSION",
+      "actor": "Responsable law",
+      "faculty": "law",
+      "action": "Valider les corrections et publier les appréciations",
+      "expected": "Transmission et appréciation publiées",
+      "obtained": "Corrections validées et diffusées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-responsable-law-corrections-validees.png"
+      ]
+    },
+    {
+      "id": "ETUD-law-7-CORRECTION",
+      "actor": "Étudiant law",
+      "faculty": "law",
+      "action": "Lire sa correction autorisée",
+      "expected": "Note 16/20 et appréciation personnelle",
+      "obtained": "Note et appréciation affichées",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-law-7-correction.png"
+      ]
+    },
+    {
+      "id": "ISO-med-PROF-ETUD",
+      "actor": "Professeur et étudiant med",
+      "faculty": "med",
+      "action": "Ouvrir les liens directs de l’autre faculté",
+      "expected": "Accès refusés sans copies ni notes exposées",
+      "obtained": "Professeur 403, support 404, correction 404, copie 404",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-med-refus-correction-autre-faculte.png"
+      ]
+    },
+    {
+      "id": "MOBILE-med-DEVOIR",
+      "actor": "Étudiant med",
+      "faculty": "med",
+      "action": "Consulter sa correction sur mobile",
+      "expected": "Devoir et correction lisibles",
+      "obtained": "Écran mobile chargé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-med-correction.png"
+      ]
+    },
+    {
+      "id": "ISO-law-PROF-ETUD",
+      "actor": "Professeur et étudiant law",
+      "faculty": "law",
+      "action": "Ouvrir les liens directs de l’autre faculté",
+      "expected": "Accès refusés sans copies ni notes exposées",
+      "obtained": "Professeur 403, support 404, correction 404, copie 404",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-law-refus-correction-autre-faculte.png"
+      ]
+    },
+    {
+      "id": "MOBILE-law-DEVOIR",
+      "actor": "Étudiant law",
+      "faculty": "law",
+      "action": "Consulter sa correction sur mobile",
+      "expected": "Devoir et correction lisibles",
+      "obtained": "Écran mobile chargé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-mobile-law-correction.png"
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/resources/3/feedback?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/resources/6/feedback?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/teacher/assessments?resource=6"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/materials/4?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/resources/6/feedback?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/submissions/3/versions/1?academic=1"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+      "url": "http://127.0.0.1:51415/app/dashboard/teacher/assessments?resource=3"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/materials/1?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/resources/3/feedback?academic=7"
+    },
+    {
+      "kind": "console",
+      "message": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://127.0.0.1:51415/app/dashboard/student/submissions/1/versions/1?academic=7"
+    }
+  ],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

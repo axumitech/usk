@@ -660,6 +660,10 @@ class StudentAcademicJourneyTest extends TestCase
     public function test_renewal_uses_the_new_year_tariff_for_the_confirmed_category(bool $activateBeforeRenewal, bool $legacySource): void
     {
         [$admin, $student, , $source] = $this->admitted(! $legacySource);
+        if (! $legacySource) {
+            $this->payment($source, $admin, '50.00');
+        }
+        $previousPayments = $source->payments()->get()->toArray();
         $student->forceFill(['nationality_code' => $legacySource ? 'CD' : 'CG'])->save();
         $this->travelTo(CarbonImmutable::parse('2027-10-12 12:00', 'Africa/Kinshasa'));
         $level = Level::create(['faculty_id' => $source->level->faculty_id, 'title' => 'Licence 2', 'code' => 'L2', 'is_active' => true]);
@@ -693,6 +697,8 @@ class StudentAcademicJourneyTest extends TestCase
         $this->assertSame([7500, 8000], $target->obligations()->where('finance_tariff_id', $tariff->id)->orderBy('installment')->pluck('amount_cents')->all());
         $this->assertSame($legacySource ? 0 : 10000, (int) $source->obligations()->sum('amount_cents'));
         $this->assertSame($legacySource ? null : 'national', $source->fresh()->fee_category);
+        $this->assertSame($previousPayments, $source->payments()->get()->toArray());
+        $this->assertFalse($target->payments()->exists());
         $this->actingAs($student)->get('/app/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $page) => $page
             ->where('academic.fee_category', 'national')->where('balance.total_cents', 15500)
             ->where('finance_schedule.0.due_at', '2027-11-01')->where('finance_schedule.1.due_at', '2028-02-15'));

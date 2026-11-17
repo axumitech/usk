@@ -4,6 +4,7 @@ namespace App\Modules\AcademicYear\Application;
 
 use App\Models\AcademicCalendarEvent;
 use App\Models\Student\AcademicSemester;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 final class AcademicCalendar
@@ -14,6 +15,20 @@ final class AcademicCalendar
         return AcademicCalendarEvent::where('academic_year_id', $yearId)->orderBy('start_date')->orderBy('id')->get()->toBase()
             ->concat(AcademicSemester::where('academic_year_id', $yearId)->orderBy('number')->get())
             ->sortBy(fn ($entry) => $entry->start_date->toDateString())->values();
+    }
+
+    public function week(int $yearId, CarbonImmutable $start): Collection
+    {
+        $from = $start->toDateString();
+        $until = $start->addWeek()->toDateString();
+
+        return $this->entries($yearId)->filter(fn ($entry) => $entry->start_date->toDateString() < $until
+            && $entry->end_date->toDateString() >= $from)->values()->map(fn ($entry) => [
+                'id' => $entry instanceof AcademicSemester ? 'semestre-'.$entry->id : $entry->id,
+                'title' => $this->title($entry), 'category' => $entry instanceof AcademicSemester ? 'courses' : $entry->category,
+                'category_label' => $this->categoryLabel($entry),
+                'start_date' => $entry->start_date->toDateString(), 'end_date' => $entry->end_date->toDateString(),
+            ]);
     }
 
     public function find(string $event, ?int $yearId = null): AcademicCalendarEvent|AcademicSemester

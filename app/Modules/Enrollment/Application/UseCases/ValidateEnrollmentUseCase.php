@@ -5,8 +5,8 @@ use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 class ValidateEnrollmentUseCase
 {
     public function __construct(private readonly RecordEnrollmentDecision $decisions) {}
-    public function execute(int $enrollmentId, int $validatorId): Enrollment
+    public function execute(int $enrollmentId, int $validatorId, ?string $reason = null): Enrollment
     {
-        return $this->decisions->execute($enrollmentId, $validatorId, EnrollmentStatus::VALIDATED);
+        return $this->decisions->execute($enrollmentId, $validatorId, EnrollmentStatus::VALIDATED, $reason);
     }
 }

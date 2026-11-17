@@ -24,12 +24,15 @@ export type StudentEnrollment = {
     reference: string;
     matricule?: string | null;
     status: string;
+    academic_enrollment_status?: string | null;
     payment_status?: string;
     created_at?: string;
     submitted_at?: string | null;
     requested_program?: string | null;
     updated_at?: string;
     enrolled_at?: string | null;
+    admitted_at?: string | null;
+    admission_reason?: string | null;
     analysis_completed_at?: string | null;
     analysis_started_at?: string | null;
     corrections_requested_at?: string | null;
@@ -58,11 +61,14 @@ export type StudentEnrollment = {
 export const statusLabels: Record<string, string> = {
     draft: 'Brouillon',
     submitted: 'Dossier transmis',
-    pending: 'En cours d’examen',
-    validated: 'Dossier validé',
-    rejected: 'Dossier rejeté',
-    cancelled: 'Inscription annulée',
+    pending: 'En analyse',
+    validated: 'Admis',
+    rejected: 'Refusé',
+    cancelled: 'Candidature retirée',
 };
+export function correctionsRequired(entry: StudentEnrollment) {
+    return entry.status === 'pending' && (entry.documents?.some((doc) => doc.can_replace) || (entry.correction_documents_count ?? 0) > 0);
+}
 export const verdictLabels: Record<string, string> = {
     pending: 'À examiner',
     accepted: 'Acceptée',
@@ -101,12 +107,18 @@ export function formatDate(value?: string | null, time = false) {
 }
 export function nextStep(entry: StudentEnrollment) {
     if (entry.status === 'draft') return 'Complétez votre brouillon, puis transmettez-le au service des inscriptions.';
-    if (entry.status === 'validated') return 'Votre dossier est validé. Consultez les indications du service pour la suite de votre inscription.';
+    if (entry.status === 'validated') {
+        if (entry.academic_enrollment_status === 'confirmed') return 'Votre inscription académique est confirmée. Consultez votre espace étudiant.';
+        if (entry.academic_enrollment_status === 'pending_confirmation') return 'Vous êtes admis. Consultez vos frais et les conditions de confirmation dans votre espace étudiant.';
+        return 'Vous êtes admis. Consultez votre espace étudiant ou contactez le service pour connaître l’état de votre inscription.';
+    }
     if (entry.status === 'rejected')
         return 'Consultez le motif de la décision dans votre dossier. Le service des inscriptions peut vous apporter des précisions.';
-    if (entry.status === 'cancelled') return 'Cette inscription est annulée. Son historique reste consultable.';
-    if (entry.documents?.some((doc) => doc.can_replace) || (entry.status === 'pending' && (entry.correction_documents_count || 0) > 0))
+    if (entry.status === 'cancelled') return 'Cette candidature a été retirée. Son historique reste consultable.';
+    if (correctionsRequired(entry))
         return 'Des corrections sont attendues. Ouvrez vos justificatifs pour transmettre les pièces demandées.';
+    if (entry.status === 'pending' && entry.documents?.some((doc) => doc.version > 1 && doc.review_status === 'pending'))
+        return 'Vos nouvelles pièces ont été transmises. Le service doit encore les examiner.';
     if (entry.analysis_completed_at)
         return 'Toutes vos pièces ont été examinées. Consultez le compte rendu dans vos justificatifs. La décision finale du service reste à venir.';
     return entry.analysis_started_at

@@ -1,0 +1,52 @@
+{
+  "scenarios": [
+    "ADM-NEG-CAMPAGNE",
+    "ADM-NEG-CAMPAGNE-RESTOREE",
+    "ADM-NEG-INCOMPLET",
+    "ADM-NEG-CORRECTION",
+    "ADM-NEG-REJET"
+  ],
+  "campaign_restored": true,
+  "candidates": {
+    "correction": {
+      "user": 24,
+      "verified": true,
+      "roles": [
+        "candidate"
+      ],
+      "applications": [
+        {
+          "id": 14,
+          "uuid": "28f93058-40c1-473f-b369-5a5ca383b1e9",
+          "status": "pending",
+          "level_id": 3,
+          "academic_year_id": 1,
+          "reference": "USK-000014",
+          "status_label": "En analyse",
+          "payment_status_label": "Inconnu"
+        }
+      ],
+      "entries": []
+    },
+    "rejected": {
+      "user": 25,
+      "verified": true,
+      "roles": [
+        "candidate"
+      ],
+      "applications": [
+        {
+          "id": 15,
+          "uuid": "222d0c80-0145-45ef-8830-bfa6e7f0ce91",
+          "status": "rejected",
+          "level_id": 3,
+          "academic_year_id": 1,
+          "reference": "USK-000015",
+          "status_label": "Refusé",
+          "payment_status_label": "Inconnu"
+        }
+      ],
+      "entries": []
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "name": "finance-refund",
+  "module": "finance-refund",
+  "records": [
+    {
+      "id": "FIN-REF-01",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Demander le remboursement fictif partiel de 10 USD sur le versement de 40 USD",
+      "expected": "Demande conservée sans effacer le versement",
+      "obtained": "Remboursement #1, auteur financier tracé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-finance-remboursement-demande.png"
+      ]
+    },
+    {
+      "id": "FIN-REF-02",
+      "actor": "Administrateur institutionnel",
+      "faculty": "med",
+      "action": "Autoriser la demande fictive par un compte distinct du demandeur",
+      "expected": "Autorisation tracée avant exécution",
+      "obtained": "approved_by distinct de requested_by",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-finance-remboursement-autorise.png"
+      ]
+    },
+    {
+      "id": "FIN-REF-03",
+      "actor": "Agent financier Médecine",
+      "faculty": "med",
+      "action": "Exécuter le remboursement fictif et contrôler le registre",
+      "expected": "Paiement et allocations conservés, première obligation due10USD, inscription confirmée avec audit de réexamen",
+      "obtained": "Remboursement exécuté10USD, première tranche due1000centimes, inscription confirmed et audit présents",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-finance-remboursement-reexamen-administratif.png"
+      ]
+    },
+    {
+      "id": "FIN-REF-04",
+      "actor": "Étudiant Médecine",
+      "faculty": "med",
+      "action": "Consulter le reste de première tranche et la notification de remboursement",
+      "expected": "Réexamen compréhensible et notification financière unique, inscription confirmée",
+      "obtained": "Première tranche due10USD et unique notification refund_executed reçue",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-finance-remboursement-etudiant-informe.png",
+        "../captures/usk-06-finance-remboursement-notification.png"
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}

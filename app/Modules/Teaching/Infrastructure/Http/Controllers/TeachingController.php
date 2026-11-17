@@ -19,6 +19,7 @@ use App\Modules\Teaching\Application\Services\CourseRegistrationService;
 use App\Modules\Teaching\Application\Services\TeachingOfferingService;
 use App\Modules\Teaching\Application\Services\TeachingScope;
 use App\Modules\Teaching\Application\Services\TeachingTeam;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -26,7 +27,7 @@ final class TeachingController extends Controller
 {
     private const REASON = 'required|string|min:10|max:1000';
 
-    public function index(Request $request, CourseAudience $audience)
+    public function index(Request $request, CourseAudience $audience, TeachingOfferingService $service)
     {
         $actor = $request->user();
         abort_unless($actor->canAny(['publish academic content', 'manage academic access']), 403);
@@ -52,7 +53,13 @@ final class TeachingController extends Controller
         $canPublish = $actor->can('publish academic content');
         $canRegister = $actor->can('manage academic access');
         $students = $selected ? $audience->roster($selected)->with('profile.user')->orderBy('academic_enrollments.id')->paginate(20, ['*'], 'students_page')->withQueryString()->through(self::student(...)) : null;
-        $candidates = $selected?->curriculum_item_id && $canRegister ? $audience->candidates($selected)
+        $eligible = $selected?->curriculum_item_id ? $audience->candidates($selected) : null;
+        $registrationOpen = $eligible && $selected->is_published && ! $selected->archived_at && $selected->academicYear->status === 'open';
+        $missingRegistrations = $registrationOpen && ! $selected->is_optional ? (clone $eligible)
+            ->whereDoesntHave('courseRegistrations', fn ($registrations) => $registrations->where('academic_offering_id', $selected->id)
+                ->where(fn ($registered) => $registered->whereNull('withdrawn_at')->orWhere('withdrawal_kind', 'manual')))
+            ->count() : null;
+        $candidates = $registrationOpen && $canRegister ? $eligible
             ->when($filters['student'] ?? null, fn ($q, $term) => $q->where(fn ($s) => $s->where('matricule', 'like', '%'.$term.'%')
                 ->orWhereHas('profile.user', fn ($u) => $u->where('last_name', 'like', '%'.$term.'%')->orWhere('first_name', 'like', '%'.$term.'%'))))
             ->with('profile.user')->orderBy('academic_enrollments.id')->limit(40)->get()->map(self::student(...)) : [];
@@ -63,11 +70,14 @@ final class TeachingController extends Controller
                 ->latest('id')->paginate(20)->withQueryString()->through(self::row(...)),
             'summary' => ['total' => (clone $query)->count(), 'published' => (clone $query)->whereNull('archived_at')->where('is_published', true)->count(), 'archived' => (clone $query)->whereNotNull('archived_at')->count()],
             'selected' => $selected ? self::row($selected) : null, 'students' => $students, 'candidates' => $candidates,
+            'registrationOpen' => $registrationOpen,
+            'missingRegistrations' => $missingRegistrations,
+            'publicationBlocker' => $selected && $canPublish && ! $selected->is_published && ! $selected->archived_at ? $service->publicationBlocker($selected) : null,
             'assignments' => $selected?->assignments()->with('professor:id,first_name,last_name')->latest('id')->paginate(15, ['*'], 'team_page')->withQueryString(),
             'registrations' => $selected?->registrations()->with('enrollment.profile.user')->latest('id')->paginate(15, ['*'], 'registrations_page')->withQueryString()->through(fn ($r) => [
                 'id' => $r->id, 'student' => self::student($r->enrollment), 'mode' => $r->mode, 'registered_at' => $r->registered_at, 'withdrawn_at' => $r->withdrawn_at,
             ]),
-            'sessions' => $selected?->sessions()->latest('starts_at')->paginate(15, ['id', 'starts_at', 'ends_at', 'room', 'is_published'], 'sessions_page')->withQueryString(),
+            'sessions' => $selected?->sessions()->latest('starts_at')->paginate(15, ['id', 'starts_at', 'ends_at', 'room', 'is_published', 'cancelled_at'], 'sessions_page')->withQueryString(),
             'resources' => $selected?->resources()->whereNull('student_profile_id')->latest('id')->paginate(15, ['id', 'kind', 'title', 'is_published'], 'resources_page')->withQueryString(),
             'professors' => $selected && $canPublish ? Professor::where('is_active', true)->orderBy('last_name')->get(['id', 'first_name', 'last_name']) : [],
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
@@ -77,7 +87,8 @@ final class TeachingController extends Controller
                 ->whereHas('sourceCourse', fn ($q) => $q->where('catalog_status', 'active'))->with('unit:id,code,name,level_id,level_title,period_code')->orderBy('name')
                 ->get(['id', 'curriculum_unit_id', 'name', 'source_course_id', 'is_optional']) : [],
             'groups' => $version && $year ? Classes::whereHas('promotion', fn ($q) => $q->where('academic_program_id', $version->academic_program_id)->where('academic_year_id', $year))
-                ->with('intake:id,name')->orderBy('id')->get(['id', 'level_id', 'intake_id', 'academic_promotion_id']) : [],
+                ->with(['intake:id,name', 'promotion:id,name'])->orderBy('id')->get(['id', 'level_id', 'intake_id', 'academic_promotion_id'])
+                ->map(fn (Classes $group) => ['id' => $group->id, 'level_id' => $group->level_id, 'name' => CourseAudience::groupLabel($group), 'promotion' => $group->promotion->name]) : [],
             'semesters' => $year ? AcademicSemester::where('academic_year_id', $year)->orderBy('number')->get() : [],
             'units' => $version && $canPublish ? CurriculumUnit::whereHas('version', fn ($q) => $q->where('academic_program_id', $version->academic_program_id)->whereNotNull('published_at'))
                 ->with('version:id,code')->orderBy('name')->get(['id', 'curriculum_version_id', 'code', 'name']) : [],
@@ -94,7 +105,7 @@ final class TeachingController extends Controller
             'year' => $offering->academicYear->title, 'year_id' => $offering->academic_year_id, 'level' => $offering->level->title, 'faculty' => $offering->level->faculty->name,
             'program' => $version ? ($version->program_snapshot['name'] ?? $version->program->name) : null, 'version' => $version?->code, 'unit' => $item?->unit->name, 'item_id' => $item?->id, 'unit_id' => $item?->curriculum_unit_id,
             'semester' => $item?->unit->period_name ?? $offering->semester, 'starts_on' => $offering->academicSemester?->start_date->toDateString() ?? $offering->starts_on,
-            'ends_on' => $offering->academicSemester?->end_date->toDateString() ?? $offering->ends_on, 'group' => $offering->group?->intake?->name,
+            'ends_on' => $offering->academicSemester?->end_date->toDateString() ?? $offering->ends_on, 'group' => CourseAudience::groupLabel($offering->group),
             'promotion' => $offering->group?->promotion?->name, 'department' => $offering->department?->name,
             'teacher' => $offering->professor?->full_name, 'teacher_id' => $offering->professor_id, 'assistant' => $offering->assistant?->full_name,
             'assistant_id' => $offering->assistant_professor_id, 'credits' => $item?->credits, 'coefficient' => $item?->coefficient,
@@ -119,7 +130,7 @@ final class TeachingController extends Controller
         ]);
         $offering = $service->create($request->user(), $data);
 
-        return to_route('dashboard.admin.teaching.index', ['offering' => $offering->id], 303)->with('success', 'Offre préparée.');
+        return $this->offeringPage($offering)->with('success', 'Offre préparée.');
     }
 
     public function status(Request $request, AcademicOffering $offering, TeachingOfferingService $service)
@@ -127,7 +138,7 @@ final class TeachingController extends Controller
         $data = $request->validate(['action' => 'required|in:publish,archive', 'reason' => self::REASON]);
         $service->transition($offering, $request->user(), $data['action'], $data['reason']);
 
-        return back(303)->with('success', 'État de l’offre enregistré.');
+        return $this->offeringPage($offering)->with('success', 'État de l’offre enregistré.');
     }
 
     public function team(Request $request, AcademicOffering $offering, TeachingTeam $team)
@@ -135,7 +146,7 @@ final class TeachingController extends Controller
         $data = $request->validate(['professor_id' => 'required|integer|exists:professors,id', 'role' => 'required|in:lead,primary_assistant,instructor,assistant', 'action' => 'required|in:assign,end', 'reason' => self::REASON]);
         $team->change($offering, $request->user(), $data);
 
-        return back(303)->with('success', 'Équipe pédagogique enregistrée.');
+        return $this->offeringPage($offering)->with('success', 'Équipe pédagogique enregistrée.');
     }
 
     public function register(Request $request, AcademicOffering $offering, CourseRegistrationService $service)
@@ -143,7 +154,7 @@ final class TeachingController extends Controller
         $data = $request->validate(['academic_enrollment_id' => 'required|integer|exists:academic_enrollments,id', 'mode' => 'required|in:mandatory,elective,repeat,derogation', 'reason' => self::REASON]);
         $service->register($offering, AcademicEnrollment::findOrFail($data['academic_enrollment_id']), $request->user(), $data['mode'], $data['reason']);
 
-        return back(303)->with('success', 'Inscription pédagogique enregistrée.');
+        return $this->offeringPage($offering)->with('success', 'Inscription pédagogique enregistrée.');
     }
 
     public function sync(Request $request, AcademicOffering $offering, CourseRegistrationService $service)
@@ -151,7 +162,7 @@ final class TeachingController extends Controller
         $data = $request->validate(['reason' => self::REASON]);
         $summary = $service->sync($offering, $request->user(), $data['reason']);
 
-        return back(303)->with('success', sprintf('%d inscrits, %d hors du public retirés, %d prérequis non satisfaits.', $summary['registered'], $summary['withdrawn'], $summary['skipped_prerequisite']));
+        return $this->offeringPage($offering)->with('success', sprintf('%d inscrits, %d hors du public retirés, %d prérequis non satisfaits.', $summary['registered'], $summary['withdrawn'], $summary['skipped_prerequisite']));
     }
 
     public function withdraw(Request $request, CourseRegistration $registration, CourseRegistrationService $service)
@@ -159,6 +170,16 @@ final class TeachingController extends Controller
         $data = $request->validate(['reason' => self::REASON]);
         $service->withdraw($registration, $request->user(), $data['reason']);
 
-        return back(303)->with('success', 'Retrait enregistré et historique conservé.');
+        return $this->offeringPage($registration->offering)->with('success', 'Retrait enregistré et historique conservé.');
+    }
+
+    private function offeringPage(AcademicOffering $offering): RedirectResponse
+    {
+        $version = $offering->curriculumItem?->unit?->version;
+
+        return to_route('dashboard.admin.teaching.index', array_filter([
+            'offering' => $offering->id, 'year' => $offering->academic_year_id,
+            'program' => $version?->academic_program_id, 'version' => $version?->id,
+        ], fn ($value) => $value !== null), 303);
     }
 }

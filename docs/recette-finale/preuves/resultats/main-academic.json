@@ -1,0 +1,106 @@
+{
+  "name": "main-academic",
+  "module": "main-academic",
+  "records": [
+    {
+      "id": "ACA-01",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Consulter les programmes et cycles configurés",
+      "expected": "Programme rattaché au cycle Licence",
+      "obtained": "Structure existante consultée dans le périmètre Droit",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-structure-cycles-programmes.png"
+      ]
+    },
+    {
+      "id": "ACA-02",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Dupliquer la maquette dans un brouillon versionné",
+      "expected": "Nouvelle version sans altérer les inscriptions existantes",
+      "obtained": "Brouillon V2 créé depuis V1",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-maquette-v2-brouillon.png"
+      ]
+    },
+    {
+      "id": "ACA-03",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Approuver les deux niveaux, valider puis publier la maquette V2",
+      "expected": "Publication explicite et conservation de V1 pour les inscrits",
+      "obtained": "V2 publiée ; inscription Droit existante toujours rattachée à V1",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-maquette-v2-publiee.png"
+      ]
+    },
+    {
+      "id": "ACA-04",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Ouvrir une offre V2 L2, affecter le professeur et publier",
+      "expected": "Offre distincte et professeur affecté",
+      "obtained": "Offre publiée sur V2 sans modifier le cours historique V1",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-offre-v2-publiee.png"
+      ]
+    },
+    {
+      "id": "ACA-05",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Planifier et publier une séance du nouvel enseignement",
+      "expected": "Séance unique dans l’année et le niveau choisis",
+      "obtained": "Créneau publié pour l’offre V2 avec enseignant affecté",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-horaire-v2-publie.png"
+      ]
+    },
+    {
+      "id": "ACA-06",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Tenter une séance identique en conflit",
+      "expected": "Refus et absence de doublon",
+      "obtained": "Conflit visible et compteur serveur inchangé",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-conflit-horaire-refuse.png"
+      ]
+    },
+    {
+      "id": "ACA-08",
+      "actor": "Doyen Droit",
+      "faculty": "law",
+      "action": "Consulter le calendrier académique",
+      "expected": "Événements et périodes de l’année visibles",
+      "obtained": "Calendrier consulté avec les périodes fictives",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-calendrier-academique.png"
+      ]
+    },
+    {
+      "id": "ACA-07",
+      "actor": "Étudiant Droit",
+      "faculty": "law",
+      "action": "Consulter les cours après publication V2",
+      "expected": "Conserver son contexte V1 sans offre d’un autre niveau",
+      "obtained": "Cours V1 conservé, offre V2 niveau2 exclue",
+      "status": "VALIDÉ",
+      "proofs": [
+        "../captures/usk-06-etudiant-v1-apres-publication-v2.png"
+      ]
+    }
+  ],
+  "diagnostics": [],
+  "javascript_errors": [],
+  "error": null,
+  "success": true
+}
