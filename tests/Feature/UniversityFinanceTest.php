@@ -541,7 +541,7 @@ class UniversityFinanceTest extends TestCase
         $this->post(route('dashboard.admin.finance.bill', ['academic' => $entry->id]), ['tariff_id' => $foreign->id, 'reason' => 'Contrôle de la catégorie avant facturation.'])
             ->assertSessionHasErrors('tariff');
 
-        $otherFaculty = DB::table('faculties')->insertGetId(['name' => 'Faculté hors périmètre', 'code' => 'TARIF-AUTRE']);
+        $otherFaculty = DB::table('faculties')->insertGetId(['name' => 'Faculté hors périmètre', 'code' => 'TF-AUTRE']);
         $scopedAdmin = User::factory()->create();
         $scopedAdmin->assignRole('admin');
         $scopedAdmin->academicFaculties()->attach($otherFaculty);
