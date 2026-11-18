@@ -47,6 +47,7 @@ class EnrollmentReviewWorkflowTest extends TestCase
 
     public function test_start_is_idempotent_and_validation_requires_accepted_evidence(): void
     {
+        config(['student.enrollment_requires_first_installment' => true, 'student.enrollment_activation_percentage' => 30]);
         [$admin, $student, , $entry, $doc, $url] = $this->fixture();
         $this->actingAs($admin)->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'accepted'])->assertSessionHasErrors('review');
         $this->post($url.'/start-analysis')->assertSessionHasNoErrors();
@@ -61,7 +62,16 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->post($url.'/validate')->assertSessionHasNoErrors();
         $this->assertSame('validated', $entry->fresh()->status->value);
         $this->assertSame('unpaid', $entry->fresh()->payment_status->value);
-        Mail::assertSent(EnrollmentReviewUpdated::class, fn ($mail) => $mail->kind === 'validated');
+        $admissions = Mail::sent(EnrollmentReviewUpdated::class, fn ($mail) => $mail->kind === 'validated');
+        $this->assertCount(1, $admissions);
+        $admissions->sole()->assertTo($student->email)
+            ->assertHasSubject('USK — Votre candidature a été acceptée')
+            ->assertSeeInHtml('Votre inscription annuelle reste à confirmer.')
+            ->assertSeeInHtml('au moins 30 % de la première tranche applicable')
+            ->assertSeeInText('Votre inscription annuelle reste à confirmer.')
+            ->assertSeeInText('au moins 30 % de la première tranche applicable')
+            ->assertDontSeeInHtml('Votre espace étudiant est désormais activé')
+            ->assertDontSeeInText('Votre espace étudiant est désormais activé');
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'rejected', 'reason' => 'Test refus'])->assertSessionHasErrors('review');
         $this->post($url.'/start-analysis')->assertSessionHasErrors('review');
         Mail::assertSentCount(3);
