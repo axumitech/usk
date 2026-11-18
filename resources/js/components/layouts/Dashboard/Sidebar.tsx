@@ -1,4 +1,4 @@
-import { adminNavigation } from '@/components/layouts/Dashboard/adminNavigation';
+import { activeAdminDestination, visibleAdminNavigation } from '@/components/layouts/Dashboard/adminNavigation';
 import { studentHref, studentModules, studentSectionAccess } from '@/components/student/navigation';
 import type { Permission } from '@/components/student/types';
 import Alert from '@/utils/sweetAlert';
@@ -6,6 +6,7 @@ import { router, usePage } from '@inertiajs/react';
 import { BookOpen, ChevronRight, ClipboardCheck, GraduationCap, Home, LogOut, X } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { route } from 'ziggy-js';
+import '../../../../css/dashboard/admin-sidebar.css';
 
 // Types pour les rôles
 type UserRole = 'user' | 'candidate' | 'student' | 'professor' | 'admin' | 'super admin';
@@ -16,8 +17,8 @@ const rolePermissions: Record<UserRole, string[]> = {
     candidate: ['enrollments'],
     student: ['dashboard', 'enrollments'],
     professor: ['teaching'],
-    admin: adminNavigation.map(({ id }) => id),
-    'super admin': adminNavigation.map(({ id }) => id),
+    admin: [],
+    'super admin': [],
 };
 
 const Sidebar = ({
@@ -50,6 +51,9 @@ const Sidebar = ({
         permissions?: Record<string, Permission>;
         auth?: { user?: { permissions?: string[]; hasAcademicFacultyScope?: boolean } | null };
     }>();
+    const adminGroups = isAdministration ? visibleAdminNavigation(page.props.auth?.user) : [];
+    const adminActive = isAdministration ? activeAdminDestination(adminGroups, page.url) : null;
+    const expandedMenu = isAdministration && isMobile && !isMobileSidebarOpen ? null : currentActiveMenu;
     const portalActive = Boolean(page.props.studentPortalActive);
     const isStudentPortal = portalActive && !isAdministration && !page.url?.startsWith('/app/dashboard/teacher');
     const sidebarRef = useRef<HTMLDivElement>(null);
@@ -91,11 +95,11 @@ const Sidebar = ({
 
     // Animation d'entrée des menus
     useEffect(() => {
-        if (currentActiveMenu) {
-            setMenuAnimations((prev) => ({ ...prev, [currentActiveMenu]: true }));
-            menuRefs.current[currentActiveMenu]?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+        if (expandedMenu) {
+            setMenuAnimations((prev) => ({ ...prev, [expandedMenu]: true }));
+            menuRefs.current[expandedMenu]?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
         }
-    }, [currentActiveMenu]);
+    }, [expandedMenu]);
 
     const handleLogout = async () => {
         const result = await Alert.confirm('Êtes-vous sûr de vouloir vous déconnecter?');
@@ -124,6 +128,7 @@ const Sidebar = ({
     };
 
     const hasPermission = (menuId: string): boolean => {
+        if (isAdministration) return adminGroups.some((group) => group.id === menuId);
         if (isStudentPortal) return studentModules.some((module) => module.id === menuId);
         // Un étudiant activé retrouve son dossier dans son espace unique,
         // même lorsqu’il conserve également le rôle candidat « user ».
@@ -153,7 +158,7 @@ const Sidebar = ({
     ];
 
     const visibleMenuItems = isAdministration
-        ? adminNavigation.map((item) => ({
+        ? adminGroups.map((item) => ({
               id: item.id,
               label: item.shortLabel,
               ariaLabel: item.title,
@@ -178,25 +183,17 @@ const Sidebar = ({
         }
     > = isAdministration
         ? Object.fromEntries(
-              adminNavigation.map((menu) => [
+              adminGroups.map((menu) => [
                   menu.id,
                   {
                       title: menu.title,
-                      items: menu.items.map(([label, destination]) => {
-                          const user = page.props.auth?.user;
-                          const restricted =
-                              (destination.institutionWide && user?.hasAcademicFacultyScope) ||
-                              (destination.anyPermission?.length &&
-                                  !destination.anyPermission.some((permission) => user?.permissions?.includes(permission)));
-                          return {
-                              id: label,
-                              label,
-                              icon: <menu.icon size={18} />,
-                              href: restricted ? undefined : destination.href,
-                              native: destination.native,
-                              status: restricted ? 'Accès restreint' : undefined,
-                          };
-                      }),
+                      items: menu.items.map(([label, destination]) => ({
+                          id: label,
+                          label,
+                          icon: <menu.icon size={18} />,
+                          href: destination.href,
+                          native: destination.native,
+                      })),
                   },
               ]),
           )
@@ -271,6 +268,7 @@ const Sidebar = ({
                 className={`fixed top-0 left-0 ${isMobile ? 'w-16' : 'w-20'} z-[60] flex h-screen flex-col border-r border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-300 shadow-2xl backdrop-blur-xl transition-all duration-500 ease-out ${isMobile ? 'overflow-y-auto' : 'overflow-hidden'} md:translate-x-0 ${isMobile && !isMobileSidebarOpen ? '-translate-x-full' : 'translate-x-0'} ${isMobile && currentActiveMenu ? 'opacity-30' : 'opacity-100'}`}
                 ref={sidebarRef}
                 data-dashboard-rail
+                data-admin-sidebar={isAdministration ? 'rail' : undefined}
                 aria-label="Navigation principale"
                 inert={isMobile && !isMobileSidebarOpen}
             >
@@ -291,11 +289,14 @@ const Sidebar = ({
                 {/* Navigation avec espacement optimisé */}
                 <div
                     className={`relative flex min-h-0 flex-1 flex-col overflow-y-auto ${isMobile ? 'gap-2' : 'gap-3'} ${isMobile ? 'px-1.5' : 'px-2'} pb-4 ${isAdministration ? 'overscroll-contain' : ''}`}
+                    data-admin-sidebar-scroll={isAdministration ? '' : undefined}
                 >
                     {visibleMenuItems
                         .filter((item) => subMenuConfig[item.id]?.items.length)
                         .map((item) => {
-                            const isActive = currentActiveMenu === item.id;
+                            const isExpanded = expandedMenu === item.id;
+                            const isCurrentGroup = isAdministration && adminActive?.groupId === item.id;
+                            const isActive = isExpanded || isCurrentGroup;
                             const isHovered = hoveredItem === item.id;
 
                             return (
@@ -306,14 +307,17 @@ const Sidebar = ({
                                     ></div>
 
                                     <button
+                                        type="button"
                                         className={`relative w-full cursor-pointer border-none bg-transparent ${isAdministration ? 'gap-1 px-0.5 py-2.5' : isMobile ? 'p-2.5' : 'p-3'} flex flex-col items-center overflow-hidden rounded-xl text-xs font-medium transition-all duration-300 ${
                                             isActive
                                                 ? 'scale-105 border border-emerald-400/40 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-white shadow-lg'
                                                 : 'text-slate-400 hover:scale-105 hover:bg-slate-800/60 hover:text-white active:scale-95'
                                         } ${isHovered && !isActive ? 'shadow-lg' : ''}`}
                                         data-menu={item.id}
-                                        aria-label={item.label}
-                                        aria-expanded={isActive}
+                                        aria-label={isAdministration ? item.ariaLabel : item.label}
+                                        title={isAdministration ? item.ariaLabel : undefined}
+                                        aria-expanded={isExpanded}
+                                        aria-current={isCurrentGroup ? 'location' : undefined}
                                         aria-controls={`sidebar-panel-${item.id}`}
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -380,13 +384,14 @@ const Sidebar = ({
             {Object.entries(subMenuConfig).map(([menuId, config]) => {
                 if (!hasPermission(menuId) || !config.items.length) return null;
 
-                const isActive = currentActiveMenu === menuId;
+                const isActive = expandedMenu === menuId;
                 const hasAnimation = isActive && menuAnimations[menuId];
 
                 return (
                     <div
                         key={menuId}
                         id={`sidebar-panel-${menuId}`}
+                        data-admin-sidebar={isAdministration ? 'panel' : undefined}
                         ref={(el) => {
                             menuRefs.current[menuId] = el;
                         }}
@@ -449,7 +454,15 @@ const Sidebar = ({
                                         href={item.href}
                                         onClick={item.href && !item.native ? visitMenuPage : undefined}
                                         aria-disabled={!item.href || undefined}
-                                        aria-current={item.href && isCurrentDestination(item.href, page.url) ? 'page' : undefined}
+                                        aria-current={
+                                            isAdministration
+                                                ? adminActive?.groupId === menuId && adminActive.href === item.href
+                                                    ? 'page'
+                                                    : undefined
+                                                : item.href && isCurrentDestination(item.href, page.url)
+                                                  ? 'page'
+                                                  : undefined
+                                        }
                                         tabIndex={item.href ? undefined : -1}
                                         className={`${submenuRowClass(isMobile)} ${hasAnimation ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'}`}
                                         style={{ transitionDelay: `${index * 50}ms` }}

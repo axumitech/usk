@@ -1,0 +1,43 @@
+.usk-dashboard [data-admin-sidebar='rail'],
+.usk-dashboard [data-admin-sidebar='panel'] {
+    height: 100dvh;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+.usk-dashboard [data-admin-sidebar-scroll] {
+    overflow-x: hidden;
+}
+
+.usk-dashboard [data-admin-sidebar='rail'] button:focus-visible {
+    outline: 2px solid var(--usk-night-gold, #e6c470);
+    outline-offset: -2px;
+}
+
+.usk-dashboard [data-admin-sidebar='rail'] button[aria-current='location'] {
+    color: var(--usk-night-gold, #e6c470);
+    box-shadow: inset 2px 0 var(--usk-night-gold, #e6c470);
+}
+
+.usk-dashboard [data-admin-sidebar='rail'] button[aria-expanded='true'] {
+    outline: 1px solid var(--usk-night-gold, #e6c470);
+    outline-offset: -1px;
+}
+
+.usk-dashboard [data-admin-sidebar='panel'] h3,
+.usk-dashboard [data-admin-sidebar='panel'] a > span:not([aria-hidden]) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.usk-dashboard [data-admin-sidebar='panel'] a[aria-current='page'] {
+    border-color: var(--usk-night-border, #bad5c4);
+    background: var(--usk-night-positive, #eef5f0);
+    color: var(--usk-night-mint, #073e32);
+    box-shadow: inset 3px 0 var(--usk-night-gold, #b59444);
+}
+
+.usk-dashboard [data-admin-sidebar='panel'] a[aria-current='page'] > span[aria-hidden] {
+    background: var(--usk-night-positive, #dcebe0);
+    color: inherit;
+}
