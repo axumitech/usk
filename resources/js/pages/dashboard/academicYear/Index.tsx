@@ -50,12 +50,17 @@ export default function AcademicYearManager({ academicYears }: { academicYears: 
     );
     const resultsPanel = usePanelFade(filtered.map((year) => year.id).join(','));
     const openYear = (year: AcademicYear) => {
-        if (!action.processing) action.patch(route('dashboard.admin.academic-years.open', year.id), { preserveScroll: true });
+        if (!action.processing) action.patch(route('dashboard.admin.academic-years.open', { id: year.id, return: 'index' }), { preserveScroll: true });
     };
     const closeYear = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (closing && !action.processing)
-            action.patch(route('dashboard.admin.academic-years.close', closing.id), { preserveScroll: true, onSuccess: () => setClosing(null) });
+            action.patch(route('dashboard.admin.academic-years.close', { id: closing.id, return: 'index' }), {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    if (page.flash?.dashboardAction) setClosing(null);
+                },
+            });
     };
     const messages = Object.values(action.errors);
     return (

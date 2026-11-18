@@ -291,8 +291,12 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->post($url.'/documents/'.$doc->uuid.'/review', ['verdict' => 'correction_requested', 'reason' => 'Copie à remplacer.']);
         $studentUrl = '/app/dashboard/enrollments/'.$entry->uuid;
         $replace = '/app/dashboard/enrollments/documents/'.$doc->uuid.'/replace';
-        $this->actingAs($student)->from($studentUrl)->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Error-Bag' => 'replacement-'.$doc->uuid])
-            ->post($replace, ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])->assertRedirect($studentUrl)->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->flushSession();
+        $this->actingAs($student)->withSession(['_previous' => ['url' => route('dashboard.index')]])
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Error-Bag' => 'replacement-'.$doc->uuid])
+            ->post($replace, ['file' => UploadedFile::fake()->create('corrige.pdf', 10, 'application/pdf')])
+            ->assertStatus(303)->assertRedirect($studentUrl.'?document='.$doc->uuid)
+            ->assertSessionHasNoErrors()->assertSessionHas('success', 'Votre nouveau justificatif a été transmis pour examen.');
         Mail::assertSent(\App\Mail\EnrollmentDocumentReplaced::class, function ($mail) use ($entry, $student) {
             return $mail->hasTo('admissions@example.test') && ! $mail->hasTo($student->email)
                 && $mail->document['version'] === 2 && str_contains($mail->render(), $entry->reference)

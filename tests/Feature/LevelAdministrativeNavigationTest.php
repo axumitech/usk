@@ -8,6 +8,7 @@ use App\Models\LevelDetail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -96,6 +97,7 @@ final class LevelAdministrativeNavigationTest extends TestCase
     private function context(): array
     {
         $admin = User::factory()->create()->assignRole(Role::findOrCreate('admin', 'web'));
+        $admin->givePermissionTo(Permission::findOrCreate('manage academic access', 'web'));
         $faculty = Faculty::create(['name' => 'Faculté de test', 'code' => 'TEST']);
         Level::create(['faculty_id' => $faculty->id, 'title' => 'Niveau témoin', 'code' => 'L0']);
         $level = Level::create(['faculty_id' => $faculty->id, 'title' => 'Licence 1', 'code' => 'L1', 'is_active' => true]);

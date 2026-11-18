@@ -8,6 +8,7 @@ use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\FinancialAdjustment;
 use App\Models\Student\StudentObligation;
 use App\Models\Student\StudentPayment;
+use App\Models\Student\StudentProfile;
 use App\Models\User;
 use App\Notifications\FinancialOperationNotice;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -314,27 +315,71 @@ final class StudentFinanceService
                 if ($amount <= 0) {
                     throw ValidationException::withMessages(['amount' => 'Le versement doit être supérieur à zéro.']);
                 }
+                $operation = isset($data['operation_id']) ? Str::lower($data['operation_id']) : null;
+                if ($operation !== null) {
+                    $existing = StudentPayment::where('operation_id', $operation)->first();
+                    if ($existing !== null) {
+                        if ($this->matchesRecordedPayment($existing, $entry, $data, $amount)
+                            && (int) $existing->recorded_by === (int) $actor->id
+                            && $existing->reference === $data['reference']
+                            && $existing->note === ($data['note'] ?? null)) {
+                            return $existing;
+                        }
+                        throw ValidationException::withMessages(['operation_id' => 'Cette tentative désigne déjà un versement. Consultez le compte avant de recommencer.']);
+                    }
+                }
                 $existing = StudentPayment::where('reference', $data['reference'])->first();
                 if ($existing) {
-                    if ((int) $existing->academic_enrollment_id === (int) $entry->id && (int) $existing->amount_cents === $amount && $existing->currency === $entry->currency && $existing->kind === ($data['kind'] ?? 'tuition') && $existing->method === $data['method']) {
+                    if ($this->matchesRecordedPayment($existing, $entry, $data, $amount)) {
                         return $existing;
                     }
                     throw ValidationException::withMessages(['reference' => 'Cette référence est déjà utilisée par une autre écriture.']);
                 }
-                $payment = $entry->payments()->create(['uuid' => (string) Str::uuid(), 'amount_cents' => $amount, 'currency' => $entry->currency, 'kind' => $data['kind'] ?? 'tuition', 'method' => $data['method'], 'reference' => $data['reference'], 'note' => $data['note'] ?? null, 'status' => 'pending', 'recorded_by' => $actor->id]);
+                $payment = $entry->payments()->create([
+                    'uuid' => (string) Str::uuid(), 'operation_id' => $operation, 'amount_cents' => $amount,
+                    'currency' => $entry->currency, 'kind' => $data['kind'] ?? 'tuition', 'method' => $data['method'],
+                    'reference' => $data['reference'], 'note' => $data['note'] ?? null, 'status' => 'pending', 'recorded_by' => $actor->id,
+                ]);
                 Audit::record($actor->id, 'payment_recorded', $payment, $data['note'] ?? null);
 
                 return $payment;
             }, 3);
         } catch (UniqueConstraintViolationException $exception) {
+            if (isset($data['operation_id']) && StudentPayment::where('operation_id', Str::lower($data['operation_id']))->exists()) {
+                throw ValidationException::withMessages(['operation_id' => 'Cette tentative désigne déjà un versement. Consultez le compte avant de recommencer.']);
+            }
             throw ValidationException::withMessages(['reference' => 'Cette référence de paiement est déjà utilisée.']);
         }
     }
 
-    public function transition(StudentPayment $payment, User $actor, string $status, string $reason, bool $notify = true): void
+    private function matchesRecordedPayment(StudentPayment $payment, AcademicEnrollment $entry, array $data, int $amount): bool
+    {
+        return (int) $payment->academic_enrollment_id === (int) $entry->id
+            && (int) $payment->amount_cents === $amount
+            && $payment->currency === $entry->currency
+            && $payment->kind === ($data['kind'] ?? 'tuition')
+            && $payment->method === $data['method'];
+    }
+
+    public function hasSimilarConfirmedReceipt(AcademicEnrollment $entry, string $kind, int $amountCents, string $method, ?int $exceptPaymentId = null): bool
+    {
+        return StudentPayment::query()
+            ->whereHas('enrollment', fn ($query) => $query
+                ->where('student_profile_id', $entry->student_profile_id)
+                ->where('academic_year_id', $entry->academic_year_id))
+            ->where('status', 'confirmed')
+            ->where('currency', $entry->currency)
+            ->where('kind', $kind)
+            ->where('amount_cents', $amountCents)
+            ->where('method', $method)
+            ->when($exceptPaymentId !== null, fn ($query) => $query->whereKeyNot($exceptPaymentId))
+            ->exists();
+    }
+
+    public function transition(StudentPayment $payment, User $actor, string $status, string $reason, bool $notify = true, bool $distinctReceiptVerified = false): void
     {
         $this->authorize($payment->enrollment, $actor);
-        DB::transaction(function () use ($payment, $actor, $status, $reason, $notify) {
+        DB::transaction(function () use ($payment, $actor, $status, $reason, $notify, $distinctReceiptVerified) {
             $entry = AcademicEnrollment::lockForUpdate()->findOrFail($payment->academic_enrollment_id);
             $payment = StudentPayment::lockForUpdate()->findOrFail($payment->id);
             if ($payment->status === $status) {
@@ -353,6 +398,17 @@ final class StudentFinanceService
             if ($status === 'cancelled' && $payment->refunds()->whereIn('status', ['requested', 'approved', 'executed'])->exists()) {
                 throw ValidationException::withMessages(['payment' => 'Une procédure de remboursement existe. Traitez-la avant toute contrepassation.']);
             }
+            $similarReceipt = false;
+            if ($status === 'confirmed') {
+                // Two academic records can belong to the same student and year.
+                StudentProfile::lockForUpdate()->findOrFail($entry->student_profile_id);
+                $similarReceipt = $this->hasSimilarConfirmedReceipt($entry, $payment->kind, $payment->amount_cents, $payment->method, $payment->id);
+                if ($similarReceipt && ! $distinctReceiptVerified) {
+                    throw ValidationException::withMessages([
+                        'distinct_receipt_verified' => 'Un versement confirmé du même montant et du même type figure déjà au dossier. Comparez les reçus et attestez qu’il s’agit de deux encaissements distincts.',
+                    ]);
+                }
+            }
             $from = $payment->status;
             $firstBeforeReversal = $status === 'cancelled' && $from === 'confirmed' && $entry->enrollment_status === 'confirmed'
                 ? $this->firstTuitionInstallment($entry) : null;
@@ -363,14 +419,16 @@ final class StudentFinanceService
             if ($notify) {
                 $this->notifyPayment($payment, $entry);
             }
-            Audit::record($actor->id, 'payment_'.$status, $payment, $reason, ['from' => $from, 'to' => $status, 'academic_enrollment_id' => $entry->id]);
+            Audit::record($actor->id, 'payment_'.$status, $payment, $reason, [
+                'from' => $from, 'to' => $status, 'academic_enrollment_id' => $entry->id,
+            ] + ($similarReceipt ? ['distinct_receipt_verified' => true] : []));
             if ($status === 'confirmed' && $payment->kind === 'tuition') {
                 $this->confirmPendingEnrollment($entry, $actor->id);
             }
             if ($firstBeforeReversal !== null) {
                 $this->flagFirstInstallmentShortfall($entry, $actor->id, $reason, $firstBeforeReversal);
             }
-        });
+        }, 3);
     }
 
     public function adjust(AcademicEnrollment $entry, User $actor, array $data): FinancialAdjustment

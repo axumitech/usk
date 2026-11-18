@@ -58,4 +58,21 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
         $this->assertDatabaseMissing('users', ['email' => $account['email']]);
     }
+
+    public function test_registration_validation_returns_to_the_form_when_the_previous_page_is_public(): void
+    {
+        $this->get('/app/register')->assertOk();
+        $this->get('/')->assertOk();
+        $this->post('/app/register', ['email' => 'adresse-invalide'], [
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->assertRedirectToRoute('register.show')
+            ->assertSessionHasErrors(['email' => 'Saisissez une adresse email valide.']);
+
+        $this->get('/app/register')->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/auth/Signup')
+            ->where('errors.email', 'Saisissez une adresse email valide.'));
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
 }

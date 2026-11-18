@@ -64,6 +64,29 @@ class AcademicEnrollmentManagementTest extends TestCase
         $this->assertDatabaseCount('academic_enrollment_changes', 3);
     }
 
+    public function test_transition_returns_to_the_same_enrollment_on_success_and_validation_error(): void
+    {
+        [$admin, , $entry] = $this->context();
+        $filters = ['q' => 'dossier', 'year' => $entry->academic_year_id];
+        $parameters = ['academic' => $entry->id] + $filters;
+        $url = route('dashboard.admin.student-academic.administration', $parameters);
+        $action = route('dashboard.admin.student-academic.transition', $parameters);
+        $data = $this->data('suspended');
+
+        $this->actingAs($admin)->withSession(['_previous' => ['url' => route('dashboard.index')]])
+            ->post($action, ['reason' => 'court'] + $data)
+            ->assertRedirect($url)->assertSessionHasErrors(['reason' => 'Le motif doit contenir au moins 10 caractères.']);
+        $this->assertDatabaseCount('academic_enrollment_changes', 0);
+
+        $this->post($action, $data)->assertStatus(303)->assertRedirect($url)
+            ->assertInertiaFlash('dashboardAction', 'Décision administrative enregistrée.');
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/studentAcademic/EnrollmentManagement')
+            ->where('selected.id', $entry->id)->where('selected.status', 'suspended'));
+        $this->post($action, $data)->assertStatus(303)->assertRedirect($url);
+        $this->assertDatabaseCount('academic_enrollment_changes', 1);
+    }
+
     public function test_scope_applies_to_directory_dossier_writes_and_closure(): void
     {
         [$admin, $student, $entry] = $this->context();

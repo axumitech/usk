@@ -33,6 +33,7 @@ export default function PwaExperience() {
         mode.addEventListener('change', sync);
 
         const stopInvalid = router.on('invalid', (event) => {
+            if (event.defaultPrevented) return;
             const code = event.detail.response.status;
             if (![401, 403, 419].includes(code)) return;
             event.preventDefault();
@@ -132,7 +133,13 @@ export default function PwaExperience() {
                               : 'Votre session a expiré.'}
                     </p>
                     {issue === 403 || issue === 401 ? (
-                        <a href={issue === 401 ? '/app/login' : '/app/'}>{issue === 401 ? 'Se reconnecter' : 'Retour à mon espace'}</a>
+                        <a
+                            href={issue === 401 ? '/app/login' : '/app/'}
+                            target={issue === 401 ? '_blank' : undefined}
+                            rel={issue === 401 ? 'noopener' : undefined}
+                        >
+                            {issue === 401 ? 'Se reconnecter dans un autre onglet' : 'Retour à mon espace'}
+                        </a>
                     ) : (
                         <button type="button" onClick={() => window.location.reload()}>
                             Recharger

@@ -3,15 +3,16 @@
 namespace App\Modules\Student\Infrastructure\Http\Controllers;
 
 use App\Models\Student\StudentPaymentProof;
+use App\Modules\Student\Application\Services\PaymentProofReviewReasons;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Student\Application\Services\StudentPaymentProofs;
 use App\Support\DocumentUploadLimit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class StudentPaymentProofController
@@ -29,13 +30,24 @@ final class StudentPaymentProofController
                 'method' => ['required', 'string', Rule::in(config('finance.methods'))],
                 'reference' => 'required|string|max:180',
                 'proof' => DocumentUploadLimit::proofRules(),
-            ], DocumentUploadLimit::proofMessages('proof'));
+            ], DocumentUploadLimit::proofMessages('proof') + [
+                'kind.required' => 'Choisissez les frais concernés.',
+                'kind.regex' => 'Choisissez des frais valides.',
+                'amount.required' => 'Indiquez le montant réellement versé.',
+                'method.required' => 'Choisissez le mode du versement.',
+                'method.in' => 'Choisissez un mode de paiement proposé.',
+                'reference.required' => 'Indiquez la référence du versement.',
+                'reference.max' => 'La référence ne doit pas dépasser :max caractères.',
+            ]);
             $this->proofs->submit($entry, $request->user(), $data, $data['proof']);
         } catch (ValidationException $exception) {
             throw $exception->redirectTo($url);
         }
 
-        return redirect()->to($url, 303)->with('success', 'Justificatif transmis. La comptabilité va vérifier le versement.');
+        $message = 'Justificatif transmis. La comptabilité va vérifier le versement.';
+        Inertia::flash('studentPaymentProof', ['accountId' => $entry->id, 'message' => $message]);
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     public function studentDownload(Request $request, StudentPaymentProof $proof): StreamedResponse
@@ -55,13 +67,33 @@ final class StudentPaymentProofController
     public function review(Request $request, StudentPaymentProof $proof, StudentFinanceService $finance): RedirectResponse
     {
         $finance->authorize($proof->enrollment, $request->user());
-        $url = $this->accountUrl($request, $proof);
+        $url = FinanceScreenReturn::account($request, $proof->academic_enrollment_id);
         try {
-            $data = $request->validate([
+            $decision = $request->validate([
                 'decision' => 'required|in:approve,reject',
-                'reason' => 'required|string|min:10|max:1000',
+            ], [
+                'decision.required' => 'Indiquez la décision sur le justificatif.',
+                'decision.in' => 'La décision sur le justificatif est invalide.',
+            ])['decision'];
+            $reasons = PaymentProofReviewReasons::options()[$decision];
+            $requiresComment = ! $request->has('reason_code') || $request->input('reason_code') === 'other';
+            $data = $request->validate([
+                'reason_code' => ['sometimes', 'required', 'string', Rule::in(array_keys($reasons))],
+                'reason' => [Rule::requiredIf($requiresComment), 'nullable', 'string', 'min:10', 'max:1000'],
+                'distinct_receipt_verified' => ['sometimes', 'boolean'],
+            ], [
+                'reason_code.required' => 'Sélectionnez un motif de décision.',
+                'reason_code.string' => 'Sélectionnez un motif de décision valide.',
+                'reason_code.in' => 'Ce motif ne correspond pas à la décision choisie.',
+                'reason.required' => 'Précisez le motif de cette décision.',
+                'reason.string' => 'Le commentaire doit être du texte.',
+                'reason.min' => 'Le commentaire doit contenir au moins 10 caractères.',
+                'reason.max' => 'Le commentaire doit contenir au maximum 1 000 caractères.',
+                'distinct_receipt_verified.boolean' => 'La vérification du reçu doit être confirmée avec la case prévue.',
             ]);
-            $status = $this->proofs->review($proof, $request->user(), $data['decision'], $data['reason']);
+            $code = $data['reason_code'] ?? null;
+            $reason = $requiresComment ? $data['reason'] : $reasons[$code];
+            $status = $this->proofs->review($proof, $request->user(), $decision, $reason, $code, $request->boolean('distinct_receipt_verified'));
         } catch (ValidationException $exception) {
             throw $exception->redirectTo($url);
         }
@@ -72,24 +104,7 @@ final class StudentPaymentProofController
             default => 'Justificatif refusé. Le motif est visible dans le compte de l’étudiant.',
         };
 
-        return redirect()->to($url, 303)->with('success', $message);
-    }
-
-    private function accountUrl(Request $request, StudentPaymentProof $proof): string
-    {
-        $parameters = ['academic' => $proof->academic_enrollment_id];
-        $referer = parse_url($request->headers->get('referer') ?? '');
-        if (($referer['path'] ?? null) === route('dashboard.admin.finance.index', [], false)) {
-            parse_str($referer['query'] ?? '', $query);
-            if (($query['academic'] ?? null) === (string) $proof->academic_enrollment_id) {
-                $parameters += Arr::only(array_filter($query, 'is_string'), [
-                    'q', 'year', 'faculty', 'program', 'level', 'from_confirmations', 'confirmation_q', 'confirmation_page',
-                    'from_proofs', 'page', 'payments_page', 'refunds_page', 'adjustments_page',
-                ]);
-            }
-        }
-
-        return route('dashboard.admin.finance.index', $parameters, false);
+        return FinanceScreenReturn::completed($url, $proof->academic_enrollment_id, $message);
     }
 
     private function download(StudentPaymentProof $proof): StreamedResponse

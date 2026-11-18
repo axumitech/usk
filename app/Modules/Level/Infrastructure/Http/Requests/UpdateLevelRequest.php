@@ -2,6 +2,9 @@
 
 namespace App\Modules\Level\Infrastructure\Http\Requests;
 
+use App\Models\AcademicStructure\AcademicProgram;
+use App\Models\Level;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,7 +15,15 @@ class UpdateLevelRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        if (! $this->user()->can('manage', AcademicProgram::class)) {
+            return false;
+        }
+
+        $level = Level::findOrFail($this->route('id'));
+        $destination = $this->integer('faculty_id');
+
+        return TeachingScope::allows($this->user(), (int) $level->faculty_id)
+            && ($destination < 1 || TeachingScope::allows($this->user(), $destination));
     }
 
     public function administrativeUrl(): string

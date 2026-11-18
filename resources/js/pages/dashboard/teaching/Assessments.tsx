@@ -150,7 +150,18 @@ const participationLabels: Record<string, string> = {
     invalidated: 'Invalidé',
 };
 const points = (value: number | null | undefined) => (value == null ? '' : (value / 100).toFixed(2));
-const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true };
+const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true, minLength: 5, help: 'Au moins 5 caractères.' };
+const actionUrl = (path: string, filters: Props['filters']) => {
+    const url = new URL(path, window.location.origin);
+    for (const name of ['year', 'from_gradebook', 'gradebook_semester', 'grades_students_page', 'grades_assessments_page', 'participant_q', 'participant_group'] as const) {
+        const value = filters[name];
+        if (value !== null && value !== undefined && value !== '') {
+            url.searchParams.set(name, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
+        }
+    }
+
+    return url.href;
+};
 const checkNotice: Field = { name: 'notify', label: 'Notifier les étudiants concernés', type: 'checkbox' };
 const zone = 'Africa/Kinshasa';
 const megabytes = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
@@ -262,9 +273,12 @@ function DraftForm({ props, item, onClose }: { props: Props; item?: Details; onC
                         scheduled_publish_notify: Boolean(data.scheduled_publish_at && data.scheduled_publish_notify),
                         ...(submission ? { submission_formats, submission_max_kb: Math.floor(Number(maximum) * 1024) } : {}),
                     }));
-                    form.post(item ? route(props.prefix + 'edit', item.resource_id) : route(props.prefix + 'store', props.offering!), {
+                    const target = item ? route(props.prefix + 'edit', item.resource_id) : route(props.prefix + 'store', props.offering!);
+                    form.post(actionUrl(target, props.filters), {
                         preserveScroll: true,
-                        onSuccess: onClose,
+                        onSuccess: (page) => {
+                            if (page.component === 'dashboard/teaching/Assessments' && typeof page.flash?.dashboardAction === 'string') onClose();
+                        },
                         onError: focusErrors,
                     });
                 }}
@@ -731,7 +745,13 @@ function GroupForm({ props, item }: { props: Props; item: Details }) {
                 onSubmit={(e) => {
                     e.preventDefault();
                     form.transform((data) => ({ ...data, members: data.members.split(/[\s,]+/).filter(Boolean) }));
-                    form.post(route(props.prefix + 'group', item.resource_id), { preserveScroll: true, onSuccess: () => form.reset() });
+                    if (form.processing) return;
+                    form.post(actionUrl(route(props.prefix + 'group', item.resource_id), props.filters), {
+                        preserveScroll: true,
+                        onSuccess: (page) => {
+                            if (page.component === 'dashboard/teaching/Assessments' && typeof page.flash?.dashboardAction === 'string') form.reset();
+                        },
+                    });
                 }}
             >
                 <label>
@@ -780,7 +800,7 @@ function CorrectionForm({ props, item, row }: { props: Props; item: Details; row
                     adjustment: graded ? data.adjustment : null,
                     criteria: graded && data.criteria.some(Boolean) ? data.criteria : null,
                 }));
-                form.post(route(props.prefix + 'correct', [item.resource_id, row.id]), { forceFormData: true, preserveScroll: true });
+                form.post(actionUrl(route(props.prefix + 'correct', [item.resource_id, row.id]), props.filters), { forceFormData: true, preserveScroll: true });
             }}
         >
             <label>
@@ -1066,7 +1086,6 @@ export default function Assessments(props: Props) {
     const teacher = prefix === 'dashboard.teaching.assessments.';
     const [modal, setModal] = useState<FormSpec | null>(null);
     const [draft, setDraft] = useState<{ mode: 'create' | 'edit'; id: number } | null>(null);
-    const [status, setStatus] = useState('');
     const gradebookCorrection = useRef<HTMLElement | null>(null);
     const gradebookParticipants = useRef<HTMLHeadingElement | null>(null);
     const assessmentId = selected?.resource_id;
@@ -1111,7 +1130,7 @@ export default function Assessments(props: Props) {
         });
     }
     const action = (title: string, path: string, values: FormSpec['values'], fields: Field[] = [reason]) =>
-        setModal({ title, description: 'Vérifiez le contexte et confirmez cette opération pédagogique.', action: path, fields, values });
+        setModal({ title, description: 'Vérifiez le contexte et confirmez cette opération pédagogique.', action: actionUrl(path, filters), fields, values, requireSuccessFlash: true });
     const batch = (kind: string, title: string) =>
         selected &&
         action(
@@ -1133,7 +1152,8 @@ export default function Assessments(props: Props) {
         setModal({
             title: selected.scheduled_publish_at ? 'Modifier la publication programmée' : 'Programmer la publication',
             description: 'Choisissez une date en heure de Kinshasa. Effacez-la pour revenir à une publication manuelle.',
-            action: route(prefix + 'lifecycle', selected.resource_id),
+            action: actionUrl(route(prefix + 'lifecycle', selected.resource_id), filters),
+            requireSuccessFlash: true,
             eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined,
             values: { action: 'schedule', revision: selected.revision },
             fields: [
@@ -1192,10 +1212,7 @@ export default function Assessments(props: Props) {
                 <AcademicForm
                     spec={modal}
                     onClose={() => setModal(null)}
-                    onSuccess={(message) => {
-                        setModal(null);
-                        setStatus(message);
-                    }}
+                    onSuccess={() => setModal(null)}
                 />
             )}
             <div className="student-portal academic-administration assessments-workspace">
@@ -1224,11 +1241,6 @@ export default function Assessments(props: Props) {
                         </div>
                         {createAction}
                     </header>
-                )}
-                {status && (
-                    <p className="portal-alert" role="status">
-                        {status}
-                    </p>
                 )}
                 {!selected && <AssessmentIndex props={props} index={index} link={link} teacher={teacher} />}
                 {selected && (

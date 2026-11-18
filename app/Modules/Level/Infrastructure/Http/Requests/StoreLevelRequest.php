@@ -2,6 +2,8 @@
 
 namespace App\Modules\Level\Infrastructure\Http\Requests;
 
+use App\Models\AcademicStructure\AcademicProgram;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreLevelRequest extends FormRequest
@@ -11,7 +13,10 @@ class StoreLevelRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $faculty = $this->integer('faculty_id');
+
+        return $this->user()->can('manage', AcademicProgram::class)
+            && ($faculty < 1 || TeachingScope::allows($this->user(), $faculty));
     }
 
     /**

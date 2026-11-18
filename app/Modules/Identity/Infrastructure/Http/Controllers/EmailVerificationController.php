@@ -25,6 +25,7 @@ class EmailVerificationController extends Controller
     public function verify(EmailVerificationRequest $request)
     {
         $request->fulfill(); // marque l’email comme vérifié
+
         return redirect()->route('dashboard.index');
     }
 
@@ -35,6 +36,6 @@ class EmailVerificationController extends Controller
     {
         $request->user()->sendEmailVerificationNotification();
 
-        return back()->with('status', 'verification-link-sent');
+        return to_route('verification.notice')->with('status', 'verification-link-sent');
     }
 }

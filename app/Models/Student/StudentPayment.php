@@ -10,7 +10,7 @@ class StudentPayment extends Model
 {
     protected $table = 'student_payments';
 
-    protected $fillable = ['uuid', 'academic_enrollment_id', 'kind', 'amount_cents', 'currency', 'status', 'method', 'reference', 'recorded_by', 'confirmed_by', 'confirmed_at', 'note', 'receipt_snapshot'];
+    protected $fillable = ['uuid', 'operation_id', 'academic_enrollment_id', 'kind', 'amount_cents', 'currency', 'status', 'method', 'reference', 'recorded_by', 'confirmed_by', 'confirmed_at', 'note', 'receipt_snapshot'];
 
     protected $casts = ['confirmed_at' => 'datetime', 'receipt_snapshot' => 'array'];
 
@@ -19,6 +19,9 @@ class StudentPayment extends Model
         static::updating(function ($payment) {
             if ($payment->isDirty() && ! FinanceMutation::allowed()) {
                 throw ValidationException::withMessages(['payment' => 'Les écritures passent par une opération financière autorisée et auditée.']);
+            }
+            if ($payment->isDirty('operation_id')) {
+                throw ValidationException::withMessages(['operation_id' => 'La tentative associée à ce versement est immuable.']);
             }
             if ($payment->isDirty(['amount_cents', 'currency', 'reference', 'academic_enrollment_id', 'kind']) && $payment->getOriginal('status') !== 'pending') {
                 throw ValidationException::withMessages(['payment' => 'Le montant, la devise et l’affectation comptable d’un paiement validé sont immuables.']);

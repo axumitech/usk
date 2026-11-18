@@ -2,13 +2,15 @@
 
 namespace App\Modules\Faculty\Infrastructure\Http\Requests;
 
+use App\Models\AcademicStructure\AcademicProgram;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateFacultyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()->can('manage', AcademicProgram::class) && TeachingScope::allows($this->user(), (int) $this->route('id'));
     }
 
     public function rules(): array

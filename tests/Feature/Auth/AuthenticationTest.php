@@ -50,12 +50,73 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/app/login', [
-            'email' => $user->email,
-            'password' => 'wrong-password',
-        ]);
+        $this->get('/app/login')->assertOk()->assertHeader('Referrer-Policy', 'no-referrer');
+
+        foreach ([$user->email, 'inconnu@example.test'] as $email) {
+            // A public page opened in another tab becomes the session's previous URL.
+            $this->get('/')->assertOk();
+            $this->post('/app/login', ['email' => $email, 'password' => 'wrong-password'], [
+                'X-Inertia' => 'true',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])->assertRedirectToRoute('login.show')
+                ->assertSessionHasErrors(['email' => 'Identifiants invalides']);
+
+            $this->get('/app/login')->assertInertia(fn (Assert $page) => $page
+                ->component('dashboard/auth/Login')
+                ->where('errors.email', 'Identifiants invalides'));
+        }
 
         $this->assertGuest();
+    }
+
+    public function test_login_validation_keeps_the_login_screen_and_preserves_json_errors(): void
+    {
+        $this->get('/')->assertOk();
+        $input = ['email' => 'adresse-invalide', 'password' => ''];
+        $errors = [
+            'email' => 'Saisissez une adresse email valide.',
+            'password' => 'Saisissez votre mot de passe.',
+        ];
+
+        $this->post('/app/login', $input)->assertRedirectToRoute('login.show')->assertSessionHasErrors($errors);
+        $this->postJson('/app/login', $input)->assertUnprocessable()->assertJsonValidationErrors($errors);
+    }
+
+    public function test_throttled_login_keeps_the_login_screen(): void
+    {
+        $user = User::factory()->create();
+        $this->get('/')->assertOk();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post('/app/login', ['email' => $user->email, 'password' => 'wrong-password'])
+                ->assertRedirectToRoute('login.show')->assertSessionHasErrors(['email' => 'Identifiants invalides']);
+        }
+
+        $this->post('/app/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirectToRoute('login.show')->assertSessionHasErrors('email');
+        $this->assertStringStartsWith('Trop de tentatives.', session()->get('errors')->first('email'));
+        $this->assertGuest();
+    }
+
+    public function test_expired_inertia_submission_does_not_send_the_form_to_login(): void
+    {
+        $this->post('/app/dashboard/admin/student-academic/123/payments', [], [
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->assertUnauthorized()
+            ->assertHeaderMissing('Location')
+            ->assertJsonPath('message', 'Votre session a expiré. Reconnectez-vous avant de réessayer.');
+
+        $this->assertDatabaseCount('student_payments', 0);
+    }
+
+    public function test_direct_private_navigation_resumes_the_requested_page_after_login(): void
+    {
+        $user = User::factory()->create();
+        $intended = '/app/dashboard/enrollments';
+        $this->get($intended)->assertRedirectToRoute('login.show');
+        $this->post('/app/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect($intended);
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_users_can_logout()

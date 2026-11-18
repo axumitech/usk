@@ -60,11 +60,16 @@ class AcademicYearTransportTest extends TestCase
         $year = AcademicYear::create(['title' => '2026-2027', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'draft']);
         $other = AcademicYear::create(['title' => '2027-2028', 'start_date' => '2027-10-01', 'end_date' => '2028-09-30', 'status' => 'draft']);
         $url = '/app/dashboard/admin/academic-years/'.$year->id;
-        $this->from('/app/dashboard/admin/academic-years')->withHeader('X-Inertia', 'true')->patch($url.'/open')->assertStatus(303)->assertSessionHasNoErrors();
-        $this->patch($url.'/open')->assertSessionHasNoErrors();
-        $this->patch('/app/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasErrors('general');
+        $index = '/app/dashboard/admin/academic-years';
+        $this->from('/app/dashboard')->withHeader('X-Inertia', 'true')->patch($url.'/open?return=index')
+            ->assertStatus(303)->assertRedirect($index)->assertSessionHasNoErrors()
+            ->assertInertiaFlash('dashboardAction', 'Année académique ouverte avec succès.');
+        $this->patch($url.'/open')->assertRedirect($url)->assertSessionHasNoErrors();
+        $this->patch($index.'/'.$other->id.'/open?return=index')->assertRedirect($index)->assertSessionHasErrors('general');
         $this->assertSame(1, AcademicYear::where('status', 'open')->count());
-        $this->patch($url.'/close')->assertSessionHasNoErrors();
+        $this->patch($url.'/close', ['reason' => 'Court'])->assertRedirect($url)->assertSessionHasErrors('reason');
+        $this->patch($url.'/close')->assertStatus(303)->assertRedirect($url)->assertSessionHasNoErrors()
+            ->assertInertiaFlash('dashboardAction', 'Année académique clôturée.');
         $this->patch($url.'/close')->assertSessionHasNoErrors();
         $this->patch('/app/dashboard/admin/academic-years/'.$other->id.'/open')->assertSessionHasNoErrors();
         $this->assertSame('open', $other->fresh()->status);

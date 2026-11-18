@@ -20,6 +20,7 @@ use App\Modules\Documents\Application\DocumentQueries;
 use App\Modules\Documents\Application\DocumentWorkflow;
 use App\Modules\Documents\Infrastructure\Jobs\IssueOfficialDocument;
 use App\Modules\Student\Application\Services\AcademicStaffScope;
+use App\Support\DashboardFormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -106,23 +107,34 @@ final class OfficialDocumentController
 
     public function type(DocumentCommandRequest $request)
     {
-        $type = $this->catalog->createType($request->user(), $request->validated());
+        return DashboardFormResponse::run($request->adminWorkspace(), function () use ($request) {
+            $type = $this->catalog->createType($request->user(), $request->validated());
 
-        return to_route('dashboard.admin.official-documents.index', ['type' => $type->id], 303);
+            return DashboardFormResponse::success(route('dashboard.admin.official-documents.index', ['type' => $type->id]), 'Type de document enregistré.');
+        });
     }
 
     public function activate(DocumentCommandRequest $request, OfficialDocumentType $type)
     {
-        $this->catalog->activate($request->user(), $type, $request->boolean('active'), $request->validated('reason'));
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $type, $url) {
+            $active = $request->boolean('active');
+            $this->catalog->activate($request->user(), $type, $active, $request->validated('reason'));
+
+            return DashboardFormResponse::success($url, $active ? 'Type de document activé.' : 'Type de document désactivé.');
+        });
     }
 
     public function template(DocumentCommandRequest $request, OfficialDocumentType $type)
     {
-        $this->catalog->template($request->user(), $type, $request->validated());
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $type, $url) {
+            $this->catalog->template($request->user(), $type, $request->validated());
+
+            return DashboardFormResponse::success($url, 'Modèle de document enregistré.');
+        });
     }
 
     public function templateAsset(Request $request, OfficialDocumentTemplate $template, string $asset)
@@ -138,23 +150,43 @@ final class OfficialDocumentController
 
     public function templateState(DocumentCommandRequest $request, OfficialDocumentTemplate $template)
     {
-        $this->catalog->templateState($request->user(), $template, $request->validated('action'), $request->validated('reason'));
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $template, $url) {
+            $action = $request->validated('action');
+            $this->catalog->templateState($request->user(), $template, $action, $request->validated('reason'));
+
+            return DashboardFormResponse::success($url, $action === 'approve' ? 'Modèle de document approuvé.' : 'Modèle de document retiré.');
+        });
     }
 
     public function submit(DocumentCommandRequest $request, AcademicEnrollment $entry)
     {
-        $this->workflow->submit($entry, OfficialDocumentType::findOrFail($request->validated('type_id')), $request->user(), $request->validated(), false);
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $entry, $url) {
+            $this->workflow->submit($entry, OfficialDocumentType::findOrFail($request->validated('type_id')), $request->user(), $request->validated(), false);
+
+            return DashboardFormResponse::success($url, 'Demande de document enregistrée.');
+        });
     }
 
     public function transition(DocumentCommandRequest $request, ServiceRequest $ticket)
     {
-        $this->workflow->transition($ticket, $request->user(), $request->validated());
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $ticket, $url) {
+            $this->workflow->transition($ticket, $request->user(), $request->validated());
+
+            return DashboardFormResponse::success($url, match ($request->validated('action')) {
+                'review' => 'Examen de la demande enregistré.',
+                'correct' => 'Demande de correction enregistrée.',
+                'resubmit' => 'Demande de document soumise à nouveau.',
+                'refuse' => 'Refus de la demande enregistré.',
+                'approve' => 'Demande de document approuvée.',
+                'recheck' => 'Vérification de la demande enregistrée.',
+            });
+        });
     }
 
     public function preview(Request $request, ServiceRequest $ticket, DocumentFacts $facts, DocumentPdf $pdf)
@@ -169,23 +201,36 @@ final class OfficialDocumentController
     {
         abort_unless($ticket->documentType, 404);
         $this->access->staff($request->user(), $ticket->documentType->faculty_id, DocumentAccess::ISSUE);
-        $revision = (int) $request->validated('revision');
-        if (config('official-documents.queue_issuance')) {
-            DocumentAccess::check($ticket->status === 'approved' && $ticket->document_revision === $revision, 'status', 'Approuvez la version actuelle avant de lancer l’émission.');
-            IssueOfficialDocument::dispatch($ticket->id, $request->user()->id, $revision);
+        $url = $request->adminWorkspace();
 
-            return back(303)->with('success', 'Émission mise en file.');
-        }
-        $this->workflow->issue($ticket, $request->user(), $revision);
+        return DashboardFormResponse::run($url, function () use ($request, $ticket, $url) {
+            $revision = (int) $request->validated('revision');
+            if (config('official-documents.queue_issuance')) {
+                DocumentAccess::check($ticket->status === 'approved' && $ticket->document_revision === $revision, 'status', 'Approuvez la version actuelle avant de lancer l’émission.');
+                IssueOfficialDocument::dispatch($ticket->id, $request->user()->id, $revision);
 
-        return back(303)->with('success', 'Document émis.');
+                return DashboardFormResponse::success($url, 'Émission mise en file.');
+            }
+            $this->workflow->issue($ticket, $request->user(), $revision);
+
+            return DashboardFormResponse::success($url, 'Document émis.');
+        });
     }
 
     public function lifecycle(DocumentCommandRequest $request, OfficialDocument $document)
     {
-        $this->workflow->lifecycle($document, $request->user(), $request->validated('action'), $request->validated('reason'));
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $document, $url) {
+            $action = $request->validated('action');
+            $this->workflow->lifecycle($document, $request->user(), $action, $request->validated('reason'));
+
+            return DashboardFormResponse::success($url, match ($action) {
+                'print' => 'Impression du document enregistrée.',
+                'deliver' => 'Remise du document enregistrée.',
+                'revoke' => 'Document révoqué.',
+            });
+        });
     }
 
     public function download(Request $request, OfficialDocument $document, DocumentArchives $archives)
@@ -197,8 +242,12 @@ final class OfficialDocumentController
 
     public function revokeResult(DocumentCommandRequest $request, AcademicResultDocument $archive, DocumentArchives $archives)
     {
-        $archives->revokeResult($archive, $request->user(), $request->validated('reason'));
+        $url = $request->adminWorkspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $archive, $archives, $url) {
+            $archives->revokeResult($archive, $request->user(), $request->validated('reason'));
+
+            return DashboardFormResponse::success($url, 'Archive de résultats révoquée.');
+        });
     }
 }

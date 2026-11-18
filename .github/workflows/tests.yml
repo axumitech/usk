@@ -100,6 +100,6 @@ jobs:
       - run: cp .env.example .env
       - run: php artisan key:generate
       - name: PostgreSQL domain integration (isolated service)
-        run: ./vendor/bin/phpunit --filter='PhaseOneSecurityTest|CredentialRevocationTest|DraftStorageTransactionTest|StudentAcademicJourneyTest|AdminEnrollmentManagementTest|ScheduleModuleTest|EnrollmentJourneyTest|AcademicStructureTest|AcademicStructureMigrationTest|AdmissionConsolidationTest|EnrollmentReviewWorkflowTest|AcademicTeachingTest|UniversityFinanceTest|OfficialDocumentWorkflowTest|AcademicLifecycleTest|ProductionReadinessTest'
+        run: ./vendor/bin/phpunit --filter='PhaseOneSecurityTest|CredentialRevocationTest|DraftStorageTransactionTest|StudentAcademicJourneyTest|AdminEnrollmentManagementTest|ScheduleModuleTest|EnrollmentJourneyTest|AcademicStructureTest|AcademicStructureMigrationTest|AdmissionConsolidationTest|EnrollmentReviewWorkflowTest|AcademicTeachingTest|UniversityFinanceTest|PaymentRecordingNavigationTest|StudentPaymentProofTest|OfficialDocumentWorkflowTest|AcademicLifecycleTest|ProductionReadinessTest'
       - name: PostgreSQL concurrency (two connections)
         run: ./vendor/bin/phpunit tests/Integration/PostgresConcurrencyTest.php

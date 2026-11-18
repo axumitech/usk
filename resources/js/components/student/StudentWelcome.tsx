@@ -10,7 +10,7 @@ const steps = [
         icon: GraduationCap,
         eyebrow: 'Votre nouvelle aventure',
         title: 'Bienvenue dans votre espace étudiant.',
-        text: 'Votre inscription a été validée. Un nouvel espace vous accompagne désormais tout au long de votre parcours à l’Université Simon Kimbangu.',
+        text: 'Retrouvez votre dossier et les démarches à effectuer. Cet espace vous permet de suivre la confirmation de votre inscription et l’ouverture de vos accès pédagogiques.',
         detail: 'Votre compte et votre matricule restent les mêmes. Tout commence ici.',
     },
     {

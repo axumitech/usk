@@ -6,7 +6,13 @@ const offlinePath = '/pwa/offline.html';
 self.addEventListener('install', (event) => {
     event.waitUntil((async () => {
         const response = await fetch(offlinePath, { credentials: 'omit', cache: 'reload', redirect: 'error' });
-        if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) throw new Error('Offline page unavailable');
+        if (
+            !response.ok ||
+            !response.headers.get('content-type')?.includes('text/html') ||
+            !(await response.clone().text()).includes('<body data-usk-offline>')
+        ) {
+            throw new Error('Offline page unavailable');
+        }
         const cache = await caches.open(cacheName);
         await cache.put(offlinePath, response);
     })());
