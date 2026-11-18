@@ -16,6 +16,7 @@ use App\Modules\Enrollment\Application\UseCases\ReviewEnrollment;
 use App\Modules\Enrollment\Application\UseCases\ValidateEnrollmentUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
+use App\Modules\Enrollment\Domain\Services\DocumentReviewReasons;
 use App\Modules\Identity\Domain\Nationality;
 use App\Modules\Student\Application\Services\AcademicStaffScope;
 use App\Modules\Student\Application\Services\StudentFinanceService;
@@ -187,8 +188,8 @@ class EnrollmentManagementController extends Controller
 
         return Inertia::render('dashboard/adminEnrollments/Index', [
             'enrollments' => $enrollments, 'filters' => $filters,
-            'levels' => Level::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('title')->get(['id', 'title']),
-            'programs' => AcademicProgram::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('name')->get(['id', 'name']),
+            'levels' => Level::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('title')->get(['id', 'title', 'faculty_id']),
+            'programs' => AcademicProgram::when($restricted, fn ($q) => $q->whereIn('faculty_id', $facultyIds()))->orderBy('name')->get(['id', 'name', 'faculty_id']),
             'agents' => User::administrators()->permission('manage academic access')
                 ->when($restricted, fn ($q) => $q->where(fn ($staff) => $staff->whereDoesntHave('academicFaculties')
                     ->orWhereHas('academicFaculties', fn ($faculties) => $faculties->whereIn('faculties.id', $facultyIds()))))
@@ -226,21 +227,32 @@ class EnrollmentManagementController extends Controller
         $data['analysis_completed_at'] = $entry->meta['analysis_completed_at'] ?? null;
         $data['corrections_requested_at'] = $entry->meta['corrections_requested_at'] ?? null;
         $data['decision_reason'] = $entry->meta['rejection_reason'] ?? $entry->meta['validation_reason'] ?? null;
-        $data['documents'] = $entry->documents->sortByDesc(fn ($doc) => $doc->version > 1 && $doc->review_status === 'pending')->values()->map(fn ($doc) => [
-            'uuid' => $doc->uuid, 'key' => $doc->key, 'filename' => $doc->filename, 'mime' => $doc->mime,
-            'needs_reexamination' => $entry->status === EnrollmentStatus::PENDING && $doc->version > 1 && $doc->review_status === 'pending',
-            'review_status' => $doc->review_status, 'review_comment' => $doc->comment, 'reviewed_at' => $doc->verified_at, 'version' => $doc->version,
-            'size_human' => $doc->size_human, 'created_at' => $doc->created_at, 'verified' => $doc->verified,
-            'preview_url' => route('dashboard.admin.enrollments.documents.preview', $doc->uuid),
-            'download_url' => route('dashboard.admin.enrollments.documents.download', $doc->uuid),
-        ]);
+        $lastReviews = $entry->events->where('event', 'document_reviewed')->sortBy('id')->keyBy('payload.document_uuid');
+        $data['documents'] = $entry->documents->sortByDesc(fn ($doc) => $doc->version > 1 && $doc->review_status === 'pending')->values()->map(function ($doc) use ($entry, $lastReviews) {
+            $review = $lastReviews->get($doc->uuid)?->payload ?? [];
+            $current = (int) ($review['version'] ?? 0) === (int) $doc->version
+                && ($review['verdict'] ?? null) === $doc->review_status && ($review['reason'] ?? null) === $doc->comment;
+
+            return [
+                'uuid' => $doc->uuid, 'key' => $doc->key, 'filename' => $doc->filename, 'mime' => $doc->mime,
+                'needs_reexamination' => $entry->status === EnrollmentStatus::PENDING && $doc->version > 1 && $doc->review_status === 'pending',
+                'review_status' => $doc->review_status, 'review_comment' => $doc->comment, 'reviewed_at' => $doc->verified_at, 'version' => $doc->version,
+                'review_reason_codes' => $current ? ($review['reason_codes'] ?? []) : [],
+                'review_reason_detail' => $current ? ($review['reason_detail'] ?? null) : null,
+                'size_human' => $doc->size_human, 'created_at' => $doc->created_at, 'verified' => $doc->verified,
+                'preview_url' => route('dashboard.admin.enrollments.documents.preview', $doc->uuid),
+                'download_url' => route('dashboard.admin.enrollments.documents.download', $doc->uuid),
+            ];
+        });
         $data['events'] = $entry->events->sortByDesc('occurred_at')->values()->map(fn ($event) => [
             'id' => $event->id, 'event' => $event->event, 'reason' => $event->payload['reason'] ?? null,
             'document_name' => $event->payload['document_name'] ?? null, 'verdict' => $event->payload['verdict'] ?? null, 'notification' => $event->payload['notification'] ?? null,
             'occurred_at' => $event->occurred_at, 'actor' => $event->actor ? trim($event->actor->first_name.' '.$event->actor->last_name) : null,
         ]);
 
-        return Inertia::render('dashboard/adminEnrollments/Show', ['enrollment' => $data, 'success' => session('success')]);
+        return Inertia::render('dashboard/adminEnrollments/Show', [
+            'enrollment' => $data, 'documentReviewReasons' => DocumentReviewReasons::LABELS, 'success' => session('success'),
+        ]);
     }
 
     public function startAnalysis(Request $request, int $id, ReviewEnrollment $review)
@@ -257,9 +269,14 @@ class EnrollmentManagementController extends Controller
     public function reviewDocument(Request $request, int $id, string $uuid, ReviewEnrollment $review)
     {
         try {
-            $data = $request->validate(['verdict' => 'required|in:pending,accepted,rejected,correction_requested', 'reason' => 'nullable|string|max:1000']);
+            $data = $request->validate([
+                'verdict' => 'required|in:pending,accepted,rejected,correction_requested',
+                'reason' => 'nullable|string|max:1000',
+                'reason_codes' => 'sometimes|array|list|max:7',
+                'reason_codes.*' => 'required|string',
+            ]);
 
-            $review->document($id, $uuid, $request->user()->id, $data['verdict'], $data['reason'] ?? null);
+            $review->document($id, $uuid, $request->user()->id, $data['verdict'], $data['reason'] ?? null, $data['reason_codes'] ?? null);
 
             return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'L’examen de cette pièce a été enregistré.');
         } catch (ValidationException $exception) {

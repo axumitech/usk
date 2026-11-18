@@ -40,6 +40,16 @@ export type FirstInstallment = {
     waived_cents: number | null;
     remaining_cents: number | null;
     due_at?: string | null;
+    activation?: {
+        automatic: boolean;
+        percentage: number | null;
+        base_cents: number | null;
+        required_cents: number | null;
+        remaining_cents: number | null;
+        eligible: boolean;
+        blocker: string | null;
+        action_required?: string | null;
+    } | null;
 };
 export type AssessmentActivity = {
     category: string;

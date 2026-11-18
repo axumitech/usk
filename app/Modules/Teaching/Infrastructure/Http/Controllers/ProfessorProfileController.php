@@ -4,6 +4,7 @@ namespace App\Modules\Teaching\Infrastructure\Http\Controllers;
 
 use App\Models\Professor;
 use App\Modules\Student\Application\Services\Audit;
+use App\Support\DocumentUploadLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,9 @@ final class ProfessorProfileController
     public function update(Request $request)
     {
         $profile = $this->ownedProfile($request);
-        $data = $request->validate(['photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:5120', 'dimensions:max_width=5000,max_height=5000']]);
+        $data = $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:'.DocumentUploadLimit::images(), 'dimensions:max_width=5000,max_height=5000'],
+        ], ['photo.max' => DocumentUploadLimit::sizeMessage(DocumentUploadLimit::images(), 'La photo')]);
         $disk = Storage::disk('local');
         $path = $data['photo']->store('professor-portraits/'.$profile->id, 'local');
         if (! $path) {

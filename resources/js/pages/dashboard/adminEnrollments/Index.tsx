@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRight, FileText, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import '../../../../css/admin-enrollments.css';
+import { changeFaculty, optionsForFaculty } from './facultyFilters';
 import QueueList, { type ListProps } from './QueueList';
 import { applicantName, statusLabels, type Dossier } from './types';
 
@@ -80,10 +81,10 @@ function AllApplications({ enrollments, filters, faculties, years, levels, progr
         { key: 'year_id', label: 'Année', options: years.map((year) => [String(year.id), year.title]) },
         { key: 'status', label: 'Statut', options: Object.entries(dossierStatuses) },
     ];
-    const extra: Choice[] = [
+    const advancedChoices = (faculty?: string): Choice[] => [
         { key: 'faculty_id', label: 'Faculté', options: faculties.map((faculty) => [String(faculty.id), faculty.name]) },
-        { key: 'program_id', label: 'Programme', options: programs.map((program) => [String(program.id), program.name]) },
-        { key: 'level_id', label: 'Niveau', options: levels.map((level) => [String(level.id), level.title]) },
+        { key: 'program_id', label: 'Programme', options: optionsForFaculty(programs, faculty).map((program) => [String(program.id), program.name]) },
+        { key: 'level_id', label: 'Niveau', options: optionsForFaculty(levels, faculty).map((level) => [String(level.id), level.title]) },
         {
             key: 'agent_id',
             label: 'Agent chargé de l’analyse',
@@ -104,6 +105,7 @@ function AllApplications({ enrollments, filters, faculties, years, levels, progr
         { key: 'submitted_from', label: 'Soumis à partir du' },
         { key: 'submitted_to', label: 'Soumis jusqu’au' },
     ] as const;
+    const extra = advancedChoices();
     const active = [
         { key: 'q' as const, label: 'Recherche', value: filters.q },
         ...[...basic, ...extra].map(({ key, label, options }) => ({ key, label, value: options.find(([id]) => id === String(filters[key]))?.[1] })),
@@ -173,7 +175,11 @@ function AllApplications({ enrollments, filters, faculties, years, levels, progr
                             }}
                         >
                             <div className="admission-directory-options">
-                                {extra.map((choice) => select(choice, advanced, (value) => setAdvanced({ ...advanced, [choice.key]: value })))}
+                                {advancedChoices(advanced.faculty_id).map((choice) =>
+                                    select(choice, advanced, (value) => setAdvanced(
+                                        choice.key === 'faculty_id' ? changeFaculty(advanced, value, levels, programs) : { ...advanced, [choice.key]: value },
+                                    )),
+                                )}
                                 {dates.map(({ key, label }) => (
                                     <div key={key}>
                                         <label htmlFor={key}>{label}</label>

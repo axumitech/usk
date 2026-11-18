@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import test from 'node:test';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 const require = createRequire(import.meta.url);
 const source = await readFile(new URL('../../resources/js/components/section/dashboard/enrollement/ReviewFeedback.tsx', import.meta.url), 'utf8');
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } });
@@ -22,14 +23,15 @@ function submit(file, errors = {}) {
     vm.runInNewContext(outputText, {
         module, exports: module.exports,
         require(name) {
-            if (name === '@inertiajs/react') return { useForm: () => form };
+            if (name === '@/lib/uploadLimits') return uploadLimits;
+            if (name === '@inertiajs/react') return { useForm: () => form, usePage: () => ({ props: { uploadLimits: { document_kb: 2048, image_kb: 1024 } } }) };
             if (name === 'lucide-react') return { FileUp: () => null, Upload: () => null };
             if (name === 'react') return { useRef: () => ({ current: input }) };
             if (name.endsWith('.css')) return {};
             return require(name);
         },
     });
-    const element = module.exports.ReplacementForm({ document: { uuid: 'test-document' }, limit: 2048 });
+    const element = module.exports.ReplacementForm({ document: { uuid: 'test-document' } });
     element.props.onSubmit({ preventDefault() {} });
     return calls;
 }
@@ -54,7 +56,7 @@ test('Sans fichier, le bouton affiche une explication sans envoyer de requête',
     assert.equal(call.url, undefined);
 });
 test('Les fichiers trop volumineux ou de format incorrect ne sont pas envoyés', () => {
-    for (const file of [{ name: 'trop-grand.pdf', size: 3 * 1024 * 1024 }, { name: 'programme.exe', size: 100 }]) {
+    for (const file of [{ name: 'trop-grand.pdf', size: 3 * 1024 * 1024 }, { name: 'photo.png', size: 1024 * 1024 + 1 }, { name: 'programme.exe', size: 100 }]) {
         const [call] = submit(file);
         assert.equal(call.error, 'file');
         assert.equal(call.url, undefined);

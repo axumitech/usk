@@ -1,5 +1,6 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import { Link, router, usePage } from '@inertiajs/react';
+import { defaultUploadLimits, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
+import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CheckCircle2, HelpCircle, LoaderCircle, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import '../../../../../css/enrollment.css';
@@ -10,60 +11,78 @@ import Step3Academic from './components/Steps/Step3Academic';
 import Step4Payment from './components/Steps/Step4Payment';
 import { useEnrollmentForm } from './hooks/useEnrollmentForm';
 import { useRequirements } from './hooks/useRequirements';
-import type { Faculty, FormData, Level, Year } from './types';
+import type { AdmissionContext, DraftContext, DraftSnapshot, Faculty, Level, Year } from './types';
+import { admissionOptions, changeAdmissionContext } from './utils/admissionContexts';
 import { validateStep } from './utils/validators';
-type Draft = { uuid: string; last_step: number; form_snapshot: Partial<FormData> & { isConfirmed?: boolean } };
+type Draft = { uuid: string; last_step: number; form_snapshot: DraftSnapshot; context?: DraftContext };
 type PageData = {
+    uploadLimits?: UploadLimits;
     auth: { user: { first_name?: string; post_name?: string; last_name?: string; email: string } };
     draft?: Draft;
     faculties: Faculty[];
     years: { id: string | number; title: string }[];
     levelsByFaculty: Record<string, { id: string | number; title: string; programs?: { id: number; name: string; code: string }[] }[]>;
+    admissionContexts: AdmissionContext[];
 };
-const titles = ['Choisissez votre formation.', 'Faisons connaissance.', 'Parlez-nous de votre parcours.', 'Un dernier regard avant l’envoi.'];
+const titles = ['Choisissez votre année et votre formation.', 'Vérifiez vos coordonnées.', 'Votre parcours et vos justificatifs.', 'Un dernier regard avant l’envoi.'];
 const descriptions = [
-    'Sélectionnez votre faculté, votre niveau, votre programme et l’année académique souhaitée.',
-    'Vérifiez vos coordonnées et ajoutez les pièces demandées pour votre identité.',
-    'Vérifiez votre programme d’études et joignez vos justificatifs académiques.',
+    'Commencez par l’année académique, puis choisissez la faculté, le programme et le niveau proposés pour cette campagne.',
+    'Vérifiez votre nom et votre adresse email avant de continuer.',
+    'Les pièces d’identité et académiques justifient votre parcours. Joignez les documents exigés pour votre formation.',
     'Relisez chaque information. Vous pouvez encore revenir sur les étapes précédentes.',
 ];
+const contextFields = ['year_id', 'faculty_id', 'academic_program_id', 'level_id'] as const;
 export default function EnrollmentPageSection() {
     const { props } = usePage<PageData>();
+    const limits = props.uploadLimits ?? defaultUploadLimits;
     const user = props.auth.user;
-    const [step, setStep] = useState(Math.max(1, Math.min(4, props.draft?.last_step || 1)));
+    const [step, setStep] = useState(props.draft?.context?.unavailable_reason ? 1 : Math.max(1, Math.min(4, props.draft?.last_step || 1)));
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [working, setWorking] = useState(false);
+    const [contextMessage, setContextMessage] = useState('');
+    const [legacySelected, setLegacySelected] = useState(Boolean(props.draft && !props.draft.form_snapshot.academic_program_id && (props.draft.form_snapshot.level_id || props.draft.form_snapshot.program)));
     const heading = useRef<HTMLHeadingElement>(null);
     const errorSummary = useRef<HTMLDivElement>(null);
     const form = useEnrollmentForm({
         name: [user.last_name, user.post_name, user.first_name].filter(Boolean).join(' '),
         email: user.email,
+        year_id: !props.draft && props.years.length === 1 ? String(props.years[0].id) : '',
         ...props.draft?.form_snapshot,
         uuid: props.draft?.uuid,
-    });
+    }, limits);
     const { formData, setFormData, isConfirmed, setIsConfirmed, saveProgress, submitEnrollment, saveStatus, saveError, uploadingKeys, uploadErrors } =
         form;
-    const faculties = props.faculties.map((f) => ({ ...f, id: String(f.id) }));
+    const contexts = props.admissionContexts ?? [];
+    const historicalLabel = (field: 'year_id' | 'faculty_id' | 'level_id', label: 'year' | 'faculty' | 'level') =>
+        formData[field] && String(props.draft?.form_snapshot[field] ?? '') === formData[field] ? props.draft?.context?.[label] : null;
+    const options = admissionOptions(contexts, formData, legacySelected);
+    const faculties = props.faculties.filter((faculty) => options.facultyIds.includes(String(faculty.id))).map((f) => ({ ...f, id: String(f.id) }));
     const years: Year[] = props.years.map((y) => ({ id: String(y.id), name: y.title }));
-    const availableLevels: Level[] = (props.levelsByFaculty[formData.faculty_id] || []).map((level) => ({ id: String(level.id), name: level.title }));
-    const availablePrograms = (props.levelsByFaculty[formData.faculty_id] || []).find(level => String(level.id) === formData.level_id)?.programs ?? [];
-    const officialProgram = !formData.academic_program_id && availablePrograms.length === 1
-        ? availablePrograms[0]
-        : availablePrograms.find((program) => String(program.id) === formData.academic_program_id);
+    const facultyLevels = props.levelsByFaculty[formData.faculty_id] || [];
+    const availableLevels: Level[] = facultyLevels.filter((level) => options.levelIds.includes(String(level.id))).map((level) => ({ id: String(level.id), name: level.title }));
+    const catalogPrograms = [...new Map(facultyLevels.flatMap((level) => level.programs ?? []).map((program) => [program.id, program])).values()];
+    const availablePrograms = catalogPrograms.filter((program) => options.programIds.includes(String(program.id)));
+    const officialProgram = availablePrograms.find((program) => String(program.id) === formData.academic_program_id);
     const applicationForm = officialProgram
         ? { ...formData, academic_program_id: String(officialProgram.id), program: officialProgram.name }
         : formData;
-    const { requirements, loading, error: requirementsError } = useRequirements(applicationForm);
-    const busy = working || uploadingKeys.length > 0 || loading;
+    const { requirements, loading, error: requirementsError } = useRequirements(applicationForm, options.valid);
+    const savingBusy = working || uploadingKeys.length > 0;
+    const busy = savingBusy || loading;
+    const unchangedContext = contextFields.every((field) => String(props.draft?.form_snapshot[field] ?? '') === (formData[field] ?? ''));
+    const contextIssue = options.valid ? null : (unchangedContext ? props.draft?.context?.unavailable_reason : null) || (
+        formData.year_id && formData.faculty_id && formData.level_id ? 'Cette combinaison n’est plus disponible. Vérifiez l’année, la faculté, le programme et le niveau.' : null
+    );
     const formation = {
-        faculty: faculties.find((f) => f.id === formData.faculty_id)?.name || '—',
-        level: availableLevels.find((level) => level.id === formData.level_id)?.name || '—',
-        year: years.find((y) => y.id === formData.year_id)?.name || '—',
+        faculty: faculties.find((f) => f.id === formData.faculty_id)?.name || historicalLabel('faculty_id', 'faculty') || '—',
+        level: availableLevels.find((level) => level.id === formData.level_id)?.name || historicalLabel('level_id', 'level') || '—',
+        year: years.find((y) => y.id === formData.year_id)?.name || historicalLabel('year_id', 'year') || '—',
     };
-    const noLevels = !!formData.faculty_id && availableLevels.length === 0;
+    const noLevels = !!formData.faculty_id && options.hasProgramChoice && availableLevels.length === 0;
+    const visibleErrors = Object.fromEntries([errors, form.fieldErrors, uploadErrors].flatMap((group) => Object.entries(group).filter(([, message]) => message)));
     const documentProps = {
         formData: applicationForm,
-        errors: { ...errors, ...uploadErrors },
+        errors: visibleErrors,
         handleFieldChange: form.handleFieldChange,
         requirements,
         handleFileChange: form.handleFileChange,
@@ -92,7 +111,7 @@ export default function EnrollmentPageSection() {
         if (requirementsError) return;
         if (step === 4) {
             for (let current = 1; current <= 4; current++) {
-                const nextErrors = validateStep(current, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
+                const nextErrors = validateStep(current, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length, options.hasProgramChoice && !formData.academic_program_id, options.valid);
                 if (Object.keys(nextErrors).length) {
                     setStep(current);
                     showErrors(nextErrors);
@@ -100,7 +119,7 @@ export default function EnrollmentPageSection() {
                 }
             }
         }
-        const nextErrors = validateStep(step, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
+        const nextErrors = validateStep(step, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length, options.hasProgramChoice && !formData.academic_program_id, options.valid);
         if (Object.keys(nextErrors).length) {
             showErrors(nextErrors);
             return;
@@ -114,19 +133,24 @@ export default function EnrollmentPageSection() {
             setWorking(false);
         }
     };
-    const saveAndExit = async () => {
-        const firstStepErrors = validateStep(1, applicationForm, requirements, noLevels, isConfirmed, availablePrograms.length);
-        if (Object.keys(firstStepErrors).length) {
-            setStep(1);
-            showErrors(firstStepErrors);
-            return;
-        }
+    const saveForLater = async () => {
+        if (savingBusy) return;
+        setErrors({});
         setWorking(true);
         try {
-            if (await saveProgress(step, applicationForm)) router.visit('/app/dashboard/enrollments');
+            await saveProgress(step, applicationForm);
         } finally {
             setWorking(false);
         }
+    };
+    const changeContext = (field: 'year_id' | 'faculty_id' | 'academic_program_id' | 'level_id', value: string) => {
+        const changed = changeAdmissionContext(formData, field, value, contexts, legacySelected);
+        setFormData(changed.form);
+        setLegacySelected(changed.legacySelected);
+        setErrors({});
+        setContextMessage(changed.cleared.length
+            ? `Choix devenus indisponibles à sélectionner de nouveau : ${changed.cleared.join(', ')}. Vos coordonnées et pièces déjà ajoutées sont conservées.`
+            : '');
     };
     return (
         <Dashboard>
@@ -169,16 +193,17 @@ export default function EnrollmentPageSection() {
                                 <span className="enrollment-required">*</span> Champs obligatoires
                             </small>
                         </div>
-                        {!!Object.values(errors).filter(Boolean).length && (
+                        {!!Object.values(visibleErrors).length && (
                             <div className="enrollment-errors" tabIndex={-1} ref={errorSummary} role="alert">
                                 <strong>Quelques informations sont à vérifier.</strong>
                                 <ul>
-                                    {Object.entries(errors)
+                                    {Object.entries(visibleErrors)
                                         .filter(([, message]) => message)
                                         .map(([key, message]) => (
                                             <li key={key}>
                                                 <a
                                                     href={`#${['faculty_id', 'level_id', 'academic_program_id', 'year_id', 'name', 'email', 'program', 'confirmed'].includes(key) ? key : `document-${key}`}`}
+                                                    onClick={() => setStep(['faculty_id', 'level_id', 'academic_program_id', 'year_id', 'program'].includes(key) ? 1 : ['name', 'email'].includes(key) ? 2 : key === 'confirmed' ? 4 : 3)}
                                                 >
                                                     {message}
                                                 </a>
@@ -192,9 +217,23 @@ export default function EnrollmentPageSection() {
                                 {saveError}
                             </div>
                         )}
+                        {saveStatus === 'saved' && (
+                            <div className="enrollment-info" role="status">
+                                Votre brouillon est sauvegardé. Vous pouvez fermer cette page et le reprendre depuis{' '}
+                                <Link href="/app/dashboard/enrollments">Mes candidatures</Link>.
+                            </div>
+                        )}
+                        {contextMessage && <p className="enrollment-info" role="status">{contextMessage}</p>}
+                        {contextIssue && (
+                            <div className="enrollment-errors" role="alert">
+                                <p>{contextIssue} Vos informations et pièces sont conservées.</p>
+                                {step !== 1 && <button type="button" className="enrollment-secondary" onClick={() => goToStep(1)}>Revoir l’année et la formation</button>}
+                            </div>
+                        )}
                         {requirementsError && (
                             <div className="enrollment-errors" role="alert">
-                                {requirementsError} Revenez à la première étape pour vérifier votre formation.
+                                <p>{requirementsError} Revenez à la première étape pour vérifier votre formation.</p>
+                                {step !== 1 && <button type="button" className="enrollment-secondary" onClick={() => goToStep(1)}>Revoir l’année et la formation</button>}
                             </div>
                         )}
                         {loading && (
@@ -213,23 +252,27 @@ export default function EnrollmentPageSection() {
                                 years={years}
                                 availableLevels={availableLevels}
                                 availablePrograms={availablePrograms}
+                                allowsLegacy={options.allowsLegacy}
+                                hasProgramChoice={options.hasProgramChoice}
                                 noLevelsForSelectedFaculty={noLevels}
                                 formData={formData}
-                                setFormData={(update) => {
-                                    setIsConfirmed(false);
-                                    setFormData(update);
+                                historicalContext={props.draft?.context}
+                                historicalValues={props.draft?.form_snapshot}
+                                onContextChange={changeContext}
+                                onProgramTextChange={(value) => {
+                                    form.handleFieldChange('program', value);
+                                    setErrors((previous) => ({ ...previous, program: '' }));
                                 }}
-                                errors={errors}
-                                setErrors={setErrors}
+                                errors={visibleErrors}
                             />
                         )}
                         {step === 2 && <Step2Personal {...documentProps} />}
-                        {step === 3 && <Step3Academic {...documentProps} officialProgram={!!officialProgram} />}
+                        {step === 3 && <Step3Academic {...documentProps} />}
                         {step === 4 && (
                             <Step4Payment
                                 isConfirmed={isConfirmed}
                                 setIsConfirmed={setIsConfirmed}
-                                errors={errors}
+                                errors={visibleErrors}
                                 requirements={requirements}
                                 formData={applicationForm}
                                 formation={formation}
@@ -258,8 +301,8 @@ export default function EnrollmentPageSection() {
                                 )}
                             </button>
                         </div>
-                        <button type="button" className="enrollment-save" disabled={busy} onClick={() => void saveAndExit()}>
-                            <Save size={15} /> Sauvegarder et reprendre plus tard
+                        <button type="button" className="enrollment-save" disabled={savingBusy} onClick={() => void saveForLater()}>
+                            <Save size={15} /> Enregistrer et continuer plus tard
                         </button>
                     </form>
                     <aside className="enrollment-aside">
@@ -268,10 +311,10 @@ export default function EnrollmentPageSection() {
                             <h2>Le cap est fixé.</h2>
                             <dl>
                                 {[
-                                    ['Faculté', formation.faculty],
-                                    ['Niveau', formation.level],
-                                    ['Programme', applicationForm.program || '—'],
                                     ['Année', formation.year],
+                                    ['Faculté', formation.faculty],
+                                    ['Programme', applicationForm.program || '—'],
+                                    ['Niveau', formation.level],
                                 ].map(([label, value]) => (
                                     <div key={label}>
                                         <dt>{label}</dt>
@@ -286,7 +329,7 @@ export default function EnrollmentPageSection() {
                         </section>
                         <section className="enrollment-document-guide">
                             <h3>Préparez vos documents</h3>
-                            <p>Des fichiers lisibles, au format demandé. Chaque pièce peut peser jusqu’à 10 Mo.</p>
+                            <p>{proofUploadHelp(limits)}</p>
                             {requiredDocs.length > 0 && (
                                 <ul>
                                     {requiredDocs.map((doc) => (

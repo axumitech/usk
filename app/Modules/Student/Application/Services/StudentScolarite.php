@@ -150,6 +150,7 @@ final class StudentScolarite
         return $ticket->only(['id', 'category', 'procedure', 'subject', 'body', 'status', 'response', 'created_at', 'updated_at']) + [
             'category_label' => config("student_services.{$group}.label"),
             'procedure_label' => $procedure['label'] ?? $ticket->subject,
+            'procedure_notice' => $procedure['notice'] ?? null,
             'service' => $procedure['service'] ?? config("student_services.{$group}.service"),
             'workflow' => $workflow,
             'status_group' => in_array($ticket->status, self::CLOSED, true) ? 'resolved' : 'open',

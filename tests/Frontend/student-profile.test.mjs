@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 
 const require = createRequire(import.meta.url);
 async function load(component, overrides = {}) {
@@ -18,9 +19,10 @@ async function load(component, overrides = {}) {
         module,
         exports: module.exports,
         require(name) {
+            if (name === '@/lib/uploadLimits') return uploadLimits;
             if (name in overrides) return overrides[name];
             if (name.endsWith('.css')) return {};
-            if (name === '@inertiajs/react') return { useForm: (data) => ({ data: data(), errors: {}, processing: false }) };
+            if (name === '@inertiajs/react') return { useForm: (data) => ({ data: data(), errors: {}, processing: false }), usePage: () => ({ props: {} }) };
             if (name === '@/lib/studentEnrollment') return { formatDate: () => '15 mai 2003' };
             if (name === '@/lib/scheduleDates') return { localDate: () => '2026-11-13' };
             if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });

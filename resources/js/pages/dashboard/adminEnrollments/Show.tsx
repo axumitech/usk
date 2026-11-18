@@ -7,7 +7,15 @@ import { useEffect, useRef, useState } from 'react';
 import '../../../../css/admin-enrollments.css';
 import DocumentReview from './DocumentReview';
 import { applicantName, documentReviewLabels, formatDate, statusLabels, type Dossier } from './types';
-export default function Show({ enrollment, success }: { enrollment: Dossier; success?: string }) {
+export default function Show({
+    enrollment,
+    documentReviewReasons,
+    success,
+}: {
+    enrollment: Dossier;
+    documentReviewReasons: Record<string, string>;
+    success?: string;
+}) {
     const [toast, setToast] = useState<ToastFeedback | null>(success ? { id: 0, message: success, tone: 'success' } : null);
     const toastSequence = useRef(0);
     const announce = (message: string, tone: 'success' | 'error' = 'success') => setToast({ id: ++toastSequence.current, message, tone });
@@ -217,10 +225,11 @@ export default function Show({ enrollment, success }: { enrollment: Dossier; suc
                                                 </div>
                                             )}
                                             <DocumentReview
-                                                key={`${document.uuid}-${document.version}-${document.review_status}-${document.review_comment || ''}`}
+                                                key={`${document.uuid}-${document.version}-${document.review_status}-${document.review_comment || ''}-${document.review_reason_codes?.join(',') || ''}-${document.review_reason_detail || ''}`}
                                                 document={document}
                                                 enrollmentId={enrollment.id}
                                                 enabled={canDecide && analysisStarted}
+                                                reasons={documentReviewReasons}
                                                 onFeedback={announce}
                                                 closed={!canDecide}
                                             />

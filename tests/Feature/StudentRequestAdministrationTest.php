@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\AcademicStructure\University;
 use App\Models\Student\OfficialDocumentType;
+use App\Models\Student\AcademicAudit;
 use App\Models\Student\ServiceRequest;
 use App\Models\User;
 use App\Modules\Documents\Application\DocumentAccess;
+use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use App\Notifications\StudentAppointmentNotice;
+use App\Notifications\StudentRequestAnswered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -189,6 +192,55 @@ final class StudentRequestAdministrationTest extends TestCase
         $this->post($this->requestUrl('reply', $ticket), ['status' => 'resolved', 'response' => 'Réponse non autorisée.'])->assertForbidden();
         $this->get(route(self::ADMIN_ROUTE.'show', ['academic' => $entry->id, 'section' => 'Demandes']))->assertInertia(fn (Assert $page) => $page
             ->where('dossier.requests.data.0.detail_url', $this->requestUrl('show', $ticket, ['dossier_academic' => $entry->id])));
+    }
+
+    public function test_exception_responses_are_scoped_audited_and_notified_without_granting_a_derogation(): void
+    {
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $entry->update(['enrollment_status' => 'pending_confirmation']);
+        $ticket = $entry->serviceRequests()->create([
+            'category' => 'academic', 'procedure' => StudentServiceCatalog::ENROLLMENT_EXCEPTION,
+            'subject' => 'Demander une dérogation', 'body' => 'Veuillez examiner ma situation exceptionnelle.',
+        ]);
+        $detail = $this->requestUrl('show', $ticket);
+        $reply = $this->requestUrl('reply', $ticket, ['from_detail' => 1]);
+        $external = $this->staff();
+        $external->academicFaculties()->attach(DB::table('faculties')->insertGetId(['name' => 'Autre faculté', 'code' => 'EXT']));
+        foreach ([$external, $this->staff('manage academic finance'), $student] as $actor) {
+            $this->actingAs($actor)->get($detail)->assertForbidden();
+            $this->post($reply, ['status' => 'resolved', 'response' => 'Réponse hors périmètre.'])->assertForbidden();
+        }
+
+        $actor = $this->staff();
+        $actor->academicFaculties()->attach($entry->level->faculty_id);
+        $this->actingAs($actor)->get($detail)->assertInertia(fn (Assert $page) => $page
+            ->where('ticket.procedure_notice', StudentServiceCatalog::EXCEPTION_NOTICE));
+        $this->post($reply, ['status' => 'accepted', 'response' => 'Accord non prévu.'])->assertSessionHasErrors('status');
+        $first = ['status' => 'open', 'response' => 'Votre demande est transmise au service compétent pour examen.'];
+        $this->post($reply, $first)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->post($reply, $first)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertSame(1, $student->notifications()->where('type', StudentRequestAnswered::class)->count());
+        $last = ['status' => 'resolved', 'response' => 'L’orientation est terminée. Le service compétent vous précisera la procédure de décision.'];
+        $this->post($reply, $last)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->post($reply, $last)->assertStatus(303)->assertSessionHasNoErrors();
+        $history = AcademicAudit::where('entity_type', 'student_service_requests')->where('entity_id', $ticket->id)
+            ->where('action', 'student_request_answered')->orderBy('id')->get();
+        $this->assertCount(2, $history);
+        $this->assertNull($history[0]->data['before']['response']);
+        $this->assertSame($first['response'], $history[0]->data['after']['response']);
+        $this->assertSame($first['response'], $history[1]->data['before']['response']);
+        $this->assertSame($last['response'], $history[1]->reason);
+        $this->assertSame($last['response'], $history[1]->data['after']['response']);
+        $this->assertSame($actor->id, $history[1]->actor_id);
+        $this->assertSame(2, $student->notifications()->where('type', StudentRequestAnswered::class)->count());
+        $this->assertSame('resolved', $ticket->fresh()->status);
+        $this->assertSame('pending_confirmation', $entry->fresh()->enrollment_status);
+        $this->assertSame('active', $student->studentProfile->fresh()->student_status);
+        $this->assertSame('validated', $entry->application->fresh()->status->value);
+        $this->assertDatabaseCount('student_financial_adjustments', 0);
+        $this->assertDatabaseCount('student_payments', 0);
+        $this->assertDatabaseCount('academic_enrollment_changes', 0);
     }
 
     private function requestUrl(string $action, ServiceRequest $ticket, array $query = []): string

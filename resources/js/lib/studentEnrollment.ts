@@ -109,7 +109,7 @@ export function nextStep(entry: StudentEnrollment) {
     if (entry.status === 'draft') return 'Complétez votre brouillon, puis transmettez-le au service des inscriptions.';
     if (entry.status === 'validated') {
         if (entry.academic_enrollment_status === 'confirmed') return 'Votre inscription académique est confirmée. Consultez votre espace étudiant.';
-        if (entry.academic_enrollment_status === 'pending_confirmation') return 'Vous êtes admis. Consultez vos frais et les conditions de confirmation dans votre espace étudiant.';
+        if (entry.academic_enrollment_status === 'pending_confirmation') return 'Vous êtes admis. Consultez votre première tranche, le seuil d’activation et les versements validés dans votre espace étudiant.';
         return 'Vous êtes admis. Consultez votre espace étudiant ou contactez le service pour connaître l’état de votre inscription.';
     }
     if (entry.status === 'rejected')

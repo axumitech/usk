@@ -8,6 +8,10 @@ use Illuminate\Support\Collection;
 
 final class StudentServiceCatalog
 {
+    public const ENROLLMENT_EXCEPTION = 'enrollment-exception';
+
+    public const EXCEPTION_NOTICE = 'Cette démarche permet de demander un examen et une orientation. Son dépôt et la réponse ne valent pas accord de dérogation et ne modifient ni votre inscription, ni vos frais, ni vos accès. Le statut « Traitée » concerne uniquement le suivi de la demande.';
+
     private const OFFICIAL_DOCUMENTS = [
         'enrollment-certificate' => 'enrollment',
         'schooling-certificate' => 'schooling',
@@ -58,6 +62,7 @@ final class StudentServiceCatalog
             'id' => $id, 'label' => $label, 'description' => $description, 'group' => $group,
             'category' => $category['category'], 'service' => $category['procedures'][$id][2] ?? $category['service'],
             'attachment' => $group !== 'appointments',
+            'notice' => $id === self::ENROLLMENT_EXCEPTION ? self::EXCEPTION_NOTICE : null,
         ];
     }
 

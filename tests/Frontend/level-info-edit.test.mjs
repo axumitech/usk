@@ -44,7 +44,7 @@ test('Annuler un brouillon de niveau écarte ses valeurs et conserve les champs 
             router: { post: (url, body) => { submission = { url, body }; } },
         },
         react: { useState: (initial) => [initial, () => {}] },
-    }, { File, FormData, route: (name, id) => `${name}/${id}` });
+    }, { File, FormData, route: (name, params) => `${name}/${params.id}?tab=${params.tab}` });
     const { default: Info } = load('tabs/InfosTab.tsx', {
         '../sections/StatsGrid': { default: () => null },
         '../sections/DetailsSection': { default: () => null },
@@ -64,7 +64,7 @@ test('Annuler un brouillon de niveau écarte ses valeurs et conserve les champs 
     Info({ levelDataHook: data, modalsHook: modals }).props.children[0].props.onEdit('duration_years');
     data.updateField('duration_years', 2);
     modals.saveEdit(useLevelData(level));
-    assert.equal(submission.url, 'dashboard.admin.levels.details.update/73');
+    assert.equal(submission.url, 'dashboard.admin.levels.details.update/73?tab=infos');
     assert.equal(submission.body.get('duration_years'), '2');
     assert.equal(submission.body.get('credit_required'), '');
     assert.equal(submission.body.get('language'), '');

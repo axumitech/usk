@@ -140,7 +140,9 @@ const Dashboard = ({
     useEffect(() => {
         if (studentApp || teacherApp || !mainRef.current) return;
 
-        if (isMobile) {
+        if (administration) {
+            mainRef.current.style.transform = 'none';
+        } else if (isMobile) {
             if (isMobileSidebarOpen) {
                 mainRef.current.style.transform = `translateX(${currentActiveMenu ? '300px' : '80px'})`;
             } else {
@@ -149,7 +151,7 @@ const Dashboard = ({
         } else {
             mainRef.current.style.transform = 'none';
         }
-    }, [isMobile, isMobileSidebarOpen, currentActiveMenu, studentApp, teacherApp]);
+    }, [isMobile, isMobileSidebarOpen, currentActiveMenu, studentApp, teacherApp, administration]);
 
     const closeAllMenus = () => {
         setCurrentActiveMenu(null);
@@ -160,6 +162,7 @@ const Dashboard = ({
         <main
             id={themeEnabled ? 'usk-dashboard-main' : undefined}
             tabIndex={themeEnabled ? -1 : undefined}
+            inert={administration && isMobile && isMobileSidebarOpen && !studentApp && !teacherApp}
             className={`usk-page-content ${teacherApp ? 'teacher-shell-main' : studentApp ? 'student-app-main' : `${authPage ? 'usk-auth-main' : ''} min-h-screen pt-16 transition-transform duration-300 ease-out md:ml-20 lg:ml-20`}`}
             data-page-tone={tone}
             data-dashboard-navigation-surface={user && tone !== 'auth' ? '' : undefined}

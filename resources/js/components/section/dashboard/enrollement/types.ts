@@ -23,4 +23,23 @@ export type FormData = {
     program: string;
     documents: Record<string, DocumentMeta | undefined>;
 };
+export type DraftSnapshot = Omit<Partial<FormData>, 'name' | 'email' | 'program' | 'documents' | 'faculty_id' | 'year_id' | 'level_id' | 'academic_program_id'> & {
+    faculty_id?: string | number | null;
+    year_id?: string | number | null;
+    level_id?: string | number | null;
+    academic_program_id?: string | number | null;
+    name?: string | null;
+    email?: string | null;
+    program?: string | null;
+    documents?: FormData['documents'] | null;
+    isConfirmed?: boolean;
+};
+export type AdmissionContext = { year_id: number; faculty_id: number; academic_program_id: number | null; level_id: number };
+export type DraftContext = {
+    year: string | null;
+    faculty: string | null;
+    program: string | null;
+    level: string | null;
+    unavailable_reason: string | null;
+};
 export type SaveStatus = 'idle' | 'saving' | 'saved';

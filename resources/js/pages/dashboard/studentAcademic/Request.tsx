@@ -514,6 +514,7 @@ export default function RequestDetail({ ticket, student, actions, back_url, back
                             {ticket.procedure_label && ticket.procedure_label !== ticket.subject && (
                                 <p className="staff-request-muted">{ticket.procedure_label}</p>
                             )}
+                            {ticket.procedure_notice && <p className="staff-request-muted">{ticket.procedure_notice}</p>}
                             <p className="staff-request-text">{ticket.body}</p>
                         </section>
                         <Attachment ticket={ticket} />

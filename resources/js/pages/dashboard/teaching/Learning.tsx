@@ -1,8 +1,9 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import TeacherModuleHeading from '@/components/teaching/TeacherModuleHeading';
+import { defaultUploadLimits, uploadSize, type UploadLimits } from '@/lib/uploadLimits';
 import { dateTime } from '@/pages/dashboard/teaching/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -110,6 +111,7 @@ export default function Learning({
     versions,
     file_status: fileStatus,
 }: Props) {
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const [modal, setModal] = useState<FormSpec | null>(null);
     const [message, setMessage] = useState('');
     const index = route(prefix + 'index');
@@ -127,7 +129,11 @@ export default function Learning({
             { name: 'title', label: 'Titre', value: item?.title, required: true },
             { name: 'body', label: 'Texte pédagogique', type: 'textarea', value: item?.body },
             { name: 'url', label: 'Lien externe HTTP ou HTTPS', type: 'url', value: item?.url },
-            { name: 'file', label: item?.filename ? `Remplacer ${item.filename}` : 'Fichier privé', type: 'file' },
+            {
+                name: 'file', label: item?.filename ? `Remplacer ${item.filename}` : 'Fichier privé', type: 'file',
+                accept: '.pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mp3,.ogg,.wav',
+                help: `Support : PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG ou WebP. Vidéo : MP4 ou WebM. Audio : MP3, OGG ou WAV. ${uploadSize(limits.document_kb)} maximum par fichier.`,
+            },
             placement(
                 'academic_content_section_id',
                 teacher ? 'Chapitre' : 'Section',

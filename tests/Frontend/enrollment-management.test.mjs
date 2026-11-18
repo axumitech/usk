@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 
 const require = createRequire(import.meta.url);
 async function load(path) {
@@ -14,7 +15,8 @@ async function load(path) {
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
     vm.runInNewContext(output, { module, exports: module.exports, route: (name, value) => `/route/${name}?${typeof value === 'object' ? new URLSearchParams(value) : `id=${value}`}`, URLSearchParams, crypto: { randomUUID: () => 'operation-key' }, require(name) {
         if (name.endsWith('.css')) return {};
-        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, ...props }) => React.createElement('a', props, children), useForm: data => ({ data, errors: {}, processing: false }) };
+        if (name === '@/lib/uploadLimits') return uploadLimits;
+        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, ...props }) => React.createElement('a', props, children), useForm: data => ({ data, errors: {}, processing: false }), usePage: () => ({ props: {} }) };
         if (name === '@/components/layouts/Dashboard/Dashboard') return { default: ({ children }) => React.createElement('div', {}, children) };
         if (name === '@/components/admin/Pagination') return { default: () => null };
         if (name === '@/lib/scheduleDates') return { localDate: () => '2026-11-14' };

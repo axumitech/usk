@@ -2,8 +2,9 @@
 
 return [
     'currency' => 'USD',
-    'enrollment_auto_confirmation' => env('STUDENT_ENROLLMENT_AUTO_CONFIRMATION', false),
+    'enrollment_auto_confirmation' => env('STUDENT_ENROLLMENT_AUTO_CONFIRMATION', true),
     'enrollment_requires_first_installment' => env('STUDENT_ENROLLMENT_REQUIRES_FIRST_INSTALLMENT', true),
+    'enrollment_activation_percentage' => env('STUDENT_ENROLLMENT_ACTIVATION_PERCENTAGE', 30),
     'payment_verifier' => null, // Adapter selected explicitly by the institution; no provider is assumed.
     'features' => ['dashboard_view', 'profile_view', 'courses_view', 'schedule_view', 'payments_view', 'administrative_support', 'materials_download', 'assignments_submit', 'evaluations_participate', 'results_view', 'documents_request'],
     'requires_rule' => ['materials_download', 'assignments_submit', 'evaluations_participate', 'documents_request'],

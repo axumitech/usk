@@ -5,7 +5,8 @@ import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { EmptyState, PaymentOverview } from '@/components/student/PortalCards';
 import { labels, money, type Balance } from '@/components/student/types';
 import { formatDate } from '@/lib/studentEnrollment';
-import { Head, Link, router } from '@inertiajs/react';
+import { defaultUploadLimits, documentAccept, uploadSize, type UploadLimits } from '@/lib/uploadLimits';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     BookOpen,
@@ -414,6 +415,7 @@ function RequestQueue({
 }
 
 export default function Index(props: Props) {
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const tab = props.filters.tab || 'students';
     const selected = props.selected;
     const [faculty, setFaculty] = useState(String(props.filters.faculty ?? ''));
@@ -676,7 +678,7 @@ export default function Index(props: Props) {
                                 {history
                                     ? 'Consultez les inscriptions de la plus récente à la plus ancienne, par année académique.'
                                     : pendingEnrollments
-                                      ? 'Les candidatures admises apparaissent ici jusqu’à la couverture intégrale de la première tranche.'
+                                      ? 'Les candidatures admises apparaissent ici jusqu’à la confirmation de leur inscription, selon le seuil financier initial et les conditions applicables.'
                                       : 'Retrouvez une inscription par faculté, département ou niveau.'}
                             </p>
                         </div>
@@ -1572,7 +1574,11 @@ export default function Index(props: Props) {
                                                 { name: 'title', label: 'Titre', required: true },
                                                 { name: 'body', label: 'Contenu / consignes', type: 'textarea' },
                                                 { name: 'url', label: 'Lien (obligatoire pour un cours en ligne ou une vidéo)', type: 'url' },
-                                                { name: 'file', label: 'Fichier privé', type: 'file' },
+                                                {
+                                                    name: 'file', label: 'Fichier privé', type: 'file',
+                                                    accept: `${documentAccept},.doc,.docx,.ppt,.pptx,.xls,.xlsx`,
+                                                    help: `PDF, JPG, PNG, WebP, Word, PowerPoint ou Excel : ${uploadSize(limits.document_kb)} maximum. Images en annonce, document ou résultat : ${uploadSize(limits.image_kb)} maximum.`,
+                                                },
                                                 { name: 'opens_at', label: 'Ouverture du dépôt', type: 'datetime-local' },
                                                 { name: 'closes_at', label: 'Fin du dépôt', type: 'datetime-local' },
                                                 { name: 'is_published', label: 'Publier', type: 'checkbox' },

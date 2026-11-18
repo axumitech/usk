@@ -9,6 +9,7 @@ use App\Modules\Results\Application\ResultsAccess;
 use App\Modules\Teaching\Application\Services\LearningFiles;
 use App\Modules\Teaching\Application\Services\TeachingScope;
 use App\Notifications\StudentAppointmentNotice;
+use App\Notifications\StudentRequestAnswered;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -56,6 +57,7 @@ final class StudentRequestService
         return $ticket->only(['id', 'academic_enrollment_id', 'category', 'subject', 'body', 'status', 'response', 'created_at', 'updated_at']) + [
             'category_label' => self::staffCategories()[$ticket->category] ?? 'Autre démarche',
             'procedure_label' => $procedure['label'] ?? null,
+            'procedure_notice' => $procedure['notice'] ?? null,
             'service' => $procedure['service'] ?? null,
             'is_appointment' => $ticket->category === 'appointment',
             'appointment' => self::appointment($ticket),
@@ -148,6 +150,7 @@ final class StudentRequestService
             if ($ticket->status === $data['status'] && $ticket->response === $data['response']) {
                 return;
             }
+            $before = $ticket->only(['status', 'response', 'responded_by']);
             $updates = $data + ['responded_by' => $actor->id];
             if ($ticket->category === 'appointment') {
                 $updates['appointment_revision'] = $ticket->appointment_revision + 1;
@@ -156,7 +159,15 @@ final class StudentRequestService
                 }
             }
             $ticket->update($updates);
-            Audit::record($actor->id, 'student_request_answered', $ticket);
+            if ($ticket->procedure === StudentServiceCatalog::ENROLLMENT_EXCEPTION) {
+                Audit::record($actor->id, 'student_request_answered', $ticket, $ticket->response, [
+                    'before' => $before, 'after' => $ticket->only(['status', 'response', 'responded_by']),
+                ]);
+                // The database notice commits atomically with the answer and its audit.
+                $ticket->enrollment->profile->user->notify(new StudentRequestAnswered($ticket->academic_enrollment_id, $ticket->id));
+            } else {
+                Audit::record($actor->id, 'student_request_answered', $ticket);
+            }
         }, 3);
     }
 

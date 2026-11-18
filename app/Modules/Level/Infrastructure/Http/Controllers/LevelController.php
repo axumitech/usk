@@ -51,8 +51,10 @@ final class LevelController extends Controller
                 (bool) ($validated['is_active'] ?? true)
             );
 
-            // ✅ Inertia-friendly response
-            return back()->with('success', 'Niveau créé avec succès.');
+            $facultyUrl = route('dashboard.admin.faculties.show', $validated['faculty_id']);
+            $returnUrl = url()->previous() === $facultyUrl ? $facultyUrl : route('dashboard.admin.levels.index');
+
+            return redirect()->to($returnUrl, 303)->with('success', 'Niveau créé avec succès.');
         } catch (DuplicateLevelCodeException $e) {
             return back()->withErrors(['code' => $e->getMessage()])->withInput();
         } catch (\Throwable $e) {
@@ -87,20 +89,20 @@ final class LevelController extends Controller
                 );
             });
 
-            return back()->with('success', 'Niveau mis à jour avec succès.');
+            return redirect()->to($request->administrativeUrl(), 303)->with('success', 'Niveau mis à jour avec succès.');
         } catch (\Illuminate\Validation\ValidationException $e) {
-            throw $e;
+            throw $e->redirectTo($request->administrativeUrl());
         } catch (DuplicateLevelCodeException $e) {
-            return back()->withErrors(['code' => $e->getMessage()])->withInput();
+            return redirect()->to($request->administrativeUrl(), 303)->withErrors(['code' => $e->getMessage()])->withInput();
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException|\DomainException $e) {
-            return back()->withErrors(['general' => 'Niveau introuvable.'])->withInput();
+            return redirect()->to($request->administrativeUrl(), 303)->withErrors(['general' => 'Niveau introuvable.'])->withInput();
         } catch (\Throwable $e) {
             Log::error('Erreur mise à jour niveau:', [
                 'id'      => $id,
                 'message' => $e->getMessage(),
                 'trace'   => $e->getTraceAsString()
             ]);
-            return back()->withErrors(['general' => 'Une erreur est survenue lors de la mise à jour.'])->withInput();
+            return redirect()->to($request->administrativeUrl(), 303)->withErrors(['general' => 'Une erreur est survenue lors de la mise à jour.'])->withInput();
         }
     }
 

@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react';
-const steps = ['Formation', 'Identité', 'Parcours', 'Vérification'];
+const steps = ['Année et formation', 'Coordonnées', 'Parcours et pièces', 'Vérification'];
 export default function ProgressHeader({ step, onStepChange }: { step: number; onStepChange?: (step: number) => void }) {
     return (
         <nav className="enrollment-stepper" aria-label="Étapes de votre inscription">

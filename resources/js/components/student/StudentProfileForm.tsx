@@ -1,6 +1,7 @@
 import { localDate } from '@/lib/scheduleDates';
 import { formatDate } from '@/lib/studentEnrollment';
-import { useForm } from '@inertiajs/react';
+import { defaultUploadLimits, imageAccept, imageUploadError, uploadSize, type UploadLimits } from '@/lib/uploadLimits';
+import { useForm, usePage } from '@inertiajs/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
     Camera,
@@ -135,6 +136,7 @@ export default function StudentProfileForm({
     initialEditField?: string | null;
 }) {
     const form = useForm<ProfileData>(() => profileData(profile.values));
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const [editing, setEditing] = useState(Boolean(initialEditSection || initialEditField));
     const [preview, setPreview] = useState<string | null>(null);
     const [brokenPhoto, setBrokenPhoto] = useState<string | null>(null);
@@ -346,17 +348,24 @@ export default function StudentProfileForm({
                                 type="file"
                                 className="sr-only"
                                 tabIndex={-1}
-                                accept="image/jpeg,image/png,image/webp"
+                                accept={imageAccept}
                                 aria-invalid={Boolean(form.errors.photo)}
                                 aria-describedby="profile-photo-help"
                                 onChange={(event) => {
                                     const file = event.target.files?.[0];
                                     if (!file) return;
+                                    const error = imageUploadError(file, limits);
+                                    if (error) {
+                                        form.setError('photo', error);
+                                        event.target.value = '';
+                                        return;
+                                    }
+                                    form.clearErrors('photo');
                                     form.setData((data) => ({ ...data, photo: file, remove_photo: false }));
                                 }}
                             />
                             <p id="profile-photo-help" className="profile-field-help">
-                                JPG, PNG ou WebP · 5 Mo maximum
+                                JPG, PNG ou WebP · {uploadSize(limits.image_kb)} maximum
                             </p>
                             {preview && (
                                 <button type="button" className="profile-text-button" onClick={clearPhoto}>

@@ -7,6 +7,7 @@ import {
     FileUp,
     GraduationCap,
     Megaphone,
+    MessageSquare,
     Wallet,
     XCircle,
     type LucideIcon,
@@ -108,8 +109,11 @@ export function presentNotice(notice: Notice, audience: 'student' | 'admin' = 's
         case 'student_request': {
             const appointment = appointmentNotices[status];
             return {
-                title: appointment?.title ?? 'Votre demande de scolarité a été mise à jour',
-                icon: appointment?.icon ?? CalendarCheck,
+                title:
+                    status === 'request_answered'
+                        ? 'L’administration a répondu à votre demande'
+                        : (appointment?.title ?? 'Votre demande de scolarité a été mise à jour'),
+                icon: status === 'request_answered' ? MessageSquare : (appointment?.icon ?? CalendarCheck),
                 action: 'Ouvrir ma demande',
                 showFile: false,
             };
@@ -138,9 +142,12 @@ export function presentNotice(notice: Notice, audience: 'student' | 'admin' = 's
         case 'enrollment':
             return {
                 ...base,
-                title: audience === 'student'
-                    ? (status === 'confirmed' ? 'Votre inscription académique est confirmée' : 'Votre situation administrative a été mise à jour')
-                    : defaultTitle,
+                title:
+                    audience === 'student'
+                        ? status === 'confirmed'
+                            ? 'Votre inscription académique est confirmée'
+                            : 'Votre situation administrative a été mise à jour'
+                        : defaultTitle,
                 action: 'Consulter mes inscriptions',
             };
         case 'admission':

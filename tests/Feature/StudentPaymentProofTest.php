@@ -101,7 +101,11 @@ final class StudentPaymentProofTest extends TestCase
         $submit = route('dashboard.student.payments.proofs.store', ['academic' => $entry->id]);
         $invalid = $this->deposit();
         $invalid['proof'] = UploadedFile::fake()->create('virement.html', 1, 'text/html');
-        $this->actingAs($student)->from($fees)->post($submit, $invalid)->assertSessionHasErrors('proof');
+        $this->actingAs($student)->from($fees)->post($submit, $invalid)->assertRedirect($fees)->assertSessionHasErrors('proof')
+            ->assertSessionHasInput('reference', $invalid['reference'])->assertSessionHasInput('amount', $invalid['amount']);
+        $oversized = $this->deposit();
+        $oversized['proof'] = UploadedFile::fake()->image('virement.png')->size(\App\Support\DocumentUploadLimit::images() + 1);
+        $this->post($submit, $oversized)->assertRedirect($fees)->assertSessionHasErrors('proof');
         $this->assertDatabaseCount('student_payment_proofs', 0);
         $this->post($submit, $this->deposit())->assertSessionHasNoErrors();
         $this->post($submit, $this->deposit())->assertRedirect($fees)->assertSessionHasErrors('reference');

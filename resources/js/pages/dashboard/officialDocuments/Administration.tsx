@@ -24,6 +24,7 @@ type Props = {
     actor: number;
     permissions: { manage: boolean; approve: boolean; issue: boolean };
     universities: { id: number; name: string; faculties: { id: number; name: string }[] }[];
+    programs: { id: number; name: string; faculty_id: number }[];
     types: Page<Type>;
     type: Type | null;
     templates: Page<Template> | null;
@@ -52,6 +53,7 @@ export default function Administration({
     actor,
     permissions,
     universities,
+    programs,
     types,
     type,
     templates,
@@ -166,11 +168,12 @@ export default function Administration({
                                 action('Ajouter un type documentaire', 'type', {}, {}, [
                                     {
                                         ...field('university_id', 'Établissement', 'select', true),
-                                        clears: 'faculty_id',
+                                        clears: ['faculty_id', 'program_id'],
                                         options: universities.map(({ id, name }) => ({ value: id, label: name })),
                                     },
                                     {
                                         ...field('faculty_id', 'Faculté', 'select', true),
+                                        clears: 'program_id',
                                         optionsFor: (values) =>
                                             universities
                                                 .find(({ id }) => id === Number(values.university_id))
@@ -187,7 +190,18 @@ export default function Administration({
                                     field('valid_days', 'Validité en jours', 'number'),
                                     field('decisions', 'Codes de décision autorisés pour la réussite ou le diplôme'),
                                     field('minimum_credits', 'Crédits requis en centièmes', 'number'),
-                                    field('program_id', 'Programme (ID)', 'number'),
+                                    {
+                                        ...field('program_id', 'Programme', 'select'),
+                                        optionsFor: (values) =>
+                                            universities
+                                                .find(({ id }) => id === Number(values.university_id))
+                                                ?.faculties.some(({ id }) => id === Number(values.faculty_id))
+                                                ? programs
+                                                      .filter(({ faculty_id }) => faculty_id === Number(values.faculty_id))
+                                                      .map(({ id, name }) => ({ value: id, label: name }))
+                                                : [],
+                                        help: 'Obligatoire pour un diplôme. Les programmes historiques restent disponibles.',
+                                    },
                                     field('regulation', 'Référence réglementaire'),
                                     field('retention', 'Règle d’archivage institutionnelle'),
                                     documentReason,

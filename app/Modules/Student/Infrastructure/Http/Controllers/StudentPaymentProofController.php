@@ -28,8 +28,8 @@ final class StudentPaymentProofController
                 'amount' => 'required|string|max:20',
                 'method' => ['required', 'string', Rule::in(config('finance.methods'))],
                 'reference' => 'required|string|max:180',
-                'proof' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'extensions:pdf,jpg,jpeg,png,webp', 'max:'.DocumentUploadLimit::kilobytes()],
-            ]);
+                'proof' => DocumentUploadLimit::proofRules(),
+            ], DocumentUploadLimit::proofMessages('proof'));
             $this->proofs->submit($entry, $request->user(), $data, $data['proof']);
         } catch (ValidationException $exception) {
             throw $exception->redirectTo($url);

@@ -1,5 +1,6 @@
 import Pagination from '@/components/admin/Pagination';
 import { formatDate } from '@/lib/studentEnrollment';
+import { defaultUploadLimits, documentAccept, proofUploadError, proofUploadHelp } from '@/lib/uploadLimits';
 import { Link, useForm } from '@inertiajs/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import {
@@ -23,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import '../../../css/student-finance.css';
-import FirstInstallmentDetails from './FirstInstallmentDetails';
+import FirstInstallmentDetails, { EnrollmentActivationStatus } from './FirstInstallmentDetails';
 import { studentHref } from './navigation';
 import {
     labels,
@@ -375,9 +376,10 @@ function EnrollmentPaymentSummary({ props }: { props: PortalProps }) {
     return (
         <section id="finance-first-installment" className="sf-panel scroll-mt-24" aria-label="Première tranche et inscription">
             <PanelHeading title="Première tranche des frais académiques" description={`Inscription ${statusLabel}`} icon={Wallet} />
+            <EnrollmentActivationStatus installment={installment} status={status} admitted={props.academic.application_status === 'validated'} />
             <FirstInstallmentDetails installment={installment} />
             {proofUnderReview && <p>Un justificatif de versement est en cours de vérification par la comptabilité.</p>}
-            {status === 'pending_confirmation' && installment.status === 'covered' && (
+            {status === 'pending_confirmation' && !installment.activation?.automatic && installment.status === 'covered' && (
                 <p>La première tranche est couverte. Le service des inscriptions doit encore confirmer votre inscription.</p>
             )}
             {props.first_installment_review_required && (
@@ -480,11 +482,16 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
     const form = useForm({ kind: defaultKind, amount: '', method: '', reference: '', proof: null as File | null });
     const file = useRef<HTMLInputElement>(null);
     const [sent, setSent] = useState(false);
-    const size = (proofs.max_kb / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    const limits = { document_kb: proofs.max_kb, image_kb: Math.min(proofs.max_kb, defaultUploadLimits.image_kb) };
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (form.processing) return;
         setSent(false);
+        const error = form.data.proof && proofUploadError(form.data.proof, limits);
+        if (error) {
+            form.setError('proof', error);
+            return;
+        }
         form.post(submitUrl, {
             forceFormData: true,
             preserveScroll: true,
@@ -565,13 +572,17 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
                         </span>
                         <input
                             type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            accept={documentAccept}
                             ref={file}
-                            onChange={(event) => form.setData('proof', event.target.files?.[0] ?? null)}
+                            onChange={(event) => {
+                                form.setData('proof', event.target.files?.[0] ?? null);
+                                form.clearErrors('proof');
+                                setSent(false);
+                            }}
                             aria-invalid={Boolean(form.errors.proof) || undefined}
                             required
                         />
-                        <small>PDF, JPG, PNG ou WebP · {size} Mo maximum</small>
+                        <small>{proofUploadHelp(limits)}</small>
                     </label>
                 </div>
                 {Object.values(form.errors).length > 0 && (

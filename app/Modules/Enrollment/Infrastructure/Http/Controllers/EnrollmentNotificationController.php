@@ -7,6 +7,7 @@ use App\Models\Enrollment;
 use App\Modules\Student\Application\Services\AcademicAccessService;
 use App\Modules\Student\Application\Services\StudentAnnouncements;
 use App\Modules\Student\Application\Services\StudentNotifications;
+use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use App\Notifications\AcademicAssessmentNotice;
 use App\Notifications\AcademicEnrollmentChanged;
 use App\Notifications\AcademicScheduleNotice;
@@ -16,6 +17,7 @@ use App\Notifications\OfficialDocumentNotice;
 use App\Notifications\OfficialResultNotice;
 use App\Notifications\StudentAdmissionActivated;
 use App\Notifications\StudentAppointmentNotice;
+use App\Notifications\StudentRequestAnswered;
 use App\Notifications\TeacherAnnouncementNotice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -47,6 +49,15 @@ class EnrollmentNotificationController extends Controller
     public function openStudent(Request $request, string $notification, StudentNotifications $notifications)
     {
         $notice = $notifications->find($request->user(), $notification);
+        if ($notice->type === StudentRequestAnswered::class) {
+            abort_unless($request->user()->hasRole('student'), 403);
+            $academic = $request->user()->studentProfile?->enrollments()->whereHas('application')->findOrFail($notice->data['academic_enrollment_id']);
+            abort_unless($academic, 404);
+            $ticket = $academic->serviceRequests()->where('procedure', StudentServiceCatalog::ENROLLMENT_EXCEPTION)->findOrFail($notice->data['ticket_id']);
+            $notice->markAsRead();
+
+            return to_route('dashboard.student.index', ['section' => 'requests', 'academic' => $academic->id, 'request' => $ticket->id], 303);
+        }
         if ($notice->type === TeacherAnnouncementNotice::class) {
             abort_unless($request->user()->hasRole('student'), 403);
             $academic = $request->user()->studentProfile?->enrollments()->whereHas('application')->findOrFail($notice->data['academic_enrollment_id']);

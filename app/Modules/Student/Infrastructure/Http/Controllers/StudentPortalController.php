@@ -115,6 +115,7 @@ class StudentPortalController extends Controller
     {
         $this->requireFeature($entry, 'courses_view');
         $resource = AcademicResource::visible()->forStudent($entry)->with('supplementaryFor:id,kind')->findOrFail($id);
+        abort_if($resource->kind === 'announcement' && ! StudentAnnouncements::withinPublicationWindow($resource), 404);
         abort_unless($this->access->offerings($entry)->whereKey($resource->academic_offering_id)->exists(), 404);
 
         return $resource;
@@ -349,7 +350,7 @@ class StudentPortalController extends Controller
         $detail = $entry->level->detail;
         $statement = $this->finance->statement($entry);
         $balance = $statement['balance'];
-        $firstInstallment = $financeSection ? $this->finance->firstTuitionInstallment($entry, $statement) : null;
+        $firstInstallment = $financeSection || $section === 'overview' ? $this->finance->firstTuitionInstallment($entry, $statement) : null;
         $financeActivity = app(StudentFinanceActivity::class);
         $financeView = $section === 'transactions' ? ($request->query('view') === 'receipts' ? 'receipts' : 'history') : null;
         $paymentsPage = $financeView !== null ? $financeActivity->transactions($entry, $statement['kind_titles'], $financeView === 'receipts') : null;
@@ -677,7 +678,7 @@ class StudentPortalController extends Controller
             $data = $request->validate([
                 'procedure' => ['required', 'string', Rule::in($procedure ? [$procedure['id']] : [])],
                 'body' => 'required|string|min:10|max:6000',
-                'file' => ($procedure['attachment'] ?? false) ? 'nullable|file|extensions:pdf,jpg,jpeg,png,webp|max:'.DocumentUploadLimit::kilobytes() : 'prohibited',
+                'file' => ($procedure['attachment'] ?? false) ? DocumentUploadLimit::proofRules(required: false) : 'prohibited',
                 'appointment_slot' => $appointment ? 'required|date_format:Y-m-d\TH:i' : 'prohibited',
                 'operation_key' => 'nullable|uuid',
             ], messages: [
@@ -685,8 +686,7 @@ class StudentPortalController extends Controller
                 'body.required' => 'Décrivez votre demande.',
                 'body.min' => 'Votre description doit contenir au moins 10 caractères.',
                 'body.max' => 'Votre description ne peut pas dépasser 6 000 caractères.',
-                'file.extensions' => 'Le justificatif doit être un fichier PDF, JPG, PNG ou WebP.',
-                'file.max' => 'Le justificatif dépasse la taille maximale autorisée.',
+                ...DocumentUploadLimit::proofMessages(),
                 'appointment_slot.required' => 'Choisissez un créneau libre.',
                 'appointment_slot.date_format' => 'Choisissez un créneau proposé.',
             ], attributes: ['procedure' => 'démarche', 'body' => 'description', 'file' => 'justificatif', 'appointment_slot' => 'créneau']);

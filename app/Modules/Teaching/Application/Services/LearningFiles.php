@@ -47,7 +47,9 @@ final class LearningFiles
         if (! in_array($ext, $allowed, true)) {
             throw ValidationException::withMessages(['file' => 'Extension non autorisée pour ce type de ressource.']);
         }
-        Validator::make(['file' => $file], ['file' => ['required', 'file', 'max:'.DocumentUploadLimit::kilobytes()]])->validate();
+        Validator::make(['file' => $file], ['file' => ['required', 'file', 'max:'.DocumentUploadLimit::kilobytes()]], [
+            'file.max' => DocumentUploadLimit::sizeMessage(DocumentUploadLimit::kilobytes()),
+        ])->validate();
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file->getRealPath());
         if (! in_array($mime, self::MIME_TYPES[$ext], true)) {
             throw ValidationException::withMessages(['file' => 'Le type réel du fichier ne correspond pas à son extension.']);

@@ -533,7 +533,14 @@ class AcademicAdministrationController extends Controller
     public function resource(Request $r)
     {
         $this->authorizeStaff($r, 'publish academic content');
-        $data = $r->validate(['academic_offering_id' => 'required|integer|exists:academic_offerings,id', 'kind' => 'required|in:material,assignment,evaluation,result,announcement,document,online,video', 'student_profile_id' => 'required_if:kind,result,document|nullable|integer|exists:student_profiles,id', 'url' => 'required_if:kind,online,video|nullable|url:http,https|max:2000', 'title' => 'required|string|max:180', 'body' => 'nullable|string|max:30000', 'opens_at' => 'nullable|date', 'closes_at' => ['nullable', 'date', Rule::when($r->filled('opens_at'), 'after:opens_at')], 'is_published' => 'boolean', 'file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,doc,docx,ppt,pptx,xls,xlsx|max:'.DocumentUploadLimit::kilobytes()]);
+        $file = ['bail', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,ppt,pptx,xls,xlsx', 'max:'.DocumentUploadLimit::kilobytes()];
+        if (in_array($r->input('kind'), ['announcement', 'document', 'result'], true)) {
+            $file[] = DocumentUploadLimit::limitImage();
+        }
+        $data = $r->validate(['academic_offering_id' => 'required|integer|exists:academic_offerings,id', 'kind' => 'required|in:material,assignment,evaluation,result,announcement,document,online,video', 'student_profile_id' => 'required_if:kind,result,document|nullable|integer|exists:student_profiles,id', 'url' => 'required_if:kind,online,video|nullable|url:http,https|max:2000', 'title' => 'required|string|max:180', 'body' => 'nullable|string|max:30000', 'opens_at' => 'nullable|date', 'closes_at' => ['nullable', 'date', Rule::when($r->filled('opens_at'), 'after:opens_at')], 'is_published' => 'boolean', 'file' => $file], [
+            'file.max' => DocumentUploadLimit::sizeMessage(DocumentUploadLimit::kilobytes()),
+            'file.mimes' => 'Choisissez un fichier PDF, JPG, PNG, WebP, Word, PowerPoint ou Excel.',
+        ]);
         $offering = AcademicOffering::findOrFail($data['academic_offering_id']);
         \App\Modules\Teaching\Application\Services\TeachingScope::authorize($r->user(), (int) $offering->level->faculty_id);
         abort_if($offering->archived_at || ($offering->curriculum_item_id && ! in_array($offering->academicYear->status, ['draft', 'open'], true)), 422, 'Une offre archivée ou dans une année clôturée ne peut plus recevoir de ressources.');

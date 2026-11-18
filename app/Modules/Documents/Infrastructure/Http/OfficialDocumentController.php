@@ -2,6 +2,7 @@
 
 namespace App\Modules\Documents\Infrastructure\Http;
 
+use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\AcademicStructure\University;
 use App\Models\Student\AcademicAudit;
 use App\Models\Student\AcademicEnrollment;
@@ -82,6 +83,9 @@ final class OfficialDocumentController
             ],
             'universities' => University::where('is_active', true)->with(['faculties' => fn ($q) => $q->when($faculties->isNotEmpty(), fn ($q) => $q->whereKey($faculties))])
                 ->orderBy('name')->get()->map(fn ($row) => $row->only(['id', 'name']) + ['faculties' => $row->faculties->map->only(['id', 'name'])]),
+            'programs' => AcademicProgram::whereHas('faculty.university', fn ($q) => $q->where('is_active', true))
+                ->when($faculties->isNotEmpty(), fn ($q) => $q->whereIn('faculty_id', $faculties))
+                ->orderBy('name')->get(['id', 'name', 'faculty_id']),
             'types' => $types->orderBy('name')->paginate(20, ['*'], 'types_page')->withQueryString(),
             'type' => $type,
             'templates' => $type?->templates()->with('signer:id,first_name,last_name,post_name')->orderByDesc('version')->paginate(12, ['*'], 'templates_page')->withQueryString()

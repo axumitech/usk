@@ -6,6 +6,8 @@ export function validateStep(
     noLevelsForSelectedFaculty: boolean,
     isConfirmed: boolean,
     availableProgramCount = 0,
+    legacyProgram = availableProgramCount === 0,
+    contextAvailable = true,
 ) {
     const errors: Record<string, string> = {};
     const validateDocuments = (documents: Requirements['personal_info']) => {
@@ -17,19 +19,19 @@ export function validateStep(
             });
     };
     if (step === 1) {
-        if (availableProgramCount > 1 && !formData.academic_program_id) errors.academic_program_id = 'Choisissez votre programme officiel.';
-        if (!formData.faculty_id) errors.faculty_id = 'Choisissez une faculté.';
-        if (!formData.level_id || noLevelsForSelectedFaculty) errors.level_id = 'Choisissez un niveau disponible.';
         if (!formData.year_id) errors.year_id = 'Choisissez une année académique.';
+        if (!formData.faculty_id) errors.faculty_id = 'Choisissez une faculté.';
+        if (availableProgramCount > 0 && !formData.academic_program_id && !legacyProgram) errors.academic_program_id = 'Choisissez votre programme officiel ou la formation sans programme officiel proposée.';
+        if (legacyProgram && !formData.program.trim()) errors.program = 'Indiquez votre programme ou filière souhaitée.';
+        if (!formData.level_id || noLevelsForSelectedFaculty) errors.level_id = 'Choisissez un niveau disponible.';
+        if (formData.year_id && formData.faculty_id && formData.level_id && !contextAvailable) errors.level_id = 'Vérifiez la formation disponible pour l’année sélectionnée.';
     }
     if (step === 2) {
         if (!formData.name.trim()) errors.name = 'Indiquez votre nom complet.';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errors.email = 'Indiquez une adresse email valide.';
-        validateDocuments(requirements.personal_info);
     }
     if (step === 3) {
-        if (!formData.program.trim()) errors.program = 'Indiquez votre programme d’études.';
-        validateDocuments(requirements.academic_info);
+        validateDocuments([...requirements.personal_info, ...requirements.academic_info]);
     }
     if (step === 4 && !isConfirmed) errors.confirmed = 'Confirmez l’exactitude des informations avant de soumettre votre dossier.';
     return errors;
