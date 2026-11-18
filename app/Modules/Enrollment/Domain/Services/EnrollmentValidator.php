@@ -76,7 +76,7 @@ class EnrollmentValidator
         if ($choice !== null && $choice !== '' && filter_var($choice, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
             throw new InvalidEnrollmentStateException('Le programme sélectionné est invalide.');
         }
-        $programs = $level->programs()->openForAdmission()->pluck('academic_programs.id');
+        $programs = $level->programs()->openForAdmission()->where('academic_programs.faculty_id', $level->faculty_id)->pluck('academic_programs.id');
         if (($level->programs()->exists() && $programs->isEmpty()) || ($choice && ! $programs->contains((int) $choice))) {
             throw new InvalidEnrollmentStateException('Le programme choisi n’est pas ouvert pour ce niveau.');
         }

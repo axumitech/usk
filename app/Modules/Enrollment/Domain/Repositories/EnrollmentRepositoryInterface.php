@@ -19,7 +19,7 @@ interface EnrollmentRepositoryInterface
 
     public function findDraftForStudent(int $studentId): ?Enrollment;
 
-    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId): ?Enrollment;
+    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId, ?int $facultyId = null): ?Enrollment;
 
     public function findByStudent(int $studentId, ?EnrollmentStatus $status = null): Collection;
 

@@ -5,6 +5,7 @@
 namespace App\Modules\Enrollment\Application\UseCases;
 
 use App\Models\Enrollment;
+use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\EnrollmentDocument;
 use App\Models\Level;
 use App\Models\User;
@@ -78,11 +79,11 @@ class SaveProgressUseCase
         }
 
         $snapshot = array_replace($enrollment?->form_snapshot ?? [], $dto->formSnapshot);
-        $levelId = (int) ($snapshot['level_id'] ?? $enrollment?->level_id) ?: null;
-        $yearId = (int) ($snapshot['year_id'] ?? $enrollment?->academic_year_id) ?: null;
+        $levelId = (int) (array_key_exists('level_id', $snapshot) ? $snapshot['level_id'] : $enrollment?->level_id) ?: null;
+        $yearId = (int) (array_key_exists('year_id', $snapshot) ? $snapshot['year_id'] : $enrollment?->academic_year_id) ?: null;
         $programId = $this->draftProgram($snapshot, $levelId);
 
-        if (! $dto->uuid && ($enrollment = $this->repository->findDraftForContext($dto->studentId, $levelId, $yearId, $programId))) {
+        if (! $dto->uuid && ($enrollment = $this->repository->findDraftForContext($dto->studentId, $levelId, $yearId, $programId, (int) ($snapshot['faculty_id'] ?? 0) ?: null))) {
             $existing = $enrollment->form_snapshot ?? [];
             $snapshot = array_replace($existing, $snapshot);
             // A retry without a draft identifier must not remove files already saved in this context.
@@ -199,8 +200,14 @@ class SaveProgressUseCase
     private function draftProgram(array $snapshot, ?int $levelId): ?int
     {
         if ($levelId === null) {
-            if (! empty($snapshot['academic_program_id'])) {
-                throw ValidationException::withMessages(['form_snapshot.academic_program_id' => 'Choisissez le niveau de ce programme.']);
+            $programId = $snapshot['academic_program_id'] ?? null;
+            if ($programId) {
+                $program = AcademicProgram::openForAdmission()->whereKey($programId)->first();
+                if (! $program || empty($snapshot['faculty_id']) || (int) $program->faculty_id !== (int) $snapshot['faculty_id']) {
+                    throw ValidationException::withMessages(['form_snapshot.academic_program_id' => 'Choisissez un programme ouvert de la faculté sélectionnée.']);
+                }
+
+                return (int) $program->id;
             }
 
             return null;

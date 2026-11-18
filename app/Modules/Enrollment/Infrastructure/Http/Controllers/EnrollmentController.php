@@ -4,11 +4,11 @@ namespace App\Modules\Enrollment\Infrastructure\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\AcademicStructure\AcademicProgram;
-use App\Models\AcademicYear;
 use App\Models\Faculty;
-use App\Models\Level;
-use App\Modules\Enrollment\Application\UseCases\GetDraftUseCase;
+use App\Modules\Enrollment\Application\Services\AdmissionChoices;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
+use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
+use App\Modules\Enrollment\Domain\Services\EnrollmentValidator;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Support\DocumentUploadLimit;
 use Illuminate\Http\Request;
@@ -22,7 +22,8 @@ use Inertia\Inertia;
 class EnrollmentController extends Controller
 {
     public function __construct(
-        private readonly GetDraftUseCase $getDraftUseCase
+        private readonly AdmissionChoices $admissionChoices,
+        private readonly EnrollmentValidator $validator,
     ) {}
 
     public function index(Request $request)
@@ -73,25 +74,7 @@ class EnrollmentController extends Controller
 
     public function create(Request $request)
     {
-        $faculties = Faculty::with(['levels' => fn ($q) => $q->admissible()])->get();
-        $years = AcademicYear::where('status', 'open')->get();
-
-        // Charger les niveaux groupés par faculté
-        $levelsByFaculty = Level::with(['faculty', 'programs' => fn ($q) => $q->openForAdmission()->select('academic_programs.id', 'academic_programs.name', 'academic_programs.code')])
-            ->admissible()
-            ->get()
-            ->groupBy('faculty_id')
-            ->map(fn ($levels) => $levels->values());
-
-        // Récupérer le brouillon existant si disponible
-        // $draft = $this->getDraftUseCase->execute($request->user()->id);
-
-        return Inertia::render('dashboard/enrollments/Enrollment', [
-            'faculties' => $faculties,
-            'years' => $years,
-            'levelsByFaculty' => $levelsByFaculty,
-            'draft' => null, // Toujours commencer avec un formulaire vide
-        ]);
+        return Inertia::render('dashboard/enrollments/Enrollment', $this->admissionChoices->forCandidate() + ['draft' => null]);
     }
 
     public function edit(Request $request, string $uuid)
@@ -103,23 +86,28 @@ class EnrollmentController extends Controller
             ->where(fn ($query) => $query->whereNull('draft_expires_at')->orWhere('draft_expires_at', '>', now()))
             ->firstOrFail();
 
-        $faculties = Faculty::with(['levels' => fn ($q) => $q->admissible()])->get();
-        $years = AcademicYear::where('status', 'open')->get();
+        $unavailable = null;
+        if ($enrollment->level_id && $enrollment->academic_year_id) {
+            try {
+                $this->validator->available($enrollment);
+            } catch (InvalidEnrollmentStateException $exception) {
+                $unavailable = $exception->getMessage();
+            }
+        }
 
-        $levelsByFaculty = Level::with(['faculty', 'programs' => fn ($q) => $q->openForAdmission()->select('academic_programs.id', 'academic_programs.name', 'academic_programs.code')])
-            ->where(fn ($q) => $q->admissible()->orWhere('id', $enrollment->level_id))
-            ->get()
-            ->groupBy('faculty_id')
-            ->map(fn ($levels) => $levels->values());
-
-        return Inertia::render('dashboard/enrollments/Enrollment', [
-            'faculties' => $faculties,
-            'years' => $years,
-            'levelsByFaculty' => $levelsByFaculty,
+        return Inertia::render('dashboard/enrollments/Enrollment', $this->admissionChoices->forCandidate($enrollment) + [
             'draft' => [
                 'uuid' => $enrollment->uuid,
                 'last_step' => $enrollment->last_step,
                 'form_snapshot' => $enrollment->form_snapshot,
+                'context' => [
+                    'year' => $enrollment->academicYear?->title,
+                    'faculty' => $enrollment->level?->faculty?->name
+                        ?? Faculty::whereKey($enrollment->form_snapshot['faculty_id'] ?? null)->value('name'),
+                    'level' => $enrollment->level?->title,
+                    'program' => AcademicProgram::whereKey($enrollment->form_snapshot['academic_program_id'] ?? null)->value('name'),
+                    'unavailable_reason' => $unavailable,
+                ],
             ],
         ]);
     }

@@ -56,11 +56,19 @@ class EloquentEnrollmentRepository implements EnrollmentRepositoryInterface
             ->first();
     }
 
-    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId): ?Enrollment
+    public function findDraftForContext(int $studentId, ?int $levelId, ?int $yearId, ?int $programId, ?int $facultyId = null): ?Enrollment
     {
         return Enrollment::forStudent($studentId)->drafts()
             ->where('level_id', $levelId)->where('academic_year_id', $yearId)
             ->where(fn ($query) => $this->sameProgram($query, $programId))
+            ->when($levelId === null, fn ($query) => $query->where(function ($query) use ($facultyId) {
+                $field = 'form_snapshot->faculty_id';
+                if ($facultyId === null) {
+                    $query->whereNull($field)->orWhere($field, '');
+                } else {
+                    $query->whereJsonContains($field, $facultyId)->orWhereJsonContains($field, (string) $facultyId);
+                }
+            }))
             ->where(fn ($query) => $query->whereNull('draft_expires_at')->orWhere('draft_expires_at', '>', now()))
             ->latest('id')->lockForUpdate()->first();
     }

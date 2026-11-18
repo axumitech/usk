@@ -148,6 +148,17 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertDatabaseHas('student_appointment_reservations', ['service' => $service, 'starts_at' => $day->copy()->setTime(9, 0)->utc()]);
     }
 
+    public function test_concurrent_partial_draft_saves_without_a_uuid_reuse_the_same_dossier(): void
+    {
+        $year = AcademicYear::create(['title' => 'Année de test', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'open']);
+        $candidate = User::factory()->create();
+        $results = $this->race('admission-save', $year->id, $candidate->id);
+        $this->assertSame($results[0], $results[1]);
+        $this->assertDatabaseCount('enrollments', 1);
+        $this->assertSame(Enrollment::sole()->uuid, $results[0]);
+        $this->assertNull(Enrollment::sole()->level_id);
+    }
+
     public function test_concurrent_admission_submissions_and_conflicting_decisions_have_one_effect(): void
     {
         $faculty = Faculty::create(['name' => 'Test', 'code' => 'TEST']);
