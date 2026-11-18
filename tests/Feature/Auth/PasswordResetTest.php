@@ -25,9 +25,15 @@ class PasswordResetTest extends TestCase
 
         $user = User::factory()->create();
 
-        $this->post('/app/forgot-password', ['email' => $user->email]);
-
+        $this->withSession(['_previous' => ['url' => url('/')]])
+            ->post('/app/forgot-password', ['email' => $user->email], ['X-Inertia' => 'true'])
+            ->assertStatus(303)->assertRedirectToRoute('password.request')
+            ->assertSessionHas('status', 'Si un compte correspond à cette adresse, vous recevrez un lien de réinitialisation.');
         Notification::assertSentTo($user, ResetPassword::class);
+
+        $this->get('/app/forgot-password')->assertInertia(fn ($page) => $page
+            ->component('dashboard/auth/ForgotPassword')
+            ->where('status', 'Si un compte correspond à cette adresse, vous recevrez un lien de réinitialisation.'));
     }
 
     public function test_reset_password_screen_can_be_rendered()
@@ -64,8 +70,10 @@ class PasswordResetTest extends TestCase
             ]);
 
             $response
+                ->assertStatus(303)
                 ->assertSessionHasNoErrors()
-                ->assertRedirect(route('login'));
+                ->assertSessionHas('success', 'Mot de passe réinitialisé.')
+                ->assertRedirectToRoute('login.show');
 
             return true;
         });

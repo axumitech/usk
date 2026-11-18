@@ -30,6 +30,7 @@ type Props = {
     selectedFacultyId: number | null;
     viewDepartments: boolean;
     manageStructure: boolean;
+    facultyScope: number[];
 };
 
 const normalize = (value: string) =>
@@ -39,7 +40,7 @@ const normalize = (value: string) =>
         .toLocaleLowerCase('fr')
         .trim();
 
-export default function FacultyDirectory({ faculties, institution, selectedFacultyId, viewDepartments, manageStructure }: Props) {
+export default function FacultyDirectory({ faculties, institution, selectedFacultyId, viewDepartments, manageStructure, facultyScope }: Props) {
     const [view, setView] = useCatalogView({ search: '', selection: selectedFacultyId });
     const { search, selection } = view;
     const [createFaculty, setCreateFaculty] = useState(false);
@@ -49,6 +50,7 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
 
     const filtered = faculties.filter((faculty) => normalize(`${faculty.name} ${faculty.code}`).includes(normalize(search)));
     const selected = filtered.find((faculty) => faculty.id === selection) ?? filtered[0];
+    const canManageSelected = manageStructure && selected && (!facultyScope.length || facultyScope.includes(selected.id));
     const attached = selected?.university_id === institution?.id && Boolean(institution);
     const resultsPanel = usePanelFade<HTMLElement>(filtered.map((faculty) => faculty.id).join(','));
     const detailPanel = usePanelFade<HTMLElement>(selected?.id);
@@ -64,7 +66,7 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
                     title="Facultés et départements"
                     description="Sélectionnez une faculté pour consulter ses départements et accéder à sa fiche."
                     action={
-                        <button type="button" className="admin-primary" onClick={() => setCreateFaculty(true)}>
+                        manageStructure && !facultyScope.length && <button type="button" className="admin-primary" onClick={() => setCreateFaculty(true)}>
                             <Plus size={17} />
                             Nouvelle faculté
                         </button>
@@ -153,17 +155,19 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
                                     </p>
                                 </div>
                                 <div className="as-actions">
-                                    <button type="button" className="admin-secondary" onClick={() => setEditFaculty(selected)}>
-                                        <Pencil size={15} />
-                                        Modifier
-                                    </button>
+                                    {canManageSelected && (
+                                        <button type="button" className="admin-secondary" onClick={() => setEditFaculty(selected)}>
+                                            <Pencil size={15} />
+                                            Modifier
+                                        </button>
+                                    )}
                                     <Link className="as-establishment-link" href={route('dashboard.admin.faculties.show', selected.id)}>
                                         Ouvrir la fiche <ArrowUpRight size={15} />
                                     </Link>
                                 </div>
                             </div>
                             {selected.description && <p className="faculty-directory-description">{selected.description}</p>}
-                            {manageStructure && institution && selected.university_id === null && (
+                            {manageStructure && !facultyScope.length && institution && selected.university_id === null && (
                                 <button
                                     type="button"
                                     className="admin-secondary"
@@ -180,7 +184,7 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
                                             <h3>Départements</h3>
                                             {attached && <span className="faculty-directory-count">{selected.departments.length}</span>}
                                         </div>
-                                        {manageStructure && attached && (
+                                        {canManageSelected && attached && (
                                             <button
                                                 type="button"
                                                 className="admin-secondary"
@@ -231,7 +235,7 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
                                                                     >
                                                                         Étudiants
                                                                     </Link>
-                                                                    {manageStructure && (
+                                                                    {canManageSelected && (
                                                                         <button
                                                                             type="button"
                                                                             aria-label={`Modifier ${department.name}`}
@@ -268,7 +272,7 @@ export default function FacultyDirectory({ faculties, institution, selectedFacul
                                                         {level.department_options.map(({ name }) => name).join(' · ') || 'Aucun choix proposé'}
                                                     </small>
                                                 </span>
-                                                {manageStructure &&
+                                                {canManageSelected &&
                                                     (selected.departments.some(({ is_active }) => is_active) ||
                                                         level.department_options.length > 0) && (
                                                         <button

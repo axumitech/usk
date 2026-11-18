@@ -23,6 +23,7 @@ use App\Modules\Student\Application\Services\AnnualEnrollmentClosure;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Student\Application\Services\StudentPortalContext;
 use App\Modules\Student\Infrastructure\Http\Requests\ChangeAcademicEnrollmentRequest;
+use App\Support\DashboardFormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -90,27 +91,35 @@ final class EnrollmentManagementController extends Controller
 
     public function transition(ChangeAcademicEnrollmentRequest $request, AcademicEnrollment $academic, AcademicEnrollmentService $service)
     {
-        $service->transition($academic, $request->user(), $request->validated());
+        $url = $request->workspaceUrl();
 
-        return back(303)->with('success', 'Décision administrative enregistrée.');
+        return DashboardFormResponse::run($url, function () use ($request, $academic, $service, $url) {
+            $service->transition($academic, $request->user(), $request->validated());
+
+            return DashboardFormResponse::success($url, 'Décision administrative enregistrée.');
+        });
     }
 
     public function transfer(Request $request, AcademicEnrollment $academic, AcademicEnrollmentService $service)
     {
         Gate::authorize('manage', $academic);
-        $data = $request->validate([
-            'expected_status' => 'required|string|max:40',
-            'expected_context' => 'sometimes|string|size:64',
-            'service_request_id' => 'nullable|integer|exists:student_service_requests,id',
-            'student_response' => 'required_with:service_request_id|nullable|string|min:5|max:6000',
-            'operation_key' => 'required|uuid', 'reason' => 'required|string|min:10|max:1000',
-            'level_id' => 'required|integer|exists:levels,id', 'curriculum_version_id' => 'required|integer|exists:curriculum_versions,id',
-            'class_id' => 'nullable|integer|exists:classes,id',
-        ]);
-        $target = $service->transfer($academic, $request->user(), $data);
+        $source = route('dashboard.admin.student-academic.administration', ['academic' => $academic->id]);
 
-        return redirect()->route('dashboard.admin.student-academic.administration', ['academic' => $target->id], 303)
-            ->with('success', 'Transfert enregistré. Les écritures financières restent sur leur inscription d’origine.');
+        return DashboardFormResponse::run($source, function () use ($request, $academic, $service) {
+            $data = $request->validate([
+                'expected_status' => 'required|string|max:40',
+                'expected_context' => 'sometimes|string|size:64',
+                'service_request_id' => 'nullable|integer|exists:student_service_requests,id',
+                'student_response' => 'required_with:service_request_id|nullable|string|min:5|max:6000',
+                'operation_key' => 'required|uuid', 'reason' => 'required|string|min:10|max:1000',
+                'level_id' => 'required|integer|exists:levels,id', 'curriculum_version_id' => 'required|integer|exists:curriculum_versions,id',
+                'class_id' => 'nullable|integer|exists:classes,id',
+            ]);
+            $target = $service->transfer($academic, $request->user(), $data);
+
+            return DashboardFormResponse::success(route('dashboard.admin.student-academic.administration', ['academic' => $target->id]),
+                'Transfert enregistré. Les écritures financières restent sur leur inscription d’origine.');
+        });
     }
 
     public function closure(Request $request, AnnualEnrollmentClosure $closure)

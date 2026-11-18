@@ -71,7 +71,9 @@ final class StudentPaymentProofTest extends TestCase
             ->where('finance_schedule.0.title', 'Première tranche')->where('finance_schedule.0.due_at', '2026-11-24')
             ->where('finance_schedule.0.remaining_cents', 10000)->where('finance_schedule.1.remaining_cents', 8000));
         $this->post(route('dashboard.student.payments.proofs.store', ['academic' => $entry->id]), $this->deposit())
-            ->assertRedirect($fees)->assertSessionHasNoErrors();
+            ->assertStatus(303)->assertRedirect($fees)->assertSessionHasNoErrors()->assertInertiaFlash('studentPaymentProof', [
+                'accountId' => $entry->id, 'message' => 'Justificatif transmis. La comptabilité va vérifier le versement.',
+            ]);
         $proof = StudentPaymentProof::sole();
         Storage::disk('local')->assertExists($proof->file_path);
         $this->assertDatabaseCount('student_payments', 0);
@@ -87,7 +89,10 @@ final class StudentPaymentProofTest extends TestCase
         $this->get($account)->assertInertia(fn (Assert $page) => $page
             ->where('statement.balance.balance_cents', 18000)->where('paymentProofs.0.status', 'pending'));
         $this->get(route('dashboard.admin.finance.proofs.download', $proof))->assertOk();
-        $this->from($account)->post($review, $this->decision())->assertRedirect($account)->assertSessionHasNoErrors();
+        $this->withSession(['_previous' => ['url' => route('dashboard.index')]])->post($review, $this->decision())
+            ->assertStatus(303)->assertRedirect($account)->assertSessionHasNoErrors()->assertInertiaFlash('financePayment', [
+                'accountId' => $entry->id, 'message' => 'Justificatif accepté et versement confirmé.',
+            ]);
         $payment = StudentPayment::sole();
         $this->assertSame('confirmed', $payment->status);
         $this->assertSame(5000, (int) $payment->amount_cents);

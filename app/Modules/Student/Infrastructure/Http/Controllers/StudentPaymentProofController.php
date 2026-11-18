@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class StudentPaymentProofController
@@ -29,13 +30,24 @@ final class StudentPaymentProofController
                 'method' => ['required', 'string', Rule::in(config('finance.methods'))],
                 'reference' => 'required|string|max:180',
                 'proof' => DocumentUploadLimit::proofRules(),
-            ], DocumentUploadLimit::proofMessages('proof'));
+            ], DocumentUploadLimit::proofMessages('proof') + [
+                'kind.required' => 'Choisissez les frais concernés.',
+                'kind.regex' => 'Choisissez des frais valides.',
+                'amount.required' => 'Indiquez le montant réellement versé.',
+                'method.required' => 'Choisissez le mode du versement.',
+                'method.in' => 'Choisissez un mode de paiement proposé.',
+                'reference.required' => 'Indiquez la référence du versement.',
+                'reference.max' => 'La référence ne doit pas dépasser :max caractères.',
+            ]);
             $this->proofs->submit($entry, $request->user(), $data, $data['proof']);
         } catch (ValidationException $exception) {
             throw $exception->redirectTo($url);
         }
 
-        return redirect()->to($url, 303)->with('success', 'Justificatif transmis. La comptabilité va vérifier le versement.');
+        $message = 'Justificatif transmis. La comptabilité va vérifier le versement.';
+        Inertia::flash('studentPaymentProof', ['accountId' => $entry->id, 'message' => $message]);
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     public function studentDownload(Request $request, StudentPaymentProof $proof): StreamedResponse
@@ -92,7 +104,7 @@ final class StudentPaymentProofController
             default => 'Justificatif refusé. Le motif est visible dans le compte de l’étudiant.',
         };
 
-        return redirect()->to($url, 303)->with('success', $message);
+        return FinanceScreenReturn::completed($url, $proof->academic_enrollment_id, $message);
     }
 
     private function download(StudentPaymentProof $proof): StreamedResponse

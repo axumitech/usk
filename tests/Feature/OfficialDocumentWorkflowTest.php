@@ -62,9 +62,12 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->get(route('dashboard.student.index', ['section' => 'requests', 'academic' => $entry->id, 'request' => $ticket->id]))
             ->assertInertia(fn (Assert $page) => $page->where('scolarite.selected_request.workflow', 'document')
                 ->where('scolarite.selected_request.status', 'open'));
-        $transition = route(self::ADMIN.'transition', $ticket);
-        $issue = route(self::ADMIN.'issue', $ticket);
+        $context = ['academic' => $entry->id, 'type' => $type->id];
+        $workspace = route(self::ADMIN.'index', $context);
+        $transition = route(self::ADMIN.'transition', ['ticket' => $ticket->id] + $context);
+        $issue = route(self::ADMIN.'issue', ['ticket' => $ticket->id] + $context);
         $this->actingAs($issuer)->postJson($issue, ['revision' => 1])->assertUnprocessable();
+        $this->actingAs($manager)->from('/app/dashboard')->post($transition, [])->assertRedirect($workspace)->assertSessionHasErrors('action');
         $this->actingAs($manager)->post($transition, ['action' => 'correct', 'revision' => 1, 'reason' => 'Précisez le motif.'])->assertStatus(303);
         $this->actingAs($student)->post(route(self::STUDENT.'transition', [
             'ticket' => $ticket->id, 'academic' => $entry->id, 'library_academic' => $entry->id, 'category' => 'official',
@@ -74,9 +77,11 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->actingAs($manager)->post($transition, ['action' => 'review', 'revision' => 3, 'reason' => 'Dossier contrôlé.'])->assertStatus(303);
         $approval = ['action' => 'approve', 'revision' => 4, 'reason' => 'Approbation de la version.'];
         $this->post($transition, $approval)->assertForbidden();
-        $this->actingAs($signer)->post($transition, $approval)->assertStatus(303);
+        $this->actingAs($signer)->from('/app/dashboard')->post($transition, $approval)->assertStatus(303)->assertRedirect($workspace)
+            ->assertInertiaFlash('dashboardAction', 'Demande de document approuvée.');
         $this->actingAs($issuer)->postJson($issue, ['revision' => 4])->assertUnprocessable();
-        $this->post($issue, ['revision' => 5])->assertStatus(303);
+        $this->from('/app/dashboard')->post($issue, ['revision' => 5])->assertStatus(303)->assertRedirect($workspace)
+            ->assertInertiaFlash('dashboardAction', 'Document émis.');
         $this->post($issue, ['revision' => 5])->assertStatus(303);
         $document = OfficialDocument::sole();
         $this->assertMatchesRegularExpression('/^ATT-\d{4}-\d{8}$/', $document->number);

@@ -86,7 +86,7 @@ type Props = {
     refunds: Paginated<Refund> | null;
     tariffs: Paginated<Tariff>;
 };
-const reason: Field = { name: 'reason', label: 'Justification', required: true, type: 'textarea' };
+const reason: Field = { name: 'reason', label: 'Justification', required: true, type: 'textarea', minLength: 10, help: 'Au moins 10 caractères.' };
 const tariffCategory = (category: string) => ({ national: 'Étudiants nationaux', foreign: 'Étudiants étrangers' })[category] ?? category;
 const paymentMethod = (value: string) => ({ cash: 'Espèces', bank_transfer: 'Virement bancaire', other: 'Autre' })[value] ?? value;
 const paymentDate = new Intl.DateTimeFormat('fr-CD', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' });
@@ -168,7 +168,16 @@ export default function FinanceAccount(props: Props) {
         fields: Field[],
         values: FormSpec['values'] = {},
         description = 'Les valeurs officielles sont contrôlées côté serveur et l’opération est auditée.',
-    ) => setSpec({ title, action, fields, values, description, submitLabel: 'Enregistrer après contrôle' });
+    ) => setSpec({
+        title,
+        action,
+        fields,
+        values: { ...financeReturn, ...values },
+        description,
+        submitLabel: 'Enregistrer après contrôle',
+        requireSuccessFlash: true,
+        acceptsResponse: acceptsAccountResponse,
+    });
     const feeKinds = [...new Set(props.obligations.map(({ kind }) => kind))].filter((kind) => kind !== 'unallocated');
     const paymentFeeOptions = feeKinds.map((kind) => {
         const balance = props.statement.kinds[kind];
@@ -249,6 +258,8 @@ export default function FinanceAccount(props: Props) {
             description: `${props.selected.name} · ${props.selected.year}`,
             action: route('dashboard.admin.finance.confirmations.store', { ...props.filters, academic: props.selected.id }),
             submitLabel: 'Confirmer l’inscription',
+            requireSuccessFlash: true,
+            acceptsResponse: acceptsAccountResponse,
             fields: [{ ...reason, label: 'Motif de confirmation' }],
             values: { return_to_account: true, operation_key: crypto.randomUUID(), expected_context: enrollment.context },
         });
@@ -282,6 +293,7 @@ export default function FinanceAccount(props: Props) {
             action: proof.review_url,
             submitLabel: title,
             requireSuccessFlash: true,
+            acceptsResponse: acceptsAccountResponse,
             fields: [
                 {
                     name: 'reason_code',
@@ -348,6 +360,7 @@ export default function FinanceAccount(props: Props) {
                     payment={allocating}
                     obligations={props.obligations}
                     returnContext={financeReturn}
+                    acceptsResponse={acceptsAccountResponse}
                     close={() => setAllocating(null)}
                     onSuccess={(message) => {
                         setAllocating(null);
@@ -863,12 +876,14 @@ function Allocation({
     payment,
     obligations,
     returnContext,
+    acceptsResponse,
     close,
     onSuccess,
 }: {
     payment: Payment;
     obligations: Props['obligations'];
     returnContext: Record<string, string | number | boolean | null>;
+    acceptsResponse: (page: Page) => boolean;
     close: () => void;
     onSuccess: (message: string) => void;
 }) {
@@ -902,7 +917,7 @@ function Allocation({
                         preserveScroll: true,
                         onSuccess: (page) => {
                             const message = (page.props.flash as { success?: string } | undefined)?.success;
-                            if (message) {
+                            if (message && acceptsResponse(page)) {
                                 onSuccess(message);
                             } else {
                                 setResponseError('L’affectation n’a pas été confirmée. Consultez le compte avant de réessayer.');

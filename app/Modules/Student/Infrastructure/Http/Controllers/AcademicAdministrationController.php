@@ -375,21 +375,39 @@ class AcademicAdministrationController extends Controller
     public function assess(Request $r, int $academic)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['category' => 'required|in:national,foreign', 'first_due' => 'nullable|date', 'second_due' => ['nullable', 'date', Rule::when($r->filled('first_due'), 'after_or_equal:first_due')], 'reason' => 'required|string|min:5|max:1000']);
-        $assessed = $this->finance->assess(AcademicEnrollment::findOrFail($academic), $r->user(), $data['category'], [$data['first_due'] ?? null, $data['second_due'] ?? null], $data['reason']);
 
-        return back()->with('success', $assessed
-            ? 'Les frais ont été établis à partir du barème du niveau.'
-            : 'Catégorie confirmée. Le barème pourra être affecté dès son activation et son entrée en vigueur.');
+        return FinanceScreenReturn::update(FinanceScreenReturn::forEnrollment($r, $academic), $academic, function () use ($r, $academic): string {
+            $data = $r->validate([
+                'category' => 'required|in:national,foreign',
+                'first_due' => 'nullable|date',
+                'second_due' => ['nullable', 'date', Rule::when($r->filled('first_due'), 'after_or_equal:first_due')],
+                'reason' => 'required|string|min:5|max:1000',
+            ], self::paymentMessages(), ['reason' => 'motif', 'category' => 'catégorie']);
+            $assessed = $this->finance->assess(AcademicEnrollment::findOrFail($academic), $r->user(), $data['category'], [$data['first_due'] ?? null, $data['second_due'] ?? null], $data['reason']);
+
+            return $assessed
+                ? 'Les frais ont été établis à partir du barème du niveau.'
+                : 'Catégorie confirmée. Le barème pourra être affecté dès son activation et son entrée en vigueur.';
+        });
     }
 
     public function obligation(Request $r, int $academic)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'title' => 'required|string|max:180', 'installment' => 'required|integer|min:1|max:24', 'amount' => 'required|numeric|gt:0', 'due_at' => 'nullable|date', 'reason' => 'required|string|min:10|max:1000']);
-        $this->finance->addObligation(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
 
-        return back()->with('success', 'Obligation complémentaire enregistrée avec sa justification.');
+        return FinanceScreenReturn::update(FinanceScreenReturn::forEnrollment($r, $academic), $academic, function () use ($r, $academic): string {
+            $data = $r->validate([
+                'kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'title' => 'required|string|max:180',
+                'installment' => 'required|integer|min:1|max:24', 'amount' => 'required|numeric|gt:0',
+                'due_at' => 'nullable|date', 'reason' => 'required|string|min:10|max:1000',
+            ], self::paymentMessages(), [
+                'reason' => 'motif', 'kind' => 'code des frais', 'title' => 'libellé',
+                'installment' => 'numéro de tranche', 'amount' => 'montant',
+            ]);
+            $this->finance->addObligation(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
+
+            return 'Obligation complémentaire enregistrée avec sa justification.';
+        });
     }
 
     public function payment(Request $r, int $academic)
@@ -397,7 +415,7 @@ class AcademicAdministrationController extends Controller
         $this->authorizeStaff($r, 'manage academic finance');
         $entry = AcademicEnrollment::findOrFail($academic);
         $this->finance->authorize($entry, $r->user());
-        $url = FinanceScreenReturn::forPayment($r, $academic);
+        $url = FinanceScreenReturn::forEnrollment($r, $academic);
 
         try {
             $data = $r->validate([
@@ -425,11 +443,7 @@ class AcademicAdministrationController extends Controller
                 default => 'Ce versement figure déjà dans l’historique du compte.',
             };
 
-        if (! $r->boolean('academic_return')) {
-            Inertia::flash('financePayment', ['accountId' => $academic, 'message' => $message]);
-        }
-
-        return redirect()->to($url, 303)->with('success', $message);
+        return FinanceScreenReturn::completed($url, $academic, $message);
     }
 
     public function paymentStatus(Request $r, int $payment)
@@ -437,7 +451,7 @@ class AcademicAdministrationController extends Controller
         $this->authorizeStaff($r, 'manage academic finance');
         $entry = StudentPayment::findOrFail($payment);
         $this->finance->authorize($entry->enrollment, $r->user());
-        $url = FinanceScreenReturn::forPayment($r, $entry->academic_enrollment_id);
+        $url = FinanceScreenReturn::forEnrollment($r, $entry->academic_enrollment_id);
 
         try {
             $data = $r->validate([
@@ -451,15 +465,13 @@ class AcademicAdministrationController extends Controller
             throw $exception->redirectTo($url);
         }
 
-        $message = $data['status'] === 'cancelled'
-            ? 'Versement annulé et conservé dans l’historique. Le solde et les droits ont été recalculés.'
-            : "Versement confirmé. Le solde de l'étudiant a été actualisé.";
+        $message = match ($data['status']) {
+            'cancelled' => 'Versement annulé et conservé dans l’historique. Le solde et les droits ont été recalculés.',
+            'refunded' => 'Ce versement est déjà remboursé. Consultez son historique.',
+            'confirmed' => "Versement confirmé. Le solde de l'étudiant a été actualisé.",
+        };
 
-        if ($data['status'] === 'confirmed' && ! $r->boolean('academic_return')) {
-            Inertia::flash('financePayment', ['accountId' => (int) $entry->academic_enrollment_id, 'message' => $message]);
-        }
-
-        return redirect()->to($url, 303)->with('success', $message);
+        return FinanceScreenReturn::completed($url, $entry->academic_enrollment_id, $message);
     }
 
     private static function paymentMessages(): array
@@ -481,22 +493,40 @@ class AcademicAdministrationController extends Controller
     public function adjustment(Request $r, int $academic)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['fee_kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'type' => 'required|in:exemption,scholarship,reduction,plan,override', 'percentage' => 'nullable', 'funding_source' => 'nullable|in:institution,third_party', 'stackable' => 'sometimes|boolean', 'operation_key' => 'nullable|uuid', 'feature' => ['nullable', Rule::in(['materials_download', 'assignments_submit', 'evaluations_participate', 'documents_request', 'results_view'])], 'amount' => 'nullable|numeric|gt:0', 'starts_at' => 'nullable|date', 'expires_at' => ['nullable', 'date', Rule::when($r->filled('starts_at'), 'after_or_equal:starts_at')], 'reason' => 'required|string|min:10|max:2000', 'schedule' => 'nullable|array|max:24', 'schedule.*.due_at' => 'required|date', 'schedule.*.amount' => 'required|numeric|gt:0']);
-        if ($data['type'] === 'override') {
-            $r->validate(['feature' => 'required', 'expires_at' => 'required|date|after_or_equal:today']);
-        }
-        $this->finance->adjust(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
 
-        return back()->with('success', 'Autorisation financière enregistrée et tracée.');
+        return FinanceScreenReturn::update(FinanceScreenReturn::forEnrollment($r, $academic), $academic, function () use ($r, $academic): string {
+            $data = $r->validate([
+                'fee_kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
+                'type' => 'required|in:exemption,scholarship,reduction,plan,override', 'percentage' => 'nullable',
+                'funding_source' => 'nullable|in:institution,third_party', 'stackable' => 'sometimes|boolean',
+                'operation_key' => 'nullable|uuid',
+                'feature' => ['nullable', Rule::in(['materials_download', 'assignments_submit', 'evaluations_participate', 'documents_request', 'results_view'])],
+                'amount' => 'nullable|numeric|gt:0', 'starts_at' => 'nullable|date',
+                'expires_at' => ['nullable', 'date', Rule::when($r->filled('starts_at'), 'after_or_equal:starts_at')],
+                'reason' => 'required|string|min:10|max:2000', 'schedule' => 'nullable|array|max:24',
+                'schedule.*.due_at' => 'required|date', 'schedule.*.amount' => 'required|numeric|gt:0',
+            ], self::paymentMessages(), ['reason' => 'motif', 'type' => 'type d’aide', 'fee_kind' => 'frais concernés']);
+            if ($data['type'] === 'override') {
+                $r->validate(['feature' => 'required', 'expires_at' => 'required|date|after_or_equal:today']);
+            }
+            $this->finance->adjust(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
+
+            return 'Autorisation financière enregistrée et tracée.';
+        });
     }
 
     public function revoke(Request $r, int $adjustment)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['reason' => 'required|string|min:10|max:1000']);
-        $this->finance->revokeAdjustment(FinancialAdjustment::findOrFail($adjustment), $r->user(), $data['reason']);
+        $entry = FinancialAdjustment::findOrFail($adjustment);
+        $academic = $entry->academic_enrollment_id;
 
-        return back()->with('success', 'Autorisation révoquée.');
+        return FinanceScreenReturn::update(FinanceScreenReturn::forEnrollment($r, $academic), $academic, function () use ($r, $entry): string {
+            $data = $r->validate(['reason' => 'required|string|min:10|max:1000'], self::paymentMessages(), ['reason' => 'motif']);
+            $this->finance->revokeAdjustment($entry, $r->user(), $data['reason']);
+
+            return 'Autorisation révoquée.';
+        });
     }
 
     public function rule(Request $r, AcademicRuleService $service)

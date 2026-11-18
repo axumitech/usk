@@ -478,16 +478,18 @@ function AnnualFees({ props, feesUrl }: { props: PortalProps; feesUrl: string })
     );
 }
 
-function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProofs; currency: string; submitUrl: string }) {
+function ProofForm({ proofs, currency, submitUrl, academicId }: { proofs: StudentPaymentProofs; currency: string; submitUrl: string; academicId: number }) {
     const defaultKind = proofs.kinds.find((kind) => kind.id === proofs.selected_kind)?.id ?? (proofs.kinds.length === 1 ? proofs.kinds[0].id : '');
     const form = useForm({ kind: defaultKind, amount: '', method: '', reference: '', proof: null as File | null });
     const file = useRef<HTMLInputElement>(null);
-    const [sent, setSent] = useState(false);
+    const [sent, setSent] = useState<string | null>(null);
+    const [responseError, setResponseError] = useState<string | null>(null);
     const limits = { document_kb: proofs.max_kb, image_kb: Math.min(proofs.max_kb, defaultUploadLimits.image_kb) };
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         if (form.processing) return;
-        setSent(false);
+        setSent(null);
+        setResponseError(null);
         const error = form.data.proof && proofUploadError(form.data.proof, limits);
         if (error) {
             form.setError('proof', error);
@@ -496,10 +498,25 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
         form.post(submitUrl, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                const feedback = page.flash?.studentPaymentProof as { accountId: number; message: string } | undefined;
+                const destination = new URL(page.url, window.location.href);
+                const portal = new URL(route('dashboard.student.index', {}, false), window.location.href);
+                if (
+                    page.component !== 'dashboard/student/Portal'
+                    || destination.origin !== portal.origin
+                    || destination.pathname !== portal.pathname
+                    || destination.searchParams.get('section') !== 'fees'
+                    || destination.searchParams.get('academic') !== String(academicId)
+                    || feedback?.accountId !== academicId
+                    || !feedback.message?.trim()
+                ) {
+                    setResponseError('Le dépôt n’a pas été confirmé. Vérifiez l’historique des justificatifs avant de réessayer.');
+                    return;
+                }
                 form.reset();
                 if (file.current) file.current.value = '';
-                setSent(true);
+                setSent(feedback.message);
             },
         });
     }
@@ -578,7 +595,7 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
                             onChange={(event) => {
                                 form.setData('proof', event.target.files?.[0] ?? null);
                                 form.clearErrors('proof');
-                                setSent(false);
+                                setSent(null);
                             }}
                             aria-invalid={Boolean(form.errors.proof) || undefined}
                             required
@@ -593,6 +610,7 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
                         ))}
                     </ul>
                 )}
+                {responseError && <p className="sf-proof-errors" role="alert">{responseError}</p>}
                 <button className="sf-proof-submit" type="submit">
                     {form.processing ? 'Envoi du justificatif…' : 'Envoyer le justificatif'}
                     <ArrowRight size={17} aria-hidden="true" />
@@ -600,14 +618,14 @@ function ProofForm({ proofs, currency, submitUrl }: { proofs: StudentPaymentProo
             </fieldset>
             {sent && (
                 <p className="sf-proof-success" role="status">
-                    Justificatif envoyé au service financier.
+                    {sent}
                 </p>
             )}
         </form>
     );
 }
 
-function PaymentProofs({ proofs, currency }: { proofs: StudentPaymentProofs; currency: string }) {
+function PaymentProofs({ proofs, currency, academicId }: { proofs: StudentPaymentProofs; currency: string; academicId: number }) {
     return (
         <section id="finance-payment-proofs" className="sf-panel sf-proof-panel" aria-label="Justificatifs de paiement">
             <PanelHeading
@@ -619,7 +637,7 @@ function PaymentProofs({ proofs, currency }: { proofs: StudentPaymentProofs; cur
                 }
                 icon={Upload}
             />
-            {proofs.submit_url && <ProofForm proofs={proofs} currency={currency} submitUrl={proofs.submit_url} />}
+            {proofs.submit_url && <ProofForm proofs={proofs} currency={currency} submitUrl={proofs.submit_url} academicId={academicId} />}
             {proofs.submissions.length > 0 && (
                 <div className="sf-proof-history">
                     <h3>Derniers justificatifs envoyés</h3>
@@ -902,7 +920,7 @@ export default function StudentFinance(props: PortalProps) {
                 ))}
             </nav>
             <InstallmentSchedule schedule={schedule} obligations={details?.obligations ?? []} currency={balance.currency} />
-            {hasProofPanel && <PaymentProofs key={academic.id} proofs={proofs} currency={balance.currency} />}
+            {hasProofPanel && <PaymentProofs key={academic.id} proofs={proofs} currency={balance.currency} academicId={academic.id} />}
             <div className="sf-detail-grid">
                 <section className="sf-panel sf-activity" aria-label="Derniers paiements">
                     <PanelHeading title="Derniers paiements" icon={ReceiptText} />

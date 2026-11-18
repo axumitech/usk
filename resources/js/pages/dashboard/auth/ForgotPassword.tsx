@@ -1,5 +1,4 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import Alert from '@/utils/sweetAlert';
 import { Link, useForm } from '@inertiajs/react';
 import { CircleCheck, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import React, { useState } from 'react';
@@ -7,22 +6,12 @@ import React, { useState } from 'react';
 export default function ForgotPassword({ status }: { status?: string }) {
     const { data, setData, post, processing, errors } = useForm({ email: '' });
     const [focused, setFocused] = useState(false);
-    const [isSubmitted, setIsSubmitted] = useState(false);
+    const confirmed = Boolean(status && !errors.email);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitted(true);
-        Alert.loading("Envoi de l'email de réinitialisation en cours...");
-
-        post(route('password.email'), {
-            onSuccess: () => {
-                Alert.success('Un email de réinitialisation de mot de passe a été envoyé à votre adresse email.');
-            },
-            onError: () => {
-                Alert.error('Une erreur est survenue lors de la réinitialisation de votre mot de passe.');
-                setIsSubmitted(false);
-            },
-        });
+        if (processing) return;
+        post(route('password.email'), { preserveScroll: true });
     };
 
     return (
@@ -63,7 +52,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     </p>
 
                     {status && (
-                        <div className="animate-alert-slide relative mb-6 overflow-hidden rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-3 text-xs font-medium text-white shadow-lg shadow-green-500/30 sm:p-4 sm:text-sm">
+                        <div role="status" className="animate-alert-slide relative mb-6 overflow-hidden rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-3 text-xs font-medium text-white shadow-lg shadow-green-500/30 sm:p-4 sm:text-sm">
                             <div className="animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                             <div className="flex items-center gap-2">
                                 <svg className="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 20 20">
@@ -78,29 +67,31 @@ export default function ForgotPassword({ status }: { status?: string }) {
                         </div>
                     )}
 
-                    <div className="space-y-4 sm:space-y-6">
+                    <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
                         <div className="group relative">
-                            <label className="mb-2 block text-sm font-medium text-gray-700">Adresse email</label>
+                            <label htmlFor="reset-request-email" className="mb-2 block text-sm font-medium text-gray-700">Adresse email</label>
                             <div className="relative">
                                 <input
                                     type="email"
                                     name="email"
+                                    id="reset-request-email"
+                                    aria-invalid={Boolean(errors.email)}
                                     value={data.email}
                                     onChange={(e) => setData({ email: e.target.value })}
                                     className={`h-12 w-full rounded-xl border-2 px-4 pl-12 text-sm font-medium transition-all duration-300 outline-none sm:h-14 sm:rounded-2xl sm:px-5 sm:pl-14 sm:text-base ${
                                         focused
                                             ? '-translate-y-0.5 border-emerald-500 bg-white shadow-lg shadow-emerald-500/10'
                                             : 'border-gray-200 bg-gray-50'
-                                    } ${isSubmitted && !errors.email ? 'border-green-500 bg-green-50' : ''}`}
+                                    } ${confirmed ? 'border-green-500 bg-green-50' : ''}`}
                                     placeholder="votre.email@exemple.com"
                                     required
                                     onFocus={() => setFocused(true)}
                                     onBlur={() => setFocused(false)}
                                 />
                                 <div
-                                    className={`absolute top-1/2 left-4 z-10 -translate-y-1/2 text-lg transition-all duration-300 sm:left-5 sm:text-xl ${focused ? 'scale-110 text-emerald-500' : 'text-gray-400'} ${isSubmitted && !errors.email ? 'text-green-500' : ''}`}
+                                    className={`absolute top-1/2 left-4 z-10 -translate-y-1/2 text-lg transition-all duration-300 sm:left-5 sm:text-xl ${focused ? 'scale-110 text-emerald-500' : 'text-gray-400'} ${confirmed ? 'text-green-500' : ''}`}
                                 >
-                                    {isSubmitted && !errors.email ? (
+                                    {confirmed ? (
                                         <CircleCheck size={18} strokeWidth={1.8} aria-hidden="true" className="inline-block shrink-0 align-middle" />
                                     ) : (
                                         <Mail size={18} strokeWidth={1.8} aria-hidden="true" className="inline-block shrink-0 align-middle" />
@@ -123,10 +114,9 @@ export default function ForgotPassword({ status }: { status?: string }) {
                         </div>
 
                         <button
-                            type="button"
+                            type="submit"
                             className="group relative h-12 w-full cursor-pointer overflow-hidden rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 text-sm font-semibold tracking-wide text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-500/40 active:translate-y-0 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none sm:h-14 sm:rounded-2xl sm:text-base"
                             disabled={processing}
-                            onClick={handleSubmit}
                         >
                             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-all duration-500 group-hover:translate-x-full"></span>
                             <span className="relative z-10 flex items-center justify-center gap-2">
@@ -150,7 +140,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 )}
                             </span>
                         </button>
-                    </div>
+                    </form>
 
                     <div className="mt-6 text-center sm:mt-8">
                         <div className="mb-3 inline-flex items-center gap-2 text-xs text-gray-500 sm:mb-4 sm:text-sm">

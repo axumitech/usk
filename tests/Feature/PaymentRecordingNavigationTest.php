@@ -198,4 +198,50 @@ class PaymentRecordingNavigationTest extends TestCase
             'academic' => $entry->id, 'tab' => 'finance', 'year' => $entry->academic_year_id, 'q' => 'Dossier fictif',
         ]));
     }
+
+    public function test_additional_fee_returns_to_the_source_finance_tab_with_feedback(): void
+    {
+        [$entry, $agent] = $this->context();
+        $returnContext = ['academic_return' => true, 'q' => 'Dossier fictif', 'year' => $entry->academic_year_id];
+        $url = route('dashboard.admin.student-academic.index', [
+            'academic' => $entry->id, 'tab' => 'finance', 'q' => 'Dossier fictif', 'year' => $entry->academic_year_id,
+        ]);
+        $action = route('dashboard.admin.student-academic.obligations', $entry);
+        $data = ['kind' => 'library', 'title' => 'Bibliothèque', 'installment' => 1, 'amount' => '12.00'];
+        $this->actingAs($agent)->withSession(['_previous' => ['url' => route('dashboard.index')]])->post($action, $data + $returnContext)
+            ->assertRedirect($url)->assertSessionHasErrors('reason')->assertSessionHasInput('title', 'Bibliothèque')
+            ->assertInertiaFlashMissing('financePayment');
+        $this->assertDatabaseMissing('student_obligations', ['kind' => 'library']);
+
+        $message = 'Obligation complémentaire enregistrée avec sa justification.';
+        $this->post($action, $data + $returnContext + ['reason' => 'Frais approuvés pour la bibliothèque.'])
+            ->assertStatus(303)->assertRedirect($url)
+            ->assertInertiaFlash('financePayment', ['accountId' => $entry->id, 'message' => $message]);
+        $this->assertDatabaseHas('student_obligations', ['academic_enrollment_id' => $entry->id, 'kind' => 'library', 'amount_cents' => 1200]);
+    }
+
+    public function test_cancellation_keeps_the_finance_account_and_reports_the_recalculated_balance(): void
+    {
+        [$entry, $agent] = $this->context();
+        config(['finance.dual_control' => false]);
+        $this->actingAs($agent)->post(route('dashboard.admin.student-academic.payments', $entry), $this->paymentPayload());
+        $payment = $entry->payments()->sole();
+        $action = route('dashboard.admin.student-academic.payments.status', $payment);
+        $this->post($action, ['status' => 'confirmed', 'reason' => 'Reçu contrôlé en comptabilité.'])->assertSessionHasNoErrors();
+
+        $url = route('dashboard.admin.finance.index', ['academic' => $entry->id, 'q' => 'Dossier fictif']);
+        $message = 'Versement annulé et conservé dans l’historique. Le solde et les droits ont été recalculés.';
+        $headers = $this->inertiaHeaders($url);
+        $this->withSession(['_previous' => ['url' => route('dashboard.index')]])->post($action, [
+            'status' => 'cancelled', 'reason' => 'Écriture fictive à contrepasser.', 'finance_return' => true, 'q' => 'Dossier fictif',
+        ], $headers)->assertStatus(303)->assertRedirect($url)
+            ->assertInertiaFlash('financePayment', ['accountId' => $entry->id, 'message' => $message]);
+        $this->get($url, $headers)->assertOk()
+            ->assertJsonPath('component', 'dashboard/finance/Index')
+            ->assertJsonPath('props.selected.id', $entry->id)
+            ->assertJsonPath('props.payments.data.0.status', 'cancelled')
+            ->assertJsonPath('props.statement.balance.paid_cents', 0)
+            ->assertJsonPath('flash.financePayment.message', $message);
+        $this->assertDatabaseCount('student_payments', 1);
+    }
 }

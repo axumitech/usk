@@ -260,7 +260,7 @@ class EnrollmentManagementController extends Controller
         try {
             $started = $review->start($id, $request->user()->id);
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', $started ? 'Analyse commencée. Une notification est envoyée à l’étudiant ; son résultat figure dans l’historique.' : 'L’analyse de ce dossier a déjà commencé.');
+            return to_route('dashboard.admin.enrollments.show', $id, 303)->with('success', $started ? 'Analyse commencée. Le suivi de la notification figure dans l’historique.' : 'L’analyse de ce dossier a déjà commencé.');
         } catch (InvalidEnrollmentStateException $exception) {
             return to_route('dashboard.admin.enrollments.show', $id)->withErrors(['review' => $exception->getMessage()]);
         }
@@ -278,7 +278,7 @@ class EnrollmentManagementController extends Controller
 
             $review->document($id, $uuid, $request->user()->id, $data['verdict'], $data['reason'] ?? null, $data['reason_codes'] ?? null);
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'L’examen de cette pièce a été enregistré.');
+            return to_route('dashboard.admin.enrollments.show', $id, 303)->with('success', 'L’examen de cette pièce a été enregistré.');
         } catch (ValidationException $exception) {
             throw $exception->redirectTo(route('dashboard.admin.enrollments.show', $id));
         } catch (InvalidEnrollmentStateException $exception) {
@@ -291,7 +291,7 @@ class EnrollmentManagementController extends Controller
         try {
             $sent = $review->requestCorrections($id, $request->user()->id);
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', $sent ? 'La demande de corrections est enregistrée et sa notification est envoyée à l’étudiant.' : 'Cette demande de corrections a déjà été communiquée.');
+            return to_route('dashboard.admin.enrollments.show', $id, 303)->with('success', $sent ? 'La demande de corrections est enregistrée. Le suivi de la notification figure dans l’historique.' : 'Cette demande de corrections a déjà été communiquée.');
         } catch (InvalidEnrollmentStateException $exception) {
             return to_route('dashboard.admin.enrollments.show', $id)->withErrors(['review' => $exception->getMessage()]);
         }
@@ -309,7 +309,7 @@ class EnrollmentManagementController extends Controller
                 default => 'Les frais sont en attente d’un barème actif et en vigueur pour cette inscription.',
             };
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'Le dossier a été validé. '.$feesMessage);
+            return to_route('dashboard.admin.enrollments.show', $id, 303)->with('success', 'Le dossier a été validé. '.$feesMessage);
         } catch (ValidationException $exception) {
             throw $exception->redirectTo(route('dashboard.admin.enrollments.show', $id));
         } catch (InvalidEnrollmentStateException $e) {
@@ -324,7 +324,7 @@ class EnrollmentManagementController extends Controller
 
             $this->rejectUseCase->execute($id, $request->user()->id, $validated['reason']);
 
-            return to_route('dashboard.admin.enrollments.show', $id)->with('success', 'Le dossier a été rejeté. Le motif est visible dans l’espace étudiant.');
+            return to_route('dashboard.admin.enrollments.show', $id, 303)->with('success', 'Le dossier a été rejeté. Le motif est visible dans l’espace étudiant.');
         } catch (ValidationException $exception) {
             throw $exception->redirectTo(route('dashboard.admin.enrollments.show', $id));
         } catch (InvalidEnrollmentStateException $e) {

@@ -44,7 +44,12 @@ export default function AcademicYearShow({
     const closeYear = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!action.processing)
-            action.patch(route('dashboard.admin.academic-years.close', year.id), { preserveScroll: true, onSuccess: () => setClosing(false) });
+            action.patch(route('dashboard.admin.academic-years.close', year.id), {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    if (page.flash?.dashboardAction) setClosing(false);
+                },
+            });
     };
     const openYear = () => {
         if (!action.processing) {

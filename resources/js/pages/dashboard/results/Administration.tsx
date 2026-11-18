@@ -411,7 +411,7 @@ export default function Administration(props: Props) {
     const [modal, setModal] = useState<FormSpec | null>(null);
     const [message, setMessage] = useState('');
     const open = (title: string, url: string, values: FormSpec['values'], fields: Field[] = [reason]) =>
-        setModal({ title, description: 'Vérifiez le dossier avant de confirmer.', action: url, values, fields });
+        setModal({ title, description: 'Vérifiez le dossier avant de confirmer.', action: url, values, fields, requireSuccessFlash: true });
     const transition = (action: string, title: string) =>
         run &&
         open(

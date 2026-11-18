@@ -15,6 +15,7 @@ use App\Modules\Results\Application\ResultDocuments;
 use App\Modules\Results\Application\ResultRules;
 use App\Modules\Results\Application\ResultsAccess;
 use App\Modules\Teaching\Application\Services\LearningFiles;
+use App\Support\DashboardFormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Inertia\Inertia;
@@ -98,37 +99,58 @@ final class ResultsController
 
     public function storeRule(ResultCommandRequest $request, CurriculumVersion $version)
     {
-        $rule = $this->rules->create($version, $request->user(), $request->validated());
+        return DashboardFormResponse::run($request->workspace(), function () use ($request, $version) {
+            $rule = $this->rules->create($version, $request->user(), $request->validated());
 
-        return to_route('dashboard.admin.results.index', ['rule' => $rule->id], 303);
+            return DashboardFormResponse::success(route('dashboard.admin.results.index', ['rule' => $rule->id]), 'Règlement de résultats enregistré.');
+        });
     }
 
     public function approveRule(ResultCommandRequest $request, AcademicResultRule $rule)
     {
-        $this->rules->approve($rule, $request->user(), $request->validated('reason'));
+        $url = $request->workspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $rule, $url) {
+            $this->rules->approve($rule, $request->user(), $request->validated('reason'));
+
+            return DashboardFormResponse::success($url, 'Règlement de résultats approuvé.');
+        });
     }
 
     public function prepare(ResultCommandRequest $request, AcademicResultRule $rule)
     {
-        $run = $this->deliberations->prepare($rule, $request->user(), $request->validated());
+        return DashboardFormResponse::run($request->workspace(), function () use ($request, $rule) {
+            $run = $this->deliberations->prepare($rule, $request->user(), $request->validated());
 
-        return to_route('dashboard.admin.results.index', ['run' => $run->id], 303);
+            return DashboardFormResponse::success(route('dashboard.admin.results.index', ['run' => $run->id]), 'Délibération préparée.');
+        });
     }
 
     public function decision(ResultCommandRequest $request, AcademicDeliberation $run, AcademicOfficialResult $result)
     {
-        $this->deliberations->decision($run, $result, $request->user(), $request->validated());
+        $url = $request->workspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $run, $result, $url) {
+            $this->deliberations->decision($run, $result, $request->user(), $request->validated());
+
+            return DashboardFormResponse::success($url, 'Décision du jury enregistrée.');
+        });
     }
 
     public function transition(ResultCommandRequest $request, AcademicDeliberation $run)
     {
-        $this->deliberations->transition($run, $request->user(), $request->validated());
+        $url = $request->workspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $run, $url) {
+            $this->deliberations->transition($run, $request->user(), $request->validated());
+
+            return DashboardFormResponse::success($url, match ($request->validated('action')) {
+                'open' => 'Délibération ouverte.',
+                'approve' => 'Délibération approuvée.',
+                'publish' => 'Résultats publiés.',
+                'abandon' => 'Délibération abandonnée.',
+            });
+        });
     }
 
     public function minutes(Request $request, AcademicDeliberation $run, ResultDocuments $documents)
@@ -185,9 +207,13 @@ final class ResultsController
 
     public function review(ResultCommandRequest $request, ServiceRequest $appeal, ResultAppeals $appeals)
     {
-        $appeals->decide($appeal, $request->user(), $request->validated());
+        $url = $request->workspace();
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $appeal, $appeals, $url) {
+            $appeals->decide($appeal, $request->user(), $request->validated());
+
+            return DashboardFormResponse::success($url, 'Décision sur le recours enregistrée.');
+        });
     }
 
     public function appealFile(Request $request, ServiceRequest $appeal, LearningFiles $files)

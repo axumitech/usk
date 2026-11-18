@@ -98,6 +98,27 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_expired_inertia_submission_does_not_send_the_form_to_login(): void
+    {
+        $this->post('/app/dashboard/admin/student-academic/123/payments', [], [
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->assertUnauthorized()
+            ->assertHeaderMissing('Location')
+            ->assertJsonPath('message', 'Votre session a expiré. Reconnectez-vous avant de réessayer.');
+
+        $this->assertDatabaseCount('student_payments', 0);
+    }
+
+    public function test_direct_private_navigation_resumes_the_requested_page_after_login(): void
+    {
+        $user = User::factory()->create();
+        $intended = '/app/dashboard/enrollments';
+        $this->get($intended)->assertRedirectToRoute('login.show');
+        $this->post('/app/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect($intended);
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_users_can_logout()
     {
         $user = User::factory()->create();

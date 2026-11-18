@@ -162,6 +162,27 @@ final class AssessmentWorkflowTest extends TestCase
                 ->where('selected.resource_id', $work->id)->has('items.data', 0));
     }
 
+    public function test_publication_preserves_the_assessment_and_gradebook_context(): void
+    {
+        [, $entry, $teacher, , $offer] = $this->context();
+        $this->actingAs($teacher);
+        $work = $this->draft($offer);
+        $context = ['year' => $entry->academic_year_id, 'from_gradebook' => 1, 'gradebook_semester' => '2'];
+        $url = route('dashboard.teaching.assessments.index', ['offering' => $offer->id, 'resource' => $work->id] + $context);
+        $this->get($url)->assertOk();
+        $this->withSession(['_previous' => ['url' => route('dashboard.index')]]);
+
+        $payload = ['action' => 'publish', 'revision' => $work->assessment()->sole()->revision, 'reason' => self::REASON];
+        $action = route('dashboard.teaching.assessments.lifecycle', ['resource' => $work->id] + $context);
+        $this->post($action, ['reason' => 'x'] + $payload)->assertRedirect($url)->assertSessionHasErrors('reason');
+        $this->assertSame('draft', $work->assessment()->sole()->state);
+        $this->post($action, $payload)->assertStatus(303)->assertRedirect($url)
+            ->assertInertiaFlash('dashboardAction', 'Évaluation publiée.');
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/teaching/Assessments')->where('selected.resource_id', $work->id)
+            ->where('selected.state', 'published')->where('filters.gradebook_semester', '2'));
+    }
+
     public function test_draft_validates_time_rubric_and_authorization_then_freezes_published_settings(): void
     {
         [$student, , $teacher, $admin, $offer] = $this->context();

@@ -10,6 +10,10 @@ const source = await readFile(new URL('../../resources/js/pages/dashboard/adminE
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } });
 const reasons = { unreadable: 'Document illisible.', incomplete: 'Document incomplet.', expired: 'Document expiré.', incorrect: 'Document incorrect.', inconsistent: 'Informations incohérentes.', non_compliant: 'Document non conforme.', other: 'Autre motif.' };
 const labels = { pending: 'À examiner', accepted: 'Acceptée', rejected: 'Refusée', correction_requested: 'À corriger' };
+const confirmedReview = {
+    component: 'dashboard/adminEnrollments/Show',
+    props: { enrollment: { id: 42 }, success: 'L’examen de cette pièce a été enregistré.' },
+};
 
 function elements(view) {
     if (!view || typeof view !== 'object') return [];
@@ -60,8 +64,19 @@ test('Le toast de succès attend la confirmation serveur du verdict', () => {
     view.submit();
     assert.equal(view.feedback.length, 0);
     assert.equal(view.requests[0].url, '/app/dashboard/admin/enrollments/42/documents/proof-test/review');
-    view.requests[0].options.onSuccess();
-    assert.deepEqual(view.feedback, [{ message: 'Diplôme.pdf : Acceptée.', tone: 'success' }]);
+    view.requests[0].options.onSuccess(confirmedReview);
+    assert.deepEqual(view.feedback, [{ message: confirmedReview.props.success, tone: 'success' }]);
+});
+test('Un retour vers un autre dossier ou sans message ne confirme pas le verdict', () => {
+    const view = setup();
+    view.verdict('accepted');
+    view.submit();
+    view.requests[0].options.onSuccess({ ...confirmedReview, props: { ...confirmedReview.props, enrollment: { id: 43 } } });
+    view.requests[0].options.onSuccess({ ...confirmedReview, props: { enrollment: { id: 42 } } });
+    assert.equal(view.feedback.length, 2);
+    assert.ok(view.feedback.every(item => item.tone === 'error'));
+    assert.match(view.render().props.className, /is-pending/);
+    assert.equal(view.form.data.verdict, 'accepted');
 });
 test('Un échec affiche le motif et conserve la pièce dans son état enregistré', () => {
     const view = setup();
@@ -74,8 +89,8 @@ test('Un échec affiche le motif et conserve la pièce dans son état enregistr�
 test('Chaque enregistrement réussi peut déclencher une nouvelle confirmation', () => {
     const view = setup();
     view.submit();
-    view.requests[0].options.onSuccess();
-    view.requests[0].options.onSuccess();
+    view.requests[0].options.onSuccess(confirmedReview);
+    view.requests[0].options.onSuccess(confirmedReview);
     assert.equal(view.feedback.length, 2);
     assert.ok(view.feedback.every(item => item.tone === 'success'));
 });

@@ -95,6 +95,25 @@ final class LearningContentTest extends TestCase
             'revision' => $resource->fresh()->revision, 'notify' => $notify]);
     }
 
+    public function test_publication_redirects_to_the_support_and_returns_server_feedback(): void
+    {
+        [, , $teacher, $offer] = $this->fixtures();
+        $this->actingAs($teacher);
+        $support = $this->upload($offer);
+        $url = route('dashboard.teaching.learning.index', ['offering' => $offer->id, 'resource' => $support->id]);
+        $this->get($url)->assertOk();
+        $this->withSession(['_previous' => ['url' => route('dashboard.index')]]);
+
+        $payload = ['action' => 'publish', 'revision' => $support->revision, 'reason' => self::REASON];
+        $action = route('dashboard.teaching.learning.transition', $support);
+        $this->post($action, ['reason' => 'x'] + $payload)->assertRedirect($url)->assertSessionHasErrors('reason');
+        $this->assertFalse($support->fresh()->is_published);
+        $this->post($action, $payload)->assertStatus(303)->assertRedirect($url)
+            ->assertInertiaFlash('dashboardAction', 'Support publié.');
+        $this->get($url)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/teaching/Learning')->where('selected.id', $support->id)->where('selected.is_published', true));
+    }
+
     public function test_authorized_publisher_can_create_retry_publish_withdraw_and_archive_a_private_support(): void
     {
         [$student, , $teacher, $offer, $admin] = $this->fixtures();

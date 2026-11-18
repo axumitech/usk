@@ -11,6 +11,26 @@ final class ResultCommandRequest extends FormRequest
         return $this->user()?->hasRole('admin') ?? false;
     }
 
+    public function workspace(): string
+    {
+        $run = $this->route('run');
+        $result = $this->route('result');
+        $parameters = match ($this->route()->getActionMethod()) {
+            'storeRule' => ['version' => $this->route('version')->id],
+            'approveRule', 'prepare' => ['rule' => $this->route('rule')->id],
+            'transition' => ['run' => $run->id],
+            'decision' => ['run' => $run->id, 'result' => $result->academic_deliberation_id === $run->id ? $result->id : null],
+            default => [],
+        };
+
+        return route('dashboard.admin.results.index', $parameters).($this->routeIs('dashboard.admin.results.review') ? '#recours' : '');
+    }
+
+    protected function getRedirectUrl()
+    {
+        return $this->workspace();
+    }
+
     public function rules(): array
     {
         $reason = 'required|string|min:5|max:2000';

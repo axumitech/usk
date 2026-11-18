@@ -1,3 +1,4 @@
+import type { Page } from '@inertiajs/core';
 import FeedbackToast, { type ToastFeedback } from '@/components/admin/FeedbackToast';
 import PageHeading from '@/components/admin/PageHeading';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
@@ -19,6 +20,20 @@ export default function Show({
     const [toast, setToast] = useState<ToastFeedback | null>(success ? { id: 0, message: success, tone: 'success' } : null);
     const toastSequence = useRef(0);
     const announce = (message: string, tone: 'success' | 'error' = 'success') => setToast({ id: ++toastSequence.current, message, tone });
+    const announceDecision = (page: Page) => {
+        if (
+            page.component !== 'dashboard/adminEnrollments/Show' ||
+            (page.props.enrollment as Dossier | undefined)?.id !== enrollment.id ||
+            typeof page.props.success !== 'string' ||
+            !page.props.success
+        ) {
+            announce('Le résultat de cette action n’a pas été confirmé. Vérifiez le dossier avant de réessayer.', 'error');
+            return false;
+        }
+
+        announce(page.props.success);
+        return true;
+    };
     const [selected, setSelected] = useState(
         enrollment.selected_document_uuid ||
             enrollment.documents?.find((doc) => doc.needs_reexamination)?.uuid ||
@@ -303,7 +318,9 @@ export default function Show({
                                     onClick={() =>
                                         reviewAction.post(`/app/dashboard/admin/enrollments/${enrollment.id}/start-analysis`, {
                                             preserveScroll: true,
-                                            onSuccess: (page) => announce(String(page.props.success || 'Analyse commencée.')),
+                                            onSuccess: (page) => {
+                                                announceDecision(page);
+                                            },
                                             onError: (errors) => announce(String(Object.values(errors)[0] || 'Action impossible.'), 'error'),
                                         })
                                     }
@@ -334,7 +351,9 @@ export default function Show({
                                         onClick={() =>
                                             reviewAction.post(`/app/dashboard/admin/enrollments/${enrollment.id}/request-corrections`, {
                                                 preserveScroll: true,
-                                                onSuccess: (page) => announce(String(page.props.success || 'Demande de corrections enregistrée.')),
+                                                onSuccess: (page) => {
+                                                    announceDecision(page);
+                                                },
                                                 onError: (errors) => announce(String(Object.values(errors)[0] || 'Action impossible.'), 'error'),
                                             })
                                         }
@@ -393,7 +412,7 @@ export default function Show({
                             form.post(`/app/dashboard/admin/enrollments/${enrollment.id}/${decision}`, {
                                 preserveScroll: true,
                                 onSuccess: (page) => {
-                                    announce(String(page.props.success || 'Décision enregistrée.'));
+                                    if (!announceDecision(page)) return;
                                     setDecision(null);
                                     form.reset();
                                 },

@@ -8,6 +8,7 @@ use App\Models\Student\ContentSection;
 use App\Modules\Teaching\Application\Services\LearningAccess;
 use App\Modules\Teaching\Application\Services\LearningContent;
 use App\Modules\Teaching\Application\Services\LearningFiles;
+use App\Support\DashboardFormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -129,60 +130,86 @@ final class LearningContentController
 
     public function store(Request $request, AcademicOffering $offering)
     {
-        $data = $request->validate($this->editionRules() + [
-            'kind' => ['required', Rule::in(AcademicResource::CONTENT_KINDS)], 'operation_key' => 'required|uuid',
-        ]);
-        $resource = $this->content->create($offering, $request->user(), $data, $request->file('file'));
+        return DashboardFormResponse::run($this->url($request, $offering->id), function () use ($request, $offering) {
+            $data = $request->validate($this->editionRules() + [
+                'kind' => ['required', Rule::in(AcademicResource::CONTENT_KINDS)], 'operation_key' => 'required|uuid',
+            ]);
+            $resource = $this->content->create($offering, $request->user(), $data, $request->file('file'));
 
-        return $this->open($request, $resource);
+            return DashboardFormResponse::success($this->url($request, $offering->id, $resource->id), 'Support enregistré.');
+        });
     }
 
     public function edit(Request $request, AcademicResource $resource)
     {
         $this->access->content($request->user(), $resource);
-        $data = $request->validate($this->editionRules() + ['revision' => 'required|integer|min:0', 'reason' => 'required|string|min:5|max:1000']);
-        $this->content->edit($resource, $request->user(), $data, $request->file('file'));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $data = $request->validate($this->editionRules() + ['revision' => 'required|integer|min:0', 'reason' => 'required|string|min:5|max:1000']);
+            $this->content->edit($resource, $request->user(), $data, $request->file('file'));
+
+            return DashboardFormResponse::success($url, 'Modifications du support enregistrées.');
+        });
     }
 
     public function transition(Request $request, AcademicResource $resource)
     {
         $this->access->content($request->user(), $resource);
-        $data = $request->validate(['action' => 'required|in:publish,withdraw,archive', 'revision' => 'required|integer|min:0',
-            'reason' => 'required|string|min:5|max:1000', 'notify' => 'boolean']);
-        $this->content->transition($resource, $request->user(), $data);
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $data = $request->validate(['action' => 'required|in:publish,withdraw,archive', 'revision' => 'required|integer|min:0',
+                'reason' => 'required|string|min:5|max:1000', 'notify' => 'boolean']);
+            $this->content->transition($resource, $request->user(), $data);
+
+            return DashboardFormResponse::success($url, match ($data['action']) {
+                'publish' => 'Support publié.',
+                'withdraw' => 'Support retiré de la publication.',
+                'archive' => 'Support archivé.',
+            });
+        });
     }
 
     public function section(Request $request, AcademicOffering $offering, ?ContentSection $section = null)
     {
-        $data = $request->validate(['title' => 'required|string|max:180', 'position' => 'required|integer|between:0,100000', 'revision' => $section ? 'required|integer|min:1' : 'nullable|integer']);
-        $this->content->saveSection($offering, $request->user(), $data, $section);
+        $url = $this->url($request, $offering->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $offering, $section, $url) {
+            $data = $request->validate(['title' => 'required|string|max:180', 'position' => 'required|integer|between:0,100000', 'revision' => $section ? 'required|integer|min:1' : 'nullable|integer']);
+            $this->content->saveSection($offering, $request->user(), $data, $section);
+
+            return DashboardFormResponse::success($url, 'Organisation du cours enregistrée.');
+        });
     }
 
     public function reuse(Request $request, AcademicResource $resource)
     {
         $this->access->content($request->user(), $resource);
-        $data = $request->validate(['destination' => 'required|integer', 'source_version' => 'nullable|integer|min:1',
-            'operation_key' => 'required|uuid', 'reason' => 'required|string|min:5|max:1000']);
-        $destination = $this->access->scope($request->user())->findOrFail($data['destination']);
-        $copy = $this->content->create($destination, $request->user(), $data + ['kind' => $resource->kind], source: $resource);
+        $source = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return $this->open($request, $copy);
+        return DashboardFormResponse::run($source, function () use ($request, $resource) {
+            $data = $request->validate(['destination' => 'required|integer', 'source_version' => 'nullable|integer|min:1',
+                'operation_key' => 'required|uuid', 'reason' => 'required|string|min:5|max:1000']);
+            $destination = $this->access->scope($request->user())->findOrFail($data['destination']);
+            $copy = $this->content->create($destination, $request->user(), $data + ['kind' => $resource->kind], source: $resource);
+
+            return DashboardFormResponse::success($this->url($request, $destination->id, $copy->id), 'La copie du support est enregistrée dans l’offre de destination.');
+        });
     }
 
     public function workPlacement(Request $request, AcademicResource $resource)
     {
-        $data = $request->validate(Arr::only($this->editionRules(), ['academic_content_section_id', 'academic_session_id', 'position']) + [
-            'revision' => 'required|integer|min:0', 'reason' => 'required|string|min:5|max:1000',
-        ]);
-        $this->content->placeWork($resource, $request->user(), $data);
+        $url = $this->url($request, $resource->academic_offering_id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $data = $request->validate(Arr::only($this->editionRules(), ['academic_content_section_id', 'academic_session_id', 'position']) + [
+                'revision' => 'required|integer|min:0', 'reason' => 'required|string|min:5|max:1000',
+            ]);
+            $this->content->placeWork($resource, $request->user(), $data);
+
+            return DashboardFormResponse::success($url, 'Emplacement du travail enregistré.');
+        });
     }
 
     public function file(Request $request, AcademicResource $resource)
@@ -207,11 +234,15 @@ final class LearningContentController
         return $this->files->stream($resource->versions()->where('number', $number)->firstOrFail()->snapshot);
     }
 
-    private function open(Request $request, AcademicResource $resource)
+    private function url(Request $request, int $offering, ?int $resource = null): string
     {
-        return redirect()->route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.learning.index' : 'dashboard.teaching.learning.index', [
-            'offering' => $resource->academic_offering_id, 'resource' => $resource->id,
-        ], 303);
+        $section = $request->query('section');
+        $parameters = ['offering' => $offering, 'resource' => $resource];
+        if (is_string($section) && preg_match('/\\A(?:[1-9][0-9]{0,18}|unassigned)\\z/', $section)) {
+            $parameters['section'] = $section;
+        }
+
+        return route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.learning.index' : 'dashboard.teaching.learning.index', $parameters);
     }
 
     private function editionRules(): array

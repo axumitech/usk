@@ -29,6 +29,7 @@ use App\Modules\Student\Application\Services\StudentPaymentProofs;
 use App\Modules\Student\Infrastructure\Exports\FinanceWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -72,7 +73,7 @@ final class FinanceController extends Controller
             'cycles' => AcademicCycle::orderBy('name')->get(['id', 'name']),
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
             'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => config('finance.dual_control'),
-            'preview' => ($r->session()->get('finance.preview.actor_id') === $r->user()->id && $r->session()->get('finance.preview.expires_at', 0) >= now()->timestamp) ? $r->session()->get('finance.preview') : null,
+            'preview' => $this->currentPreview($r),
         ]);
     }
 
@@ -394,10 +395,20 @@ final class FinanceController extends Controller
     public function bill(Request $r, AcademicEnrollment $academic, FeeTariffService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['tariff_id' => 'required|integer|exists:finance_tariffs,id', 'reason' => 'required|string|min:10|max:2000']);
-        $service->bill(FinanceTariff::findOrFail($d['tariff_id']), $academic, $r->user(), $d['reason']);
 
-        return back(303);
+        return $this->updateAccount($r, $academic->id, function () use ($r, $academic, $service): string {
+            $d = $r->validate(
+                ['tariff_id' => 'required|integer|exists:finance_tariffs,id', 'reason' => 'required|string|min:10|max:2000'],
+                self::accountActionMessages() + [
+                    'tariff_id.required' => 'Choisissez le barème à appliquer.',
+                    'tariff_id.integer' => 'Choisissez un barème proposé.',
+                    'tariff_id.exists' => 'Ce barème n’existe plus.',
+                ],
+            );
+            $service->bill(FinanceTariff::findOrFail($d['tariff_id']), $academic, $r->user(), $d['reason']);
+
+            return 'Les obligations du barème sont en place sur le compte.';
+        });
     }
 
     public function allocate(Request $r, StudentPayment $payment, PaymentAllocationService $service)
@@ -454,14 +465,7 @@ final class FinanceController extends Controller
 
     private function updateAccount(Request $request, int $academic, \Closure $operation): \Illuminate\Http\RedirectResponse
     {
-        $url = FinanceScreenReturn::account($request, $academic);
-        try {
-            $message = $operation();
-        } catch (ValidationException $exception) {
-            throw $exception->redirectTo($url);
-        }
-
-        return redirect()->to($url, 303)->with('success', $message);
+        return FinanceScreenReturn::update(FinanceScreenReturn::account($request, $academic), $academic, $operation);
     }
 
     private static function accountActionMessages(): array
@@ -486,28 +490,88 @@ final class FinanceController extends Controller
     public function preview(Request $r, FinanceReconciliationService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['file' => 'required|file|max:2048', 'account' => 'required|string|max:100']);
-        $rows = $service->preview($r->user(), $r->file('file')->get());
-        $r->session()->put('finance.preview', ['actor_id' => $r->user()->id, 'rows' => $rows, 'account' => $d['account'], 'expires_at' => now()->addMinutes(30)->timestamp]);
+        $url = FinanceScreenReturn::listing($r);
+        try {
+            $d = $r->validate(['file' => 'required|file|max:2048', 'account' => 'required|string|max:100'], [
+                'file.required' => 'Sélectionnez un relevé CSV.',
+                'file.file' => 'Sélectionnez un fichier valide.',
+                'file.max' => 'Le relevé ne doit pas dépasser 2 Mo.',
+                'account.required' => 'Indiquez le compte ou le journal bancaire.',
+                'account.string' => 'Saisissez le nom du compte ou du journal.',
+                'account.max' => 'Le nom du compte ne doit pas dépasser :max caractères.',
+            ]);
+            $rows = $service->preview($r->user(), $d['file']->get());
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
 
-        return back(303);
+        $r->session()->put('finance.preview', [
+            'id' => (string) Str::uuid(),
+            'actor_id' => $r->user()->id,
+            'rows' => $rows,
+            'account' => $d['account'],
+            'expires_at' => now()->addMinutes(30)->timestamp,
+        ]);
+
+        return $this->reconciliationFeedback($url, 'Relevé prévisualisé. Aucune écriture n’a été modifiée.');
     }
 
     public function reconcile(Request $r, FinanceReconciliationService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['rows' => 'required|array|min:1|max:500', 'rows.*' => 'required|integer|distinct|min:0', 'reason' => 'required|string|min:10|max:2000']);
-        $preview = $r->session()->get('finance.preview');
-        abort_unless($preview && $preview['actor_id'] === $r->user()->id && $preview['expires_at'] >= now()->timestamp, 422, 'La prévisualisation a expiré.');
-        $rows = array_map(function ($index) use ($preview) {
-            abort_unless(isset($preview['rows'][$index]), 422);
+        $url = FinanceScreenReturn::listing($r);
+        $expired = 'Cet aperçu a expiré ou a été remplacé. Prévisualisez le relevé et sélectionnez à nouveau les correspondances.';
+        try {
+            $d = $r->validate([
+                'preview_id' => 'required|uuid',
+                'rows' => 'required|array|min:1|max:500',
+                'rows.*' => 'required|integer|distinct|min:0',
+                'reason' => 'required|string|min:10|max:2000',
+            ], self::accountActionMessages() + [
+                'preview_id.required' => $expired,
+                'preview_id.uuid' => $expired,
+                'rows.required' => 'Sélectionnez au moins une correspondance exacte.',
+                'rows.array' => 'Sélectionnez les correspondances dans l’aperçu.',
+                'rows.min' => 'Sélectionnez au moins une correspondance exacte.',
+                'rows.max' => 'Sélectionnez au maximum :max correspondances.',
+                'rows.*' => 'La sélection contient une ligne invalide ou répétée.',
+            ]);
+            $preview = $this->currentPreview($r);
+            if ($preview === null || $preview['id'] !== $d['preview_id']) {
+                throw ValidationException::withMessages(['preview_id' => $expired]);
+            }
+            $rows = array_map(function ($index) use ($preview) {
+                if (! isset($preview['rows'][$index])) {
+                    throw ValidationException::withMessages(['rows' => 'Cette ligne ne figure pas dans l’aperçu. Vérifiez votre sélection.']);
+                }
 
-            return $preview['rows'][$index];
-        }, $d['rows']);
-        $service->commit($r->user(), $preview['account'], $rows, $d['reason']);
+                return $preview['rows'][$index];
+            }, $d['rows']);
+            $service->commit($r->user(), $preview['account'], $rows, $d['reason']);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
         $r->session()->forget('finance.preview');
 
-        return back(303);
+        return $this->reconciliationFeedback($url, 'Correspondances confirmées. Le rapprochement figure dans l’historique financier.');
+    }
+
+    private function currentPreview(Request $request): ?array
+    {
+        $preview = $request->session()->get('finance.preview');
+
+        return isset($preview['id'])
+            && $preview['actor_id'] === $request->user()->id
+            && $preview['expires_at'] >= now()->timestamp
+            ? $preview
+            : null;
+    }
+
+    private function reconciliationFeedback(string $url, string $message): \Illuminate\Http\RedirectResponse
+    {
+        Inertia::flash('financeReconciliation', $message);
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     public function export(Request $r, FinanceReportingService $reports)

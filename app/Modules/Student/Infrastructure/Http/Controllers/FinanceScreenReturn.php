@@ -3,8 +3,11 @@
 namespace App\Modules\Student\Infrastructure\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 final class FinanceScreenReturn
 {
@@ -12,10 +15,16 @@ final class FinanceScreenReturn
 
     private const DIRECTORY = 'dashboard.admin.student-academic.index';
 
-    public static function forPayment(Request $request, int $academic): string
+    private const LIST_FILTERS = [
+        'q' => 'string|max:150', 'year' => 'integer|exists:academic_years,id',
+        'faculty' => 'integer|exists:faculties,id', 'program' => 'integer|exists:academic_programs,id',
+        'level' => 'integer|exists:levels,id',
+    ];
+
+    public static function forEnrollment(Request $request, int $academic): string
     {
         if (! $request->boolean('academic_return')) {
-            return self::accountUrl($academic, $request->boolean('finance_return') ? $request->all() : []);
+            return self::account($request, $academic);
         }
 
         $filters = self::filters($request->all(), [
@@ -31,31 +40,37 @@ final class FinanceScreenReturn
 
     public static function account(Request $request, int $academic): string
     {
-        $referer = parse_url($request->headers->get('referer') ?? '');
-        $previous = [];
-        if (($referer['host'] ?? null) === $request->getHost()
-            && ($referer['path'] ?? null) === route(self::ACCOUNT, [], false)) {
-            parse_str($referer['query'] ?? '', $previous);
-            if (($previous['academic'] ?? null) !== (string) $academic) {
-                $previous = [];
-            }
-        }
-
-        return self::accountUrl($academic, $request->boolean('finance_return') ? $request->all() + $previous : $previous);
-    }
-
-    private static function accountUrl(int $academic, array $source): string
-    {
-        $filters = self::filters($source, [
-            'q' => 'string|max:150', 'year' => 'integer|exists:academic_years,id',
-            'faculty' => 'integer|exists:faculties,id', 'program' => 'integer|exists:academic_programs,id',
-            'level' => 'integer|exists:levels,id', 'from_confirmations' => 'in:1',
-            'confirmation_q' => 'string|max:150', 'confirmation_page' => 'integer|min:1',
+        $source = $request->boolean('finance_return') ? $request->all() : [];
+        $filters = self::filters($source, self::LIST_FILTERS + [
+            'from_confirmations' => 'in:1', 'confirmation_q' => 'string|max:150', 'confirmation_page' => 'integer|min:1',
             'from_proofs' => 'in:1', 'page' => 'integer|min:1', 'payments_page' => 'integer|min:1',
             'refunds_page' => 'integer|min:1', 'adjustments_page' => 'integer|min:1',
         ]);
 
         return route(self::ACCOUNT, ['academic' => $academic] + $filters, false);
+    }
+
+    public static function listing(Request $request): string
+    {
+        return route(self::ACCOUNT, self::filters($request->query(), self::LIST_FILTERS), false).'#reconciliation';
+    }
+
+    public static function update(string $url, int $academic, \Closure $operation): RedirectResponse
+    {
+        try {
+            $message = $operation();
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
+
+        return self::completed($url, $academic, $message);
+    }
+
+    public static function completed(string $url, int $academic, string $message): RedirectResponse
+    {
+        Inertia::flash('financePayment', ['accountId' => $academic, 'message' => $message]);
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     private static function filters(array $input, array $rules): array

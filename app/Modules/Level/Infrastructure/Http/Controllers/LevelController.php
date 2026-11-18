@@ -3,6 +3,8 @@
 namespace App\Modules\Level\Infrastructure\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicStructure\AcademicProgram;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use App\Modules\Level\Infrastructure\Http\Requests\UpdateLevelRequest;
 use App\Modules\Level\Infrastructure\Http\Requests\StoreLevelRequest;
 use Illuminate\Http\Request;
@@ -14,6 +16,7 @@ use App\Modules\Level\Domain\Exceptions\DuplicateLevelCodeException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Gate;
 
 final class LevelController extends Controller
 {
@@ -107,9 +110,11 @@ final class LevelController extends Controller
     }
 
 
-    public function destroy(int $id, DeleteLevel $deleteLevel)
+    public function destroy(Request $request, int $id, DeleteLevel $deleteLevel)
     {
-        \App\Models\Level::findOrFail($id);
+        Gate::authorize('manage', AcademicProgram::class);
+        $level = \App\Models\Level::findOrFail($id);
+        abort_unless(TeachingScope::allows($request->user(), (int) $level->faculty_id), 403);
         if (\Illuminate\Support\Facades\DB::table('enrollments')->where('level_id', $id)->exists()) {
             return back()->withErrors(['general' => 'Ce niveau est lié à des inscriptions et ne peut pas être supprimé.']);
         }

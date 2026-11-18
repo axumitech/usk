@@ -19,9 +19,11 @@ use App\Modules\Assessment\Application\AssessmentWorkflow;
 use App\Modules\Teaching\Application\Services\CourseAudience;
 use App\Modules\Teaching\Application\Services\LearningAccess;
 use App\Modules\Teaching\Application\Services\LearningFiles;
+use App\Support\DashboardFormResponse;
 use App\Support\DocumentUploadLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -152,89 +154,129 @@ final class AssessmentController
 
     public function store(Request $request, AcademicOffering $offering)
     {
-        $resource = $this->draftOptions->save($this->workflow, $offering, $request->user(), $request->validate($this->draftRules()), subject: $request->file('subject'));
+        return DashboardFormResponse::run($this->url($request, $offering->id), function () use ($request, $offering) {
+            $resource = $this->draftOptions->save($this->workflow, $offering, $request->user(), $request->validate($this->draftRules()), subject: $request->file('subject'));
 
-        return $this->detailsRedirect($request, $resource);
+            return DashboardFormResponse::success($this->url($request, $offering->id, $resource->id), 'Brouillon de l’évaluation enregistré.');
+        });
     }
 
     public function edit(Request $request, AcademicResource $resource)
     {
-        $this->draftOptions->save($this->workflow, $resource->offering, $request->user(), $request->validate($this->draftRules() + [
-            'revision' => self::REVISION, 'reason' => self::REASON,
-        ]), resource: $resource, subject: $request->file('subject'));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return $this->detailsRedirect($request, $resource)->with('success', 'Brouillon enregistré.');
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $this->draftOptions->save($this->workflow, $resource->offering, $request->user(), $request->validate($this->draftRules() + [
+                'revision' => self::REVISION, 'reason' => self::REASON,
+            ]), resource: $resource, subject: $request->file('subject'));
+
+            return DashboardFormResponse::success($url, 'Brouillon enregistré.');
+        });
     }
 
     public function lifecycle(Request $request, AcademicResource $resource)
     {
-        $data = $request->validate([
-            'action' => 'required|in:publish,close,cancel,schedule', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
-            'scheduled_publish_at' => 'present_if:action,schedule|nullable|date_format:Y-m-d\TH:i', 'scheduled_publish_notify' => 'boolean',
-        ]);
-        $this->workflow->lifecycle($resource, $request->user(), $data);
-        if ($data['action'] === 'schedule') {
-            return $this->detailsRedirect($request, $resource)->with('success', isset($data['scheduled_publish_at'])
-                ? 'Publication programmée.' : 'Programmation retirée.');
-        }
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
-    }
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $data = $request->validate([
+                'action' => 'required|in:publish,close,cancel,schedule', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
+                'scheduled_publish_at' => 'present_if:action,schedule|nullable|date_format:Y-m-d\\TH:i', 'scheduled_publish_notify' => 'boolean',
+            ]);
+            $this->workflow->lifecycle($resource, $request->user(), $data);
 
-    private function detailsRedirect(Request $request, AcademicResource $resource)
-    {
-        return to_route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.assessments.index' : 'dashboard.teaching.assessments.index',
-            ['offering' => $resource->academic_offering_id, 'resource' => $resource->id], 303);
+            return DashboardFormResponse::success($url, match ($data['action']) {
+                'publish' => 'Évaluation publiée.',
+                'close' => 'Évaluation clôturée.',
+                'cancel' => 'Évaluation annulée.',
+                'schedule' => isset($data['scheduled_publish_at']) ? 'Publication programmée.' : 'Programmation retirée.',
+            });
+        });
     }
 
     public function group(Request $request, AcademicResource $resource)
     {
-        $this->workflow->group($resource, $request->user(), $request->validate([
-            'label' => 'required|string|max:120', 'leader' => 'required|integer|min:1', 'members' => 'required|array|min:2|max:50',
-            'members.*' => 'required|integer|min:1|distinct', 'revision' => self::REVISION, 'reason' => self::REASON,
-        ]));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $this->workflow->group($resource, $request->user(), $request->validate([
+                'label' => 'required|string|max:120', 'leader' => 'required|integer|min:1', 'members' => 'required|array|min:2|max:50',
+                'members.*' => 'required|integer|min:1|distinct', 'revision' => self::REVISION, 'reason' => self::REASON,
+            ]));
+
+            return DashboardFormResponse::success($url, 'Groupe d’évaluation enregistré.');
+        });
     }
 
     public function groupScore(Request $request, AcademicResource $resource, int $group)
     {
-        $this->corrections->groupScore($resource, $request->user(), $group, $request->validate([
-            'points' => 'nullable|string|max:12', 'feedback' => 'nullable|string|max:20000', 'revision' => self::REVISION, 'reason' => self::REASON,
-        ]));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $group, $url) {
+            $this->corrections->groupScore($resource, $request->user(), $group, $request->validate([
+                'points' => 'nullable|string|max:12', 'feedback' => 'nullable|string|max:20000', 'revision' => self::REVISION, 'reason' => self::REASON,
+            ]));
+
+            return DashboardFormResponse::success($url, 'Correction du groupe enregistrée.');
+        });
     }
 
     public function correct(Request $request, AcademicResource $resource, AssessmentRecord $record)
     {
         $this->access->write($request->user(), $resource->offering);
-        $this->corrections->save($resource, $request->user(), $record, $request->validate([
-            'participation' => ['required', Rule::in(AssessmentRecord::PARTICIPATION)], 'points' => 'nullable|string|max:12',
-            'adjustment' => 'nullable|string|max:12', 'criteria' => 'nullable|array|max:20', 'criteria.*' => 'nullable|string|max:12',
-            'feedback' => 'nullable|string|max:20000', 'file' => 'nullable|file|max:'.DocumentUploadLimit::kilobytes(),
-            'revision' => self::REVISION, 'reason' => self::REASON,
-        ]), $request->file('file'));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id, $record->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $record, $url) {
+            $this->corrections->save($resource, $request->user(), $record, $request->validate([
+                'participation' => ['required', Rule::in(AssessmentRecord::PARTICIPATION)], 'points' => 'nullable|string|max:12',
+                'adjustment' => 'nullable|string|max:12', 'criteria' => 'nullable|array|max:20', 'criteria.*' => 'nullable|string|max:12',
+                'feedback' => 'nullable|string|max:20000', 'file' => 'nullable|file|max:'.DocumentUploadLimit::kilobytes(),
+                'revision' => self::REVISION, 'reason' => self::REASON,
+            ]), $request->file('file'));
+
+            return DashboardFormResponse::success($url, 'Correction enregistrée.');
+        });
     }
 
     public function record(Request $request, AcademicResource $resource, AssessmentRecord $record)
     {
-        $this->corrections->record($resource, $request->user(), $record, $request->validate([
-            'action' => 'required|in:finalize,reopen', 'revision' => self::REVISION, 'reason' => self::REASON,
-        ]));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id, $record->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $record, $url) {
+            $data = $request->validate([
+                'action' => 'required|in:finalize,reopen', 'revision' => self::REVISION, 'reason' => self::REASON,
+            ]);
+            $this->corrections->record($resource, $request->user(), $record, $data);
+
+            return DashboardFormResponse::success($url, $data['action'] === 'finalize' ? 'Correction finalisée.' : 'Correction rouverte.');
+        });
     }
 
     public function batch(Request $request, AcademicResource $resource)
     {
-        $this->corrections->batch($resource, $request->user(), $request->validate([
-            'action' => 'required|in:validate,release', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
-        ]));
+        $url = $this->url($request, $resource->academic_offering_id, $resource->id);
 
-        return back(303);
+        return DashboardFormResponse::run($url, function () use ($request, $resource, $url) {
+            $data = $request->validate([
+                'action' => 'required|in:validate,release', 'revision' => self::REVISION, 'reason' => self::REASON, 'notify' => 'boolean',
+            ]);
+            $this->corrections->batch($resource, $request->user(), $data);
+
+            return DashboardFormResponse::success($url, $data['action'] === 'validate' ? 'Corrections validées.' : 'Corrections publiées.');
+        });
+    }
+
+    private function url(Request $request, int $offering, ?int $resource = null, ?int $record = null): string
+    {
+        $context = Validator::make($request->query(), [
+            'year' => 'nullable|integer', 'from_gradebook' => 'nullable|boolean', 'gradebook_semester' => 'nullable|in:all,1,2',
+            'grades_students_page' => 'nullable|integer|min:1', 'grades_assessments_page' => 'nullable|integer|min:1',
+            'participant_q' => 'nullable|string|max:100',
+            'participant_group' => ['nullable', AssessmentParticipantFilters::GROUP_RULE],
+        ]);
+        $parameters = ['offering' => $offering, 'resource' => $resource, 'record' => $record] + ($context->passes() ? $context->validated() : []);
+
+        return route($request->routeIs('dashboard.admin.*') ? 'dashboard.admin.assessments.index' : 'dashboard.teaching.assessments.index', $parameters);
     }
 
     public function copy(Request $request, AcademicResource $resource, AssessmentRecord $record, AssessmentCopies $copies)

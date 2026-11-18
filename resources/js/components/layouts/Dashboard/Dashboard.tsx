@@ -1,5 +1,6 @@
 import AppsNavigation from '@/components/admin/AppsNavigation';
 import DetailNavigation from '@/components/admin/DetailNavigation';
+import FeedbackToast from '@/components/admin/FeedbackToast';
 import DashboardHeader from '@/components/layouts/Dashboard/DashboardHeader';
 import Sidebar from '@/components/layouts/Dashboard/Sidebar';
 import { StudentBottomNav, StudentTopHeader, studentChromeSection, type StudentChromeData } from '@/components/student/StudentChrome';
@@ -28,6 +29,7 @@ const Dashboard = ({
     const [currentActiveMenu, setCurrentActiveMenu] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [dismissedActionFlash, setDismissedActionFlash] = useState<object | null>(null);
     const { props, component, flash, url } = usePage<{
         auth: {
             user: { roles?: ComponentProps<typeof Sidebar>['userRole']; permissions?: string[]; first_name?: string; last_name?: string } | null;
@@ -39,6 +41,8 @@ const Dashboard = ({
         overview?: TeachingPeriod | null;
         view?: TeachingView;
     }>();
+    const actionFeedback = flash !== dismissedActionFlash && typeof flash?.dashboardAction === 'string' ? flash.dashboardAction : null;
+    const dismissActionFeedback = useCallback(() => setDismissedActionFlash(flash ?? null), [flash]);
     const isAdminApps = /^dashboard\/(academicYear|faculties|levels|blog|adminEnrollments|studentAcademic|professors|schedule|seo)\//.test(component);
     const showAppsNavigation = isAdminApps && !hideAppsNavigation && component !== 'dashboard/adminEnrollments/Overview';
     const isStudentOverview = component === 'dashboard/student/Portal' && props.section === 'overview';
@@ -210,6 +214,7 @@ const Dashboard = ({
                     Aller au contenu principal
                 </a>
             )}
+            {actionFeedback && <FeedbackToast feedback={{ id: 0, tone: 'success', message: actionFeedback }} onDismiss={dismissActionFeedback} />}
             {arriving && <DashboardCurtain />}
             {teacherApp ? (
                 <TeacherShell

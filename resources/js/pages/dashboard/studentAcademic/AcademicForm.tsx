@@ -50,23 +50,38 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
     });
     const { setError } = form;
     useEffect(() => {
-        if (!spec.requireSuccessFlash) return;
+        const isAction = (url: string) => {
+            const requested = new URL(url, window.location.href);
+            const action = new URL(spec.action, window.location.href);
+            return requested.origin === action.origin && requested.pathname === action.pathname;
+        };
 
         const showNetworkError = (event: Event) => {
             if (!submitting.current) return;
             const error = (event as CustomEvent<{ exception: unknown }>).detail?.exception;
             if (!isAxiosError(error) || error.response || !error.config?.url) return;
             if (!['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '')) return;
-            const requested = new URL(error.config.url, window.location.href);
-            const action = new URL(spec.action, window.location.href);
-            if (requested.origin !== action.origin || requested.pathname !== action.pathname) return;
+            if (!isAction(error.config.url)) return;
 
             event.preventDefault();
             setError('_response', 'Réponse non reçue. Réessayez ce formulaire ou consultez le compte avant une nouvelle saisie.');
         };
+        const showSessionError = (event: Event) => {
+            if (!submitting.current) return;
+            const response = (event as CustomEvent<{ response: { status: number; config?: { url?: string } } }>).detail?.response;
+            if (!response?.config?.url || !isAction(response.config.url) || ![401, 419].includes(response.status)) return;
+
+            event.preventDefault();
+            setError('_response', 'Votre session a expiré. Reconnectez-vous dans un autre onglet, puis revenez à ce formulaire.');
+        };
+
         document.addEventListener('inertia:exception', showNetworkError, true);
-        return () => document.removeEventListener('inertia:exception', showNetworkError, true);
-    }, [setError, spec.action, spec.requireSuccessFlash]);
+        document.addEventListener('inertia:invalid', showSessionError, true);
+        return () => {
+            document.removeEventListener('inertia:exception', showNetworkError, true);
+            document.removeEventListener('inertia:invalid', showSessionError, true);
+        };
+    }, [setError, spec.action]);
 
     return (
         <AdminModal
@@ -100,6 +115,11 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                         onSuccess: (page) => {
                             if (spec.acceptsResponse && !spec.acceptsResponse(page)) {
                                 form.setError('_response', 'Le retour vers ce dossier n’a pas été confirmé. Vérifiez le compte avant de réessayer.');
+                                return;
+                            }
+
+                            if (typeof page.flash?.dashboardAction === 'string' && page.flash.dashboardAction.trim()) {
+                                onClose();
                                 return;
                             }
 

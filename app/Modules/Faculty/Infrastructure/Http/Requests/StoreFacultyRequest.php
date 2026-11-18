@@ -2,13 +2,14 @@
 
 namespace App\Modules\Faculty\Infrastructure\Http\Requests;
 
+use App\Models\AcademicStructure\AcademicProgram;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreFacultyRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // ou ajouter une policy
+        return $this->user()->can('manage', AcademicProgram::class) && ! $this->user()->academicFaculties()->exists();
     }
 
     public function rules(): array

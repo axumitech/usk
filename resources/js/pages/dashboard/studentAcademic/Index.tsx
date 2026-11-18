@@ -415,7 +415,8 @@ function RequestQueue({
 }
 
 export default function Index(props: Props) {
-    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
+    const { props: shared, flash } = usePage<{ uploadLimits?: UploadLimits }>();
+    const limits = shared.uploadLimits ?? defaultUploadLimits;
     const tab = props.filters.tab || 'students';
     const selected = props.selected;
     const [faculty, setFaculty] = useState(String(props.filters.faculty ?? ''));
@@ -427,11 +428,16 @@ export default function Index(props: Props) {
     const [query, setQuery] = useState(props.filters.q || '');
     const [spec, setSpec] = useState<FormSpec | null>(null);
     const [toast, setToast] = useState<ToastFeedback | null>(null);
+    const [dismissedFinanceFlash, setDismissedFinanceFlash] = useState<typeof flash>();
+    const financeFlash = flash?.financePayment as { accountId: number; message: string } | undefined;
+    const feedback: ToastFeedback | null = financeFlash && financeFlash.accountId === selected?.id && flash !== dismissedFinanceFlash
+        ? { id: 0, message: financeFlash.message, tone: 'success' }
+        : toast;
     const sequence = useRef(0);
     const base = '/app/dashboard/admin/student-academic';
     const show = (title: string, description: string, action: string, fields: Field[], submitLabel?: string) =>
         setSpec({ title, description, action, fields, submitLabel });
-    const openPaymentForm = (
+    const openFinanceForm = (
         title: string,
         description: string,
         action: string,
@@ -447,6 +453,15 @@ export default function Index(props: Props) {
             fields,
             submitLabel,
             requireSuccessFlash: true,
+            acceptsResponse: (page) => {
+                const destination = new URL(page.url, window.location.href);
+
+                return page.component === 'dashboard/studentAcademic/Index'
+                    && destination.origin === window.location.origin
+                    && destination.pathname === base
+                    && destination.searchParams.get('tab') === 'finance'
+                    && destination.searchParams.get('academic') === String(selected?.id);
+            },
             values: {
                 academic_return: true,
                 q: q ?? null,
@@ -546,7 +561,7 @@ export default function Index(props: Props) {
         );
     const openAdjustment = (type: string) =>
         selected &&
-        show(
+        openFinanceForm(
             labels[type],
             type === 'override'
                 ? 'La dérogation ne contourne ni une suspension, ni l’affectation, ni les règles de publication.'
@@ -576,7 +591,7 @@ export default function Index(props: Props) {
                           },
                       ]
                     : []),
-                reason,
+                { ...reason, minLength: 10, help: 'Au moins 10 caractères. Le motif figure dans le journal d’audit.' },
             ],
         );
     const directoryView = props.filters.view ?? 'table';
@@ -696,7 +711,12 @@ export default function Index(props: Props) {
     return (
         <Dashboard hideAppsNavigation={tab === 'students'}>
             <Head title={tab === 'students' ? directoryTitle : tab === 'requests' ? 'Demandes de scolarité' : 'Nos étudiants'} />
-            {toast && <FeedbackToast key={toast.id} feedback={toast} onDismiss={() => setToast(null)} />}
+            {feedback && (
+                <FeedbackToast key={feedback.id} feedback={feedback} onDismiss={() => {
+                    setDismissedFinanceFlash(flash);
+                    setToast(null);
+                }} />
+            )}
             <div className="student-portal academic-administration">
                 {tab === 'students' ? (
                     <header className="directory-heading">
@@ -1145,7 +1165,7 @@ export default function Index(props: Props) {
                                     <button
                                         className="admin-primary"
                                         onClick={() =>
-                                            show(
+                                            openFinanceForm(
                                                 'Établir les frais académiques',
                                                 'Confirmez la catégorie de l’étudiant. Le barème annuel actif fournit les montants et les dates. S’il est encore en préparation, seule la catégorie sera enregistrée.',
                                                 `${base}/${selected.id}/fees`,
@@ -1163,7 +1183,7 @@ export default function Index(props: Props) {
                                                     },
                                                     { name: 'first_due', label: 'Première échéance hors barème annuel', type: 'date' },
                                                     { name: 'second_due', label: 'Deuxième échéance hors barème annuel', type: 'date' },
-                                                    reason,
+                                                    { ...reason, minLength: 5, help: 'Au moins 5 caractères.' },
                                                 ],
                                             )
                                         }
@@ -1175,7 +1195,7 @@ export default function Index(props: Props) {
                                 <button
                                     className="admin-secondary"
                                     onClick={() =>
-                                        show(
+                                        openFinanceForm(
                                             'Ajouter un frais complémentaire',
                                             'Indiquez une obligation réelle et sa référence au barème ou à la décision applicable. Les frais académiques restent établis par le barème du niveau.',
                                             `${base}/${selected.id}/obligations`,
@@ -1185,7 +1205,7 @@ export default function Index(props: Props) {
                                                 { name: 'installment', label: 'Numéro de tranche', type: 'number', required: true, value: 1 },
                                                 { name: 'amount', label: 'Montant (USD)', type: 'number', required: true },
                                                 { name: 'due_at', label: 'Échéance', type: 'date' },
-                                                reason,
+                                                { ...reason, minLength: 10, help: 'Au moins 10 caractères.' },
                                             ],
                                         )
                                     }
@@ -1209,7 +1229,7 @@ export default function Index(props: Props) {
                                     <button
                                         className="admin-primary"
                                         onClick={() =>
-                                            openPaymentForm(
+                                            openFinanceForm(
                                                 'Enregistrer un versement à vérifier',
                                                 'Ce versement restera en attente jusqu’à une confirmation comptable explicite, après vérification de la pièce justificative.',
                                                 `${base}/${selected.id}/payments`,
@@ -1280,7 +1300,7 @@ export default function Index(props: Props) {
                                                                 <button
                                                                     className="academic-link-button"
                                                                     onClick={() =>
-                                                                        openPaymentForm(
+                                                                        openFinanceForm(
                                                                             'Confirmer le versement',
                                                                             `${money(payment.amount_cents, payment.currency)} · ${payment.reference}. Confirmez uniquement après vérification de la pièce comptable ou du rapprochement bancaire.`,
                                                                             `${base}/payments/${payment.id}/status`,
@@ -1313,7 +1333,7 @@ export default function Index(props: Props) {
                                                                 <button
                                                                     className="academic-link-button"
                                                                     onClick={() =>
-                                                                        openPaymentForm(
+                                                                        openFinanceForm(
                                                                             'Corriger une écriture comptable',
                                                                             'Cette action corrige le registre. Elle n’exécute aucun transfert bancaire. Un remboursement ne doit être enregistré qu’après son exécution effective.',
                                                                             `${base}/payments/${payment.id}/status`,
@@ -1376,11 +1396,11 @@ export default function Index(props: Props) {
                                             <button
                                                 className="academic-link-button"
                                                 onClick={() =>
-                                                    show(
+                                                    openFinanceForm(
                                                         'Révoquer cette autorisation',
                                                         'Les droits seront réévalués lors du prochain accès.',
                                                         `${base}/adjustments/${adjustment.id}/revoke`,
-                                                        [reason],
+                                                        [{ ...reason, minLength: 10, help: 'Au moins 10 caractères.' }],
                                                     )
                                                 }
                                             >
@@ -1770,7 +1790,9 @@ export default function Index(props: Props) {
                     onClose={() => setSpec(null)}
                     onSuccess={(message) => {
                         setSpec(null);
-                        setToast({ id: ++sequence.current, message, tone: 'success' });
+                        if (!spec.values?.academic_return) {
+                            setToast({ id: ++sequence.current, message, tone: 'success' });
+                        }
                     }}
                 />
             )}

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class DocumentController extends Controller
 {
@@ -64,10 +65,17 @@ class DocumentController extends Controller
 
     public function replaceReviewed(Request $request, string $uuid, ReplaceReviewedDocument $replace)
     {
-        $request->validate(['file' => DocumentUploadLimit::proofRules()], DocumentUploadLimit::proofMessages());
-        $replace->execute($uuid, $request->user()->id, $request->file('file'));
+        $document = EnrollmentDocument::with('enrollment')->where('uuid', $uuid)->firstOrFail();
+        abort_unless($document->enrollment && $document->enrollment->student_id === $request->user()->id, 403);
+        $url = route('dashboard.enrollments.show', ['uuid' => $document->enrollment->uuid, 'document' => $uuid]);
+        try {
+            $request->validate(['file' => DocumentUploadLimit::proofRules()], DocumentUploadLimit::proofMessages());
+            $replace->execute($uuid, $request->user()->id, $request->file('file'));
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
 
-        return back()->with('success', 'Votre nouveau justificatif a été transmis pour examen.');
+        return redirect()->to($url, 303)->with('success', 'Votre nouveau justificatif a été transmis pour examen.');
     }
 
     public function preview(Request $request, string $uuid)
