@@ -143,7 +143,7 @@ final class LevelDetailController extends Controller
             array_intersect_key($validated, array_flip(['price_national_first', 'price_national_second', 'price_foreign_first', 'price_foreign_second']))
         );
 
-        return back()->with('success', 'Détails du niveau mis à jour avec succès.');
+        return redirect()->to($request->administrativeUrl(), 303)->with('success', 'Détails du niveau mis à jour avec succès.');
     }
 
 }

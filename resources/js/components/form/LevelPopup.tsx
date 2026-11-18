@@ -1,11 +1,18 @@
 import AdminModal from '@/components/admin/AdminModal';
+import Alert from '@/utils/sweetAlert';
 import { useForm } from '@inertiajs/react';
 import { Building2, GraduationCap, ImageIcon, Info, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import '../../../css/dashboard/level-forms.css';
 type Faculty = { id: number; name: string };
 type Level = { id: number; faculty_id: number; title: string; code: string; tag?: string; description?: string; is_active?: boolean; image?: string };
-type Props = { onClose: () => void; faculties?: { data?: Faculty[] }; level?: Level | null; levelCodes?: { id?: number | string; code: string }[] };
+type Props = {
+    onClose: () => void;
+    faculties?: { data?: Faculty[] };
+    level?: Level | null;
+    levelCodes?: { id?: number | string; code: string }[];
+    returnTab?: string;
+};
 type LevelForm = {
     faculty_id: number | string;
     title: string;
@@ -16,7 +23,7 @@ type LevelForm = {
     image: File | null;
 };
 const imageUrl = (path?: string) => (path ? (/^(https?:\/\/|\/)/.test(path) ? path : `/storage/${path}`) : '');
-export default function LevelPopup({ onClose, faculties, level = null, levelCodes = [] }: Props) {
+export default function LevelPopup({ onClose, faculties, level = null, levelCodes = [], returnTab }: Props) {
     const { data, setData, post, processing, errors, clearErrors, setError, transform, progress } = useForm<LevelForm>({
         faculty_id: level?.faculty_id || faculties?.data?.[0]?.id || '',
         title: level?.title || '',
@@ -61,10 +68,14 @@ export default function LevelPopup({ onClose, faculties, level = null, levelCode
         event.preventDefault();
         if (formErrors.image) return;
         transform((values) => (level ? { ...values, _method: 'PUT' } : values));
-        post(level ? route('dashboard.admin.levels.update', level.id) : route('dashboard.admin.levels.store'), {
+        post(level ? route('dashboard.admin.levels.update', { id: level.id, tab: returnTab }) : route('dashboard.admin.levels.store'), {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: () => onClose(),
+            onSuccess: (page) => {
+                onClose();
+                const flash = page.props.flash as { success?: string } | undefined;
+                Alert.success(flash?.success || (level ? 'Niveau mis à jour avec succès.' : 'Niveau créé avec succès.'));
+            },
         });
     };
     return (
@@ -134,10 +145,21 @@ export default function LevelPopup({ onClose, faculties, level = null, levelCode
                                 <label className="lf-label" htmlFor="level-create-code">
                                     Code académique <span>*</span>
                                 </label>
-                                <input id="level-create-code" list="academic-level-codes" value={data.code}
-                                    onChange={(event) => setData('code', event.target.value)} required maxLength={10}
-                                    aria-invalid={!!errors.code} placeholder="Code défini par l’établissement" />
-                                <datalist id="academic-level-codes">{codes.map(code => <option key={code} value={code} />)}</datalist>
+                                <input
+                                    id="level-create-code"
+                                    list="academic-level-codes"
+                                    value={data.code}
+                                    onChange={(event) => setData('code', event.target.value)}
+                                    required
+                                    maxLength={10}
+                                    aria-invalid={!!errors.code}
+                                    placeholder="Code défini par l’établissement"
+                                />
+                                <datalist id="academic-level-codes">
+                                    {codes.map((code) => (
+                                        <option key={code} value={code} />
+                                    ))}
+                                </datalist>
                                 {error('code')}
                             </div>
                             <div>

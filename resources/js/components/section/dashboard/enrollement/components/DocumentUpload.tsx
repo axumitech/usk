@@ -1,3 +1,5 @@
+import { defaultUploadLimits, documentAccept, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
+import { usePage } from '@inertiajs/react';
 import { CheckCircle2, FileText, LoaderCircle, Upload, X } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import type { DocumentMeta, RequirementDoc } from '../types';
@@ -19,6 +21,7 @@ export default function DocumentUpload({
     onRemove: () => void;
 }) {
     const id = `document-${doc.key}`;
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     return (
         <div className="enrollment-document">
             <label htmlFor={id}>
@@ -47,13 +50,13 @@ export default function DocumentUpload({
                     <label htmlFor={id} className="enrollment-upload-prompt">
                         <Upload size={23} />
                         <strong>Choisir un fichier</strong>
-                        <span>Formats : {doc.accept || 'image ou PDF'} · 10 Mo maximum</span>
+                        <span>{proofUploadHelp(limits)}</span>
                     </label>
                 )}
                 <input
                     id={id}
                     type="file"
-                    accept={doc.accept || 'image/*,.pdf'}
+                    accept={documentAccept}
                     disabled={uploading}
                     aria-invalid={!!error}
                     aria-describedby={error ? `${id}-error` : undefined}

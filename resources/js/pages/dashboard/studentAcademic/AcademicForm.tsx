@@ -8,6 +8,7 @@ export type Field = {
     label: string;
     type?: string;
     required?: boolean;
+    accept?: string;
     options?: { value: string | number; label: string }[];
     optionsFor?: (values: Record<string, FormValue>) => NonNullable<Field['options']>;
     visibleFor?: (values: Record<string, FormValue>) => boolean;
@@ -183,7 +184,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                         onChange={(event) => form.setData(field.name, event.target.value)}
                                     />
                                 ) : field.type === 'file' ? (
-                                    <input id={inputId} type="file" onChange={(event) => form.setData(field.name, event.target.files?.[0] || null)} />
+                                    <input id={inputId} type="file" accept={field.accept} onChange={(event) => form.setData(field.name, event.target.files?.[0] || null)} />
                                 ) : (
                                     field.type !== 'checkbox' && (
                                         <input

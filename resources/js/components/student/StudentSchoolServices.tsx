@@ -1,6 +1,7 @@
 import Pagination from '@/components/admin/Pagination';
 import { formatDate } from '@/lib/studentEnrollment';
-import { Link, useForm } from '@inertiajs/react';
+import { defaultUploadLimits, documentAccept, proofUploadError, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
@@ -368,6 +369,7 @@ function ProcedureForm({
     slots: AvailableAppointmentSlot[];
 }) {
     const appointment = category.id === 'appointments';
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const operation = useRef<string | undefined>(undefined);
     const form = useForm({
         procedure: procedure.id,
@@ -380,7 +382,13 @@ function ProcedureForm({
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
+        if (form.processing) return;
         if (appointment && !hasAvailableSlot) return;
+        const error = form.data.file && proofUploadError(form.data.file, limits);
+        if (error) {
+            form.setError('file', error);
+            return;
+        }
         operation.current ??= globalThis.crypto?.randomUUID?.();
         form.transform((values) => ({
             procedure: values.procedure,
@@ -430,11 +438,12 @@ function ProcedureForm({
             {procedure.attachment && (
                 <label className="school-services-file">
                     <span>
-                        <Paperclip size={18} aria-hidden="true" /> Justificatif <small>Facultatif · PDF, JPG, PNG ou WebP</small>
+                        <Paperclip size={18} aria-hidden="true" /> Justificatif <small>Facultatif. {proofUploadHelp(limits)}</small>
                     </span>
                     <input
                         type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        accept={documentAccept}
+                        disabled={form.processing}
                         aria-invalid={Boolean(form.errors.file)}
                         onChange={(event) => form.setData('file', event.currentTarget.files?.[0] ?? null)}
                     />

@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 
 const require = createRequire(import.meta.url);
 async function loadStudentFinanceComponent(name, imports = {}) {
@@ -18,6 +19,7 @@ async function loadStudentFinanceComponent(name, imports = {}) {
         module,
         exports: module.exports,
         require(name) {
+            if (name === '@/lib/uploadLimits') return uploadLimits;
             if (name in imports) return imports[name];
             if (name === '@inertiajs/react') {
                 return {

@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 
 const hookSource = await readFile(new URL('../../resources/js/components/section/dashboard/enrollement/hooks/useEnrollmentForm.ts', import.meta.url), 'utf8');
 const hookCode = ts.transpileModule(hookSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 
-function mount(initial, post, visits = [], replacements = []) {
+function mount(initial, post, visits = [], replacements = [], limits) {
     const slots = [];
     let cursor = 0;
     const state = (initialValue) => {
@@ -20,14 +21,30 @@ function mount(initial, post, visits = [], replacements = []) {
         module, exports: module.exports, URL, FormData,
         route: (name, uuid) => `/app/dashboard/enrollments/${uuid}/${name.endsWith('.submit') ? 'submit' : name.endsWith('.edit') ? 'edit' : name}`,
         require(name) {
+            if (name === '@/lib/uploadLimits') return uploadLimits;
             if (name === 'react') return { useState: state, useRef: value => state({ current: value })[0], useEffect: () => undefined };
             if (name === 'axios') return { default: { post, isAxiosError: error => error?.isAxiosError === true } };
             if (name === '@inertiajs/react') return { router: { visit: url => visits.push(url), replace: options => replacements.push(options) } };
             throw new Error(`Unexpected hook import ${name}`);
         },
     });
-    return { render() { cursor = 0; return module.exports.useEnrollmentForm(initial); } };
+    return { render() { cursor = 0; return module.exports.useEnrollmentForm(initial, limits); } };
 }
+
+test('Une image au-delà du plafond serveur ne remplace pas la pièce ni les champs du brouillon', async () => {
+    const document = { uuid: 'deja-enregistre', filename: 'attestation.pdf', mime: 'application/pdf', size_bytes: 24 };
+    const form = mount({ name: 'Nom conservé', documents: { diploma: document } }, () => assert.fail('Aucun envoi attendu'), [], [], {
+        document_kb: 2048, image_kb: 1024,
+    });
+    const target = { files: [{ name: 'attestation.png', type: 'image/png', size: 1024 * 1024 + 1 }], value: 'attestation.png' };
+    await form.render().handleFileChange('diploma')({ target });
+
+    assert.equal(target.value, '');
+    const saved = form.render();
+    assert.match(saved.uploadErrors.diploma, /1 Mo/);
+    assert.equal(saved.formData.documents.diploma, document);
+    assert.equal(saved.formData.name, 'Nom conservé');
+});
 
 test('Le vrai hook sauvegarde puis reprend un brouillon dont le serveur a normalisé program en null', async () => {
     const requests = [];

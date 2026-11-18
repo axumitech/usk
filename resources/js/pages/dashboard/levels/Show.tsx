@@ -21,7 +21,7 @@ export default function LevelShow() {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const deleteForm = useForm({});
     const levelDataHook = useLevelData(levelDetail);
-    const modalsHook = useLevelModals(levelDetail);
+    const modalsHook = useLevelModals(levelDetail, activeTab);
     const deleteLevel = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (deleteForm.processing) return;
@@ -98,7 +98,7 @@ export default function LevelShow() {
                         </form>
                     </AdminModal>
                 )}
-                {editingLevel && <LevelPopup level={level} faculties={faculties} onClose={() => setEditingLevel(false)} />}
+                {editingLevel && <LevelPopup level={level} faculties={faculties} returnTab={activeTab} onClose={() => setEditingLevel(false)} />}
             </div>
         </Dashboard>
     );

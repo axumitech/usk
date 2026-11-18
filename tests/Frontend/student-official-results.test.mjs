@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
+import uploadLimits from './support/upload-limits.mjs';
 
 const require = createRequire(import.meta.url);
 const source = await readFile(new URL('../../resources/js/components/student/OfficialResults.tsx', import.meta.url), 'utf8');
@@ -16,6 +17,7 @@ vm.runInNewContext(ts.transpileModule(source, {
     module, exports: module.exports,
     route: (name) => name,
     require(name) {
+        if (name === '@/lib/uploadLimits') return uploadLimits;
         if (name === '@inertiajs/react') return { Link: ({ children, ...props }) => React.createElement('a', props, children) };
         if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });
         if (name === '@/lib/studentEnrollment') return { formatDate: (date) => date };

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Classes;
 use App\Models\Courses;
 use App\Models\Enrollment;
+use App\Models\Faculty;
 use App\Models\Intake;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
@@ -153,6 +154,92 @@ final class StudentAnnouncementsTest extends TestCase
         $this->assertTrue($draft->fresh()->published_at->isToday());
         $this->actingAs($student)->get(route('dashboard.student.announcements'))->assertInertia(fn (Assert $page) => $page
             ->where('announcements.stats.recent', 1)->where('announcements.featured.id', $draft->id));
+    }
+
+    public function test_announcement_publication_windows_apply_to_list_detail_overview_and_private_media(): void
+    {
+        $this->travelTo(now()->startOfSecond()->addMicroseconds(500000));
+        Storage::fake('local');
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $offering = $this->offering($entry);
+        $file = ['path' => 'academic-resources/calendar.pdf', 'filename' => 'calendar.pdf', 'mime' => 'application/pdf'];
+        Storage::disk('local')->put($file['path'], "%PDF-1.4\ncalendrier de test\n%%EOF\n");
+        $visible = $this->announcement($offering, 'Annonce à la limite de validité', [
+            'published_at' => now(), 'opens_at' => now(), 'closes_at' => now(),
+        ] + $file);
+        $hidden = [
+            $this->announcement($offering, 'Publication future', ['published_at' => now()->addDay()] + $file),
+            $this->announcement($offering, 'Annonce à venir', ['opens_at' => now()->addMinute()] + $file),
+            $this->announcement($offering, 'Annonce expirée', ['closes_at' => now()->subMinute()] + $file),
+        ];
+        $index = route('dashboard.student.announcements', ['academic' => $entry->id]);
+
+        $this->actingAs($student)->get($index)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('announcements.stats.total', 1)->has('announcements.items.data', 1)
+            ->where('announcements.items.data.0.id', $visible->id));
+        $this->get('/app/dashboard/student?academic='.$entry->id)->assertInertia(fn (Assert $page) => $page
+            ->has('overview.announcements', 1)->where('overview.announcements.0.id', $visible->id));
+        $this->get($index.'&announcement='.$visible->id)->assertOk();
+        $preview = $this->get(route('dashboard.student.resources.preview', ['resource' => $visible->id, 'academic' => $entry->id]))
+            ->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->assertTrue($preview->baseResponse->headers->hasCacheControlDirective('no-store'));
+        $this->assertTrue($preview->baseResponse->headers->hasCacheControlDirective('private'));
+        foreach ($hidden as $row) {
+            $this->get($index.'&announcement='.$row->id)->assertNotFound();
+            $this->get(route('dashboard.student.announcements', ['announcement' => $row->id]))->assertNotFound();
+            foreach (['preview', 'download'] as $action) {
+                $this->get(route('dashboard.student.resources.'.$action, ['resource' => $row->id, 'academic' => $entry->id]))->assertNotFound();
+            }
+        }
+    }
+
+    public function test_announcements_remain_scoped_to_the_students_faculty_and_course(): void
+    {
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $visible = $this->announcement($this->offering($entry), 'Annonce du cours autorisé');
+        $faculty = Faculty::create(['name' => 'Autre faculté', 'code' => 'AUTRE']);
+        $level = $entry->level->replicate()->fill(['faculty_id' => $faculty->id, 'title' => 'Autre niveau', 'code' => 'A2']);
+        $level->save();
+        $other = User::factory()->create();
+        $other->assignRole(Role::findOrCreate('student', 'web'));
+        $application = Enrollment::create(['student_id' => $other->id, 'level_id' => $level->id, 'academic_year_id' => $entry->academic_year_id, 'status' => 'validated']);
+        $profile = StudentProfile::create(['user_id' => $other->id, 'student_status' => 'active']);
+        $otherEntry = AcademicEnrollment::create([
+            'student_profile_id' => $profile->id, 'application_id' => $application->id, 'level_id' => $level->id,
+            'academic_year_id' => $entry->academic_year_id, 'enrollment_status' => 'confirmed', 'currency' => 'USD',
+        ]);
+        $foreign = $this->announcement($this->offering($otherEntry), 'Annonce de l’autre faculté', [
+            'path' => 'academic-resources/foreign.pdf', 'filename' => 'foreign.pdf', 'mime' => 'application/pdf',
+        ]);
+
+        $this->actingAs($student)->get(route('dashboard.student.announcements'))->assertInertia(fn (Assert $page) => $page
+            ->has('announcements.items.data', 1)->where('announcements.items.data.0.id', $visible->id));
+        $this->get(route('dashboard.student.announcements', ['announcement' => $foreign->id]))->assertNotFound();
+        foreach (['preview', 'download'] as $action) {
+            $this->get(route('dashboard.student.resources.'.$action, ['resource' => $foreign->id]))->assertNotFound();
+        }
+        $this->actingAs($other)->get(route('dashboard.student.announcements'))->assertInertia(fn (Assert $page) => $page
+            ->has('announcements.items.data', 1)->where('announcements.items.data.0.id', $foreign->id));
+        $this->get(route('dashboard.student.announcements', ['announcement' => $visible->id]))->assertNotFound();
+    }
+
+    public function test_empty_announcements_and_nullable_text_fields_are_presented_without_media(): void
+    {
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $index = route('dashboard.student.announcements');
+        $this->actingAs($student)->get($index)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('announcements.stats.total', 0)->where('announcements.featured', null)
+            ->has('announcements.items.data', 0)->has('announcements.related', 0));
+        $row = $this->announcement($this->offering($entry), 'Annonce textuelle', [
+            'body' => null, 'url' => null, 'path' => null, 'mime' => null, 'filename' => null, 'published_at' => null,
+        ]);
+        $this->get($index.'?announcement='.$row->id)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('announcements.selected.kind', 'text')->where('announcements.selected.description', null)
+            ->where('announcements.selected.preview_url', null)->where('announcements.selected.download_url', null)
+            ->where('announcements.selected.source_url', null));
     }
 
     private function offering(AcademicEnrollment $entry, ?int $group = null): AcademicOffering

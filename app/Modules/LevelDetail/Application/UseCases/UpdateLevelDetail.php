@@ -92,7 +92,7 @@ final class UpdateLevelDetail
             $coursesNumber,
             $imagePath,
             $courseObjective,
-            $fees,
+            $fees ?? $existing->fees(),
             $options,
             priceForeign: $priceForeign,
             installments: $installments

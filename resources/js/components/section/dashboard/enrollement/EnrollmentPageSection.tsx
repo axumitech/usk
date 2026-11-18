@@ -1,4 +1,5 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import { defaultUploadLimits, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
 import { Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CheckCircle2, HelpCircle, LoaderCircle, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import { admissionOptions, changeAdmissionContext } from './utils/admissionConte
 import { validateStep } from './utils/validators';
 type Draft = { uuid: string; last_step: number; form_snapshot: DraftSnapshot; context?: DraftContext };
 type PageData = {
+    uploadLimits?: UploadLimits;
     auth: { user: { first_name?: string; post_name?: string; last_name?: string; email: string } };
     draft?: Draft;
     faculties: Faculty[];
@@ -32,6 +34,7 @@ const descriptions = [
 const contextFields = ['year_id', 'faculty_id', 'academic_program_id', 'level_id'] as const;
 export default function EnrollmentPageSection() {
     const { props } = usePage<PageData>();
+    const limits = props.uploadLimits ?? defaultUploadLimits;
     const user = props.auth.user;
     const [step, setStep] = useState(props.draft?.context?.unavailable_reason ? 1 : Math.max(1, Math.min(4, props.draft?.last_step || 1)));
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -46,7 +49,7 @@ export default function EnrollmentPageSection() {
         year_id: !props.draft && props.years.length === 1 ? String(props.years[0].id) : '',
         ...props.draft?.form_snapshot,
         uuid: props.draft?.uuid,
-    });
+    }, limits);
     const { formData, setFormData, isConfirmed, setIsConfirmed, saveProgress, submitEnrollment, saveStatus, saveError, uploadingKeys, uploadErrors } =
         form;
     const contexts = props.admissionContexts ?? [];
@@ -326,7 +329,7 @@ export default function EnrollmentPageSection() {
                         </section>
                         <section className="enrollment-document-guide">
                             <h3>Préparez vos documents</h3>
-                            <p>Des fichiers lisibles, au format demandé. Chaque pièce peut peser jusqu’à 10 Mo.</p>
+                            <p>{proofUploadHelp(limits)}</p>
                             {requiredDocs.length > 0 && (
                                 <ul>
                                     {requiredDocs.map((doc) => (

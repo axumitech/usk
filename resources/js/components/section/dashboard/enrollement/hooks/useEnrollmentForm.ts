@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { defaultUploadLimits, proofUploadError, type UploadLimits } from '@/lib/uploadLimits';
 import axios from 'axios';
 import { useEffect, useRef, useState, type SetStateAction } from 'react';
 import type { DocumentMeta, DraftContext, DraftSnapshot, FormData as EnrollmentFormData, SaveStatus } from '../types';
@@ -17,7 +18,7 @@ const formErrors = (errors: Record<string, string | string[]> = {}): Record<stri
         return fields.includes(name) || field.startsWith('documents.') ? [[name, Array.isArray(messages) ? messages[0] : messages]] : [];
     }));
 
-export function useEnrollmentForm(initial: DraftSnapshot & { uuid?: string; last_step?: number }) {
+export function useEnrollmentForm(initial: DraftSnapshot & { uuid?: string; last_step?: number }, limits: UploadLimits = defaultUploadLimits) {
     const [formData, setFormData] = useState<EnrollmentFormData>({
         name: text(initial.name),
         email: text(initial.email),
@@ -79,8 +80,9 @@ export function useEnrollmentForm(initial: DraftSnapshot & { uuid?: string; last
         const file = event.target.files?.[0];
         if (!file) return;
         setUploadErrors((prev) => ({ ...prev, [key]: '' }));
-        if (file.size > 10 * 1024 * 1024) {
-            setUploadErrors((prev) => ({ ...prev, [key]: 'Ce fichier dépasse 10 Mo. Choisissez un fichier plus léger.' }));
+        const error = proofUploadError(file, limits);
+        if (error) {
+            setUploadErrors((prev) => ({ ...prev, [key]: error }));
             event.target.value = '';
             return;
         }
@@ -108,7 +110,9 @@ export function useEnrollmentForm(initial: DraftSnapshot & { uuid?: string; last
             setUploadErrors((prev) => ({
                 ...prev,
                 [key]: axios.isAxiosError(error)
-                    ? error.response?.data?.errors?.file?.[0] || 'Impossible de transférer le fichier. Vérifiez votre connexion et réessayez.'
+                    ? error.response?.data?.errors?.file?.[0] || (error.response?.status === 413
+                        ? 'Le serveur a refusé la taille de cet envoi. Choisissez un fichier plus léger.'
+                        : 'Impossible de transférer le fichier. Vérifiez votre connexion et réessayez.')
                     : 'Impossible de transférer le fichier. Réessayez.',
             }));
         } finally {

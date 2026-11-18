@@ -6,6 +6,7 @@ use App\Modules\Site\Application\UseCases\GetSiteInfo;
 use App\Modules\Student\Application\Services\StudentNotifications;
 use App\Modules\Teaching\Application\Services\LearningAccess;
 use App\Notifications\AcademicScheduleNotice;
+use App\Support\DocumentUploadLimit;
 use Closure;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -71,6 +72,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'flash' => fn () => ['success' => $request->session()->get('success')],
+            ...($request->is('app/dashboard', 'app/dashboard/*') ? ['uploadLimits' => fn () => DocumentUploadLimit::forForms()] : []),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user() ? [

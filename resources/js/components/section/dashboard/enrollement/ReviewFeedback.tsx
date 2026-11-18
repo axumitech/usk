@@ -1,16 +1,16 @@
 import type { StudentDocument as Document } from '@/lib/studentEnrollment';
-import { useForm } from '@inertiajs/react';
+import { defaultUploadLimits, documentAccept, proofUploadError, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
+import { useForm, usePage } from '@inertiajs/react';
 import { FileUp, Upload } from 'lucide-react';
 import { useRef } from 'react';
 import '../../../../../css/admin-enrollments.css';
-export function ReplacementForm({ document, limit }: { document: Document; limit: number }) {
+export function ReplacementForm({ document }: { document: Document }) {
     const form = useForm<{ file: File | null }>({ file: null });
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const input = useRef<HTMLInputElement>(null);
     const validate = (file: File | null) => {
         if (!file) return 'Choisissez d’abord le fichier corrigé à transmettre.';
-        if (file.size > limit * 1024) return 'Ce fichier dépasse la taille maximale autorisée.';
-        if (!/\.(pdf|jpe?g|png|webp)$/i.test(file.name)) return 'Choisissez un fichier PDF, JPG, PNG ou WebP.';
-        return null;
+        return proofUploadError(file, limits);
     };
     return (
         <form
@@ -43,7 +43,7 @@ export function ReplacementForm({ document, limit }: { document: Document; limit
                 ref={input}
                 id={`replacement-${document.uuid}`}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                accept={documentAccept}
                 disabled={form.processing}
                 aria-invalid={!!form.errors.file}
                 aria-describedby={`replacement-help-${document.uuid} replacement-error-${document.uuid}`}
@@ -58,8 +58,7 @@ export function ReplacementForm({ document, limit }: { document: Document; limit
                 }}
             />
             <small id={`replacement-help-${document.uuid}`}>
-                Choisissez votre fichier, puis cliquez sur « Envoyer ». PDF, JPG, PNG ou WebP ·{' '}
-                {(limit / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mo maximum.
+                {proofUploadHelp(limits)}
             </small>
             {form.data.file && (
                 <p className="review-selected-file">

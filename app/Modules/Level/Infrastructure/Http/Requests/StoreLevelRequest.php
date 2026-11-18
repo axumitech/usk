@@ -40,7 +40,7 @@ class StoreLevelRequest extends FormRequest
           'code.required' => 'Le code du niveau est obligatoire.',
           'code.exists' => 'Le code du niveau n\'existe pas.',
           'image.image' => 'L\'image doit être une image.',
-          'image.max' => 'L\'image doit peser moins de 3 Mo.',
+          'image.max' => 'L’image ne doit pas dépasser 2 Mo.',
         ];
     }
 }
