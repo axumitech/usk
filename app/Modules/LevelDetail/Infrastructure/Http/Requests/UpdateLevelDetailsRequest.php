@@ -17,6 +17,26 @@ class UpdateLevelDetailsRequest extends FormRequest
         return true;
     }
 
+    public function administrativeUrl(): string
+    {
+        $levelId = \App\Models\LevelDetail::whereKey($this->route('id'))->value('level_id');
+        if (! $levelId) {
+            return route('dashboard.admin.levels.index');
+        }
+        $parameters = ['id' => $levelId];
+        $tab = $this->query('tab');
+        if (in_array($tab, ['infos', 'conditions', 'prof', 'cours'], true)) {
+            $parameters['tab'] = $tab;
+        }
+
+        return route('dashboard.admin.levels.details.show', $parameters);
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->administrativeUrl();
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -59,7 +79,7 @@ class UpdateLevelDetailsRequest extends FormRequest
             'student_number.integer' => 'Le nombre d\'étudiants doit être un entier.',
             'credit_required.integer' => 'Le nombre de crédits requis doit être un entier.',
             'courses_number.integer' => 'Le nombre de cours doit être un entier.',
-            'illustration_image.max' => 'L\'image doit peser moins de 2 Mo.',
+            'illustration_image.max' => 'L’illustration ne doit pas dépasser 4 Mo.',
             'illustration_image.mimes' => 'L\'image doit être au format JPEG, JPG, PNG.',
             'course_objective.max' => 'L\'objectif du cours doit contenir au plus 255 caractères.',
             'fees.integer' => 'Les frais doivent être un entier.',

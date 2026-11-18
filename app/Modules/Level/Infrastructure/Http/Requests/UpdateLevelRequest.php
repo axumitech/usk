@@ -15,6 +15,22 @@ class UpdateLevelRequest extends FormRequest
         return true;
     }
 
+    public function administrativeUrl(): string
+    {
+        $parameters = ['id' => $this->route('id')];
+        $tab = $this->query('tab');
+        if (in_array($tab, ['infos', 'conditions', 'prof', 'cours'], true)) {
+            $parameters['tab'] = $tab;
+        }
+
+        return route('dashboard.admin.levels.details.show', $parameters);
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->administrativeUrl();
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -43,7 +59,7 @@ class UpdateLevelRequest extends FormRequest
             'code.required' => 'Le code du niveau est obligatoire.',
             'code.unique' => 'Le code du niveau existe déjà.',
             'image.image' => 'L\'image doit être une image.',
-            'image.max' => 'L\'image doit peser moins de 3 Mo.',
+            'image.max' => 'L’image ne doit pas dépasser 2 Mo.',
         ];
     }
 }

@@ -15,6 +15,7 @@ use App\Notifications\OfficialDocumentNotice;
 use App\Notifications\OfficialResultNotice;
 use App\Notifications\StudentAdmissionActivated;
 use App\Notifications\StudentAppointmentNotice;
+use App\Notifications\StudentRequestAnswered;
 use App\Notifications\TeacherAnnouncementNotice;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Notifications\DatabaseNotification;
@@ -33,6 +34,7 @@ final class StudentNotifications
         OfficialResultNotice::class => 'results',
         OfficialDocumentNotice::class => 'official_document',
         StudentAppointmentNotice::class => 'student_request',
+        StudentRequestAnswered::class => 'student_request',
         TeacherAnnouncementNotice::class => 'announcement',
     ];
 

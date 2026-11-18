@@ -26,10 +26,12 @@ export default function Confirmations({
     entries,
     filters,
     requiresPayment,
+    automaticConfirmation = false,
 }: {
     entries: { data: Entry[]; total: number; current_page: number };
     filters: { q?: string };
     requiresPayment: boolean;
+    automaticConfirmation?: boolean;
 }) {
     const { flash, errors } = usePage<{ flash?: { success?: string }; errors: Record<string, string> }>().props;
     const [selected, setSelected] = useState<Entry | null>(null);
@@ -46,8 +48,10 @@ export default function Confirmations({
                     </Link>
                     <h1>Confirmation des inscriptions</h1>
                     <p>
-                        {requiresPayment
-                            ? 'Confirmez les inscriptions dont la première tranche est couverte.'
+                        {automaticConfirmation
+                            ? 'Suivez les activations automatiques et les conditions restant à régulariser après validation des versements.'
+                            : requiresPayment
+                            ? 'Confirmez les inscriptions dont le seuil financier requis est atteint.'
                             : 'Examinez les dossiers en attente et confirmez les inscriptions admissibles.'}
                     </p>
                 </header>
@@ -96,8 +100,8 @@ export default function Confirmations({
                                     <h3>{entry.name}</h3>
                                     <p>{[entry.matricule, entry.level, entry.faculty, entry.year].filter(Boolean).join(' · ')}</p>
                                 </div>
-                                <span className="me-status" data-status={entry.blocker ? 'pending_confirmation' : 'confirmed'}>
-                                    {entry.blocker ?? 'Prête à confirmer'}
+                                <span className="me-status" data-status="pending_confirmation">
+                                    {entry.blocker ?? (automaticConfirmation ? 'Activation automatique en attente' : 'Prête à confirmer')}
                                 </span>
                             </header>
                             {entry.first_installment && (
@@ -118,7 +122,7 @@ export default function Confirmations({
                                 >
                                     Consulter le compte financier
                                 </Link>
-                                {entry.canConfirm && !entry.blocker && (
+                                {!automaticConfirmation && !entry.first_installment?.activation?.automatic && entry.canConfirm && !entry.blocker && (
                                     <button
                                         className="portal-primary"
                                         onClick={() => {
@@ -130,14 +134,18 @@ export default function Confirmations({
                                         Confirmer l’inscription
                                     </button>
                                 )}
-                                {!entry.canConfirm && <p>Confirmation réservée aux agents autorisés à gérer les inscriptions.</p>}
+                                {automaticConfirmation ? (
+                                    <p>La validation et l’affectation financière déclenchent la vérification du seuil. Aucune confirmation manuelle supplémentaire n’est requise.</p>
+                                ) : !entry.canConfirm ? (
+                                    <p>Confirmation réservée aux agents autorisés à gérer les inscriptions.</p>
+                                ) : null}
                             </div>
                         </article>
                     ))}
                     {!entries.data.length && <p className="me-card">Aucune inscription en attente pour cette recherche.</p>}
                     <Pagination value={entries} />
                 </section>
-                {selected && (
+                {selected && !automaticConfirmation && !selected.first_installment?.activation?.automatic && (
                     <AdminModal
                         title="Confirmer l’inscription"
                         description={`${selected.name} · ${selected.level} · ${selected.year}`}

@@ -209,8 +209,8 @@ export default function EditModal({
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
-                                        setFileError('Choisissez une image JPG, PNG ou WebP de 2 Mo maximum.');
+                                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 4 * 1024 * 1024) {
+                                        setFileError('Choisissez une image JPG, PNG ou WebP de 4 Mo maximum.');
                                         e.target.value = '';
                                         return;
                                     }
@@ -224,7 +224,7 @@ export default function EditModal({
                                 <span>Cliquez pour sélectionner un fichier</span>
                             </label>
                             <p id="level-field-help" className="lf-help">
-                                JPG, PNG ou WebP · 2 Mo maximum
+                                JPG, PNG ou WebP · 4 Mo maximum
                             </p>
                             {preview && (
                                 <figure className="lf-image-preview">

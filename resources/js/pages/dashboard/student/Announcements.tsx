@@ -77,7 +77,7 @@ const longDate = new Intl.DateTimeFormat('fr-FR', { timeZone: zone, dateStyle: '
 const sizeNumber = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 
 function formatSize(bytes: number | null) {
-    if (bytes === null || bytes < 0) return null;
+    if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return null;
     if (bytes < 1024) return `${bytes} o`;
     if (bytes < 1024 ** 2) return `${sizeNumber.format(bytes / 1024)} Ko`;
     return `${sizeNumber.format(bytes / 1024 ** 2)} Mo`;
@@ -138,7 +138,7 @@ function useAnnouncementMarks(academic: number) {
 
 function AnnouncementHeader({ data, chrome, saved }: { data: StudentAnnouncements; chrome?: StudentChromeData | null; saved: number[] }) {
     const selected = data.selected;
-    const archived = chrome?.options.some(({ id, is_current }) => id === data.academic_id && !is_current);
+    const archived = chrome?.options?.some(({ id, is_current }) => id === data.academic_id && !is_current);
     const keepRow = selected && (data.filter !== 'saved' || saved.includes(selected.id));
     const back = data.filter === 'saved' ? savedUrl(data.index_url, saved, Boolean(keepRow)) : data.index_url;
     return (
@@ -158,7 +158,7 @@ function AnnouncementHeader({ data, chrome, saved }: { data: StudentAnnouncement
                 <h1>{selected ? 'Détail de l’annonce' : 'Annonces'}</h1>
                 {!selected && data.faculty && <p>{data.faculty}</p>}
                 {!selected &&
-                    (chrome && chrome.options.length > 1 ? (
+                    (chrome && chrome.options?.length > 1 ? (
                         <label className="student-agenda-year">
                             <CalendarDays size={15} aria-hidden="true" />
                             <span>{data.year}</span>
@@ -515,6 +515,35 @@ function AnnouncementsPage({ announcements, studentChrome }: { announcements: St
     );
 }
 
-export default function Announcements(props: { announcements: StudentAnnouncements; studentChrome?: StudentChromeData | null }) {
-    return <AnnouncementsPage key={props.announcements.academic_id} {...props} />;
+function normalizeAnnouncement(item: Announcement): Announcement {
+    return { ...item, kind: typeof item.kind === 'string' && Object.hasOwn(mediaKinds, item.kind) ? item.kind : 'text' };
+}
+
+export default function Announcements(props: { announcements?: StudentAnnouncements | null; studentChrome?: StudentChromeData | null }) {
+    const data = props.announcements;
+    if (!data) {
+        return (
+            <Dashboard>
+                <Head title="Annonces" />
+                <div className="student-announcements student-agenda">
+                    <div className="announcement-empty" role="alert">
+                        <Megaphone size={27} aria-hidden="true" />
+                        <h1>Annonces</h1>
+                        <p>Les annonces sont momentanément indisponibles. Rechargez cette page pour réessayer.</p>
+                    </div>
+                </div>
+            </Dashboard>
+        );
+    }
+    const announcements = {
+        ...data,
+        stats: data.stats ?? { total: 0, recent: 0, media: 0 },
+        filters: data.filters ?? [],
+        items: { ...data.items, data: (data.items?.data ?? []).filter(Boolean).map(normalizeAnnouncement) },
+        featured: data.featured ? normalizeAnnouncement(data.featured) : null,
+        selected: data.selected ? normalizeAnnouncement(data.selected) : null,
+        related: (data.related ?? []).filter(Boolean).map(normalizeAnnouncement),
+    };
+
+    return <AnnouncementsPage key={announcements.academic_id} announcements={announcements} studentChrome={props.studentChrome} />;
 }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Student\Infrastructure\Http\Requests;
 
+use App\Support\DocumentUploadLimit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -48,10 +49,15 @@ class UpdateStudentProfileRequest extends FormRequest
             'diploma_type' => ['nullable', Rule::in(['state_diploma', 'baccalaureate', 'other'])], 'other_diploma' => 'required_if:diploma_type,other|nullable|string|max:150',
             'diploma_number' => 'nullable|string|max:100', 'diploma_section' => 'nullable|string|max:150', 'diploma_school' => 'nullable|string|max:200',
             'diploma_year' => 'nullable|integer|min:1900|max:'.now('Africa/Kinshasa')->year,
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:'.DocumentUploadLimit::images(),
             'remove_photo' => 'sometimes|boolean',
             'curriculum_version_id' => 'prohibited', 'admission_cohort_id' => 'prohibited', 'academic_program_id' => 'prohibited', 'matricule' => 'prohibited', 'student_status' => 'prohibited', 'user_id' => 'prohibited', 'student_profile_id' => 'prohibited',
         ];
+    }
+
+    public function messages(): array
+    {
+        return ['photo.max' => DocumentUploadLimit::sizeMessage(DocumentUploadLimit::images(), 'La photo')];
     }
 
     public function attributes(): array

@@ -1,6 +1,7 @@
 import Pagination from '@/components/admin/Pagination';
 import { formatDate } from '@/lib/studentEnrollment';
-import { Link, useForm } from '@inertiajs/react';
+import { defaultUploadLimits, documentAccept, proofUploadError, proofUploadHelp, type UploadLimits } from '@/lib/uploadLimits';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Clock3, Download, GraduationCap, ListChecks } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import '../../../css/student-results.css';
@@ -90,6 +91,7 @@ const quantity = (value: number, divisor = 100) => new Intl.NumberFormat('fr', {
 
 function AppealForm({ result, academic }: { result: Selected; academic: number }) {
     const form = useForm({ target: '', body: '', file: null as File | null });
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const filed = new Set(result.appeals.map((appeal) => appeal.result_target));
     const targets = [
         { code: 'decision', label: 'Décision du jury' },
@@ -103,6 +105,12 @@ function AppealForm({ result, academic }: { result: Selected; academic: number }
                 className="portal-form"
                 onSubmit={(event) => {
                     event.preventDefault();
+                    if (form.processing) return;
+                    const error = form.data.file && proofUploadError(form.data.file, limits);
+                    if (error) {
+                        form.setError('file', error);
+                        return;
+                    }
                     form.post(route('dashboard.student.results.appeal', { reference: result.reference, academic }), {
                         forceFormData: true,
                         preserveScroll: true,
@@ -132,8 +140,9 @@ function AppealForm({ result, academic }: { result: Selected; academic: number }
                     />
                 </label>
                 <label>
-                    Pièce facultative (PDF ou image){' '}
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => form.setData('file', e.target.files?.[0] ?? null)} />
+                    Pièce facultative
+                    <input type="file" accept={documentAccept} disabled={form.processing} onChange={(e) => form.setData('file', e.target.files?.[0] ?? null)} />
+                    <small>{proofUploadHelp(limits)}</small>
                 </label>
                 {Object.values(form.errors).map((error, index) => (
                     <p key={index} role="alert">

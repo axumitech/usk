@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -65,5 +66,32 @@ class AuthenticationTest extends TestCase
 
         $this->assertGuest();
         $response->assertRedirect('/app/login');
+    }
+
+    #[DataProvider('logoutRoles')]
+    public function test_logout_clears_private_session_and_returns_each_role_to_login_with_success(string $role): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole(Role::findOrCreate($role, 'web'));
+        $this->post('/app/login', ['email' => $user->email, 'password' => 'password'])->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+        $oldSession = session()->getId();
+
+        $this->withSession(['private_marker' => 'private '.$role, '_token' => 'before-logout-token'])
+            ->post('/app/logout')->assertRedirect('/app/login')
+            ->assertSessionMissing('private_marker')->assertSessionHas('success', 'Déconnexion réussie.');
+        $this->assertGuest();
+        $this->assertNotSame($oldSession, session()->getId());
+        $this->assertNotSame('before-logout-token', session()->token());
+        $login = $this->get('/app/login')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/auth/Login')->where('auth.user', null)->where('flash.success', 'Déconnexion réussie.'));
+        $this->assertTrue($login->viewData('page')['clearHistory']);
+        $this->get('/app/dashboard')->assertRedirect('/app/login');
+        $this->get('/app/login')->assertInertia(fn (Assert $page) => $page->where('flash.success', null));
+    }
+
+    public static function logoutRoles(): array
+    {
+        return ['étudiant' => ['student'], 'administrateur' => ['admin'], 'professeur' => ['professor']];
     }
 }

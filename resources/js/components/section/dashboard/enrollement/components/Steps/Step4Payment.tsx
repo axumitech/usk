@@ -24,9 +24,10 @@ export default function Step4Payment({
                     title: 'Votre formation',
                     step: 1,
                     rows: [
-                        ['Faculté', formation.faculty],
-                        ['Niveau', formation.level],
                         ['Année académique', formation.year],
+                        ['Faculté', formation.faculty],
+                        ['Programme', formData.program],
+                        ['Niveau', formation.level],
                     ],
                 },
                 {
@@ -38,10 +39,9 @@ export default function Step4Payment({
                     ],
                 },
                 {
-                    title: 'Votre parcours',
+                    title: 'Votre parcours et vos pièces',
                     step: 3,
                     rows: [
-                        ['Programme', formData.program],
                         ['Pièces jointes', `${Object.values(formData.documents).filter(Boolean).length} document(s)`],
                     ],
                 },

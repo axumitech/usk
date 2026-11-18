@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AcademicStructure\AcademicCycle;
+use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\AcademicStructure\University;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AccessRule;
@@ -139,6 +141,54 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->assertDatabaseCount('official_documents', 0);
     }
 
+    public function test_catalog_program_choices_preserve_history_and_faculty_scope(): void
+    {
+        [, $entry, $institution, $manager] = $this->context();
+        $manager->academicFaculties()->attach($entry->level->faculty_id);
+        $current = $this->program($institution, $entry->level->faculty_id, 'CURRENT');
+        $historical = $this->program($institution, $entry->level->faculty_id, 'HISTORY', false);
+        $otherFaculty = $institution->faculties()->create(['name' => 'Autre faculté', 'code' => 'OTHER']);
+        $foreign = $this->program($institution, $otherFaculty->id, 'FOREIGN');
+        $retired = University::create(['name' => 'Ancien établissement', 'code' => 'RETIRED', 'is_active' => false]);
+        $retiredFaculty = $retired->faculties()->create(['name' => 'Ancienne faculté', 'code' => 'OLD']);
+        $this->program($retired, $retiredFaculty->id, 'RETIRED');
+
+        $this->actingAs($manager)->get(route(self::ADMIN.'index'))->assertInertia(fn (Assert $page) => $page
+            ->has('programs', 2)
+            ->where('programs', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === [$current->id, $historical->id])
+            ->where('universities.0.faculties', fn ($rows) => collect($rows)->pluck('id')->all() === [$entry->level->faculty_id]));
+        $this->actingAs($this->staff(DocumentAccess::MANAGE))->get(route(self::ADMIN.'index'))->assertInertia(fn (Assert $page) => $page
+            ->has('programs', 3)
+            ->where('programs', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === [$current->id, $historical->id, $foreign->id]));
+    }
+
+    public function test_catalog_revalidates_program_selection_and_keeps_existing_diploma_rule(): void
+    {
+        [, $entry, $institution, $manager] = $this->context();
+        $manager->academicFaculties()->attach($entry->level->faculty_id);
+        $historical = $this->program($institution, $entry->level->faculty_id, 'HISTORY', false);
+        $otherFaculty = $institution->faculties()->create(['name' => 'Autre faculté', 'code' => 'OTHER']);
+        $foreign = $this->program($institution, $otherFaculty->id, 'FOREIGN');
+        $input = [
+            'university_id' => $institution->id, 'faculty_id' => $entry->level->faculty_id,
+            'name' => 'Attestation de test', 'code' => 'DOCOPT', 'kind' => 'enrollment',
+            'student_request' => true, 'download' => true, 'print' => true, 'copies' => true,
+            'financial_gate' => true, 'reason' => 'Configuration du catalogue.',
+        ];
+        $this->actingAs($manager)->postJson(route(self::ADMIN.'type'), $input)->assertStatus(303);
+        $this->assertNull(OfficialDocumentType::where('code', 'DOCOPT')->sole()->policy['program_id']);
+        $this->postJson(route(self::ADMIN.'type'), array_replace($input, ['code' => 'FOREIGN', 'program_id' => $foreign->id]))
+            ->assertUnprocessable()->assertJsonValidationErrors('program_id');
+        $this->postJson(route(self::ADMIN.'type'), array_replace($input, ['code' => 'SCOPE', 'faculty_id' => $otherFaculty->id, 'program_id' => $foreign->id]))
+            ->assertForbidden();
+        $this->postJson(route(self::ADMIN.'type'), array_replace($input, ['code' => 'HISTORY', 'program_id' => $historical->id]))->assertStatus(303);
+        $diploma = array_replace($input, ['code' => 'DIPLOMA', 'kind' => 'diploma', 'decisions' => 'validated', 'minimum_credits' => 18000, 'regulation' => 'Règlement de délivrance.']);
+        $this->postJson(route(self::ADMIN.'type'), $diploma)->assertUnprocessable()->assertJsonValidationErrors('regulation');
+        $this->postJson(route(self::ADMIN.'type'), $diploma + ['program_id' => $historical->id])->assertStatus(303);
+        $this->assertSame($historical->id, OfficialDocumentType::where('code', 'DIPLOMA')->sole()->policy['program_id']);
+        $this->assertDatabaseCount('official_document_types', 3);
+    }
+
     public function test_card_requires_photo_and_payment_and_replacement_preserves_both_archives(): void
     {
         Storage::fake('local');
@@ -219,6 +269,17 @@ final class OfficialDocumentWorkflowTest extends TestCase
         $this->actingAs($manager)->post($transition, ['action' => 'review', 'revision' => 1, 'reason' => 'Contrôle du dossier.'])->assertStatus(303);
         $this->actingAs($signer)->post($transition, ['action' => 'approve', 'revision' => 2, 'reason' => 'Édition approuvée.'])->assertStatus(303);
         $this->actingAs($issuer)->post(route(self::ADMIN.'issue', $ticket), ['revision' => 3])->assertStatus(303);
+    }
+
+    private function program(University $institution, int $facultyId, string $code, bool $active = true): AcademicProgram
+    {
+        $cycle = AcademicCycle::firstOrCreate(['university_id' => $institution->id, 'code' => 'DOC-CYCLE'], [
+            'name' => 'Cycle documentaire', 'normal_duration' => 3, 'progression_mode' => 'custom', 'weighting_mode' => 'both', 'periods' => [],
+        ]);
+
+        return AcademicProgram::create([
+            'faculty_id' => $facultyId, 'academic_cycle_id' => $cycle->id, 'code' => $code, 'name' => 'Programme '.$code, 'is_active' => $active,
+        ]);
     }
 
     private function context(): array

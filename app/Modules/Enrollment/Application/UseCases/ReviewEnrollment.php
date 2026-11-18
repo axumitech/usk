@@ -6,6 +6,8 @@ use App\Models\Enrollment;
 use App\Models\User;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
+use App\Modules\Enrollment\Domain\Services\DocumentReviewReasons;
+use App\Notifications\EnrollmentDocumentReviewed;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -48,24 +50,39 @@ final class ReviewEnrollment
         });
     }
 
-    public function document(int $id, string $uuid, int $actor, string $verdict, ?string $reason): void
+    public function document(int $id, string $uuid, int $actor, string $verdict, ?string $reason, ?array $reasonCodes = null): void
     {
-        DB::transaction(function () use ($id, $uuid, $actor, $verdict, $reason) {
+        DB::transaction(function () use ($id, $uuid, $actor, $verdict, $reason, $reasonCodes) {
             $entry = $this->lockedForReview($id, $actor);
             $this->requireAnalysis($entry);
             $document = $entry->documents()->where('uuid', $uuid)->lockForUpdate()->firstOrFail();
-            $reason = trim($reason ?? '');
-            if (in_array($verdict, ['rejected', 'correction_requested'], true) && mb_strlen($reason) < 3) {
+            $detail = trim($reason ?? '');
+            $reason = $detail;
+            if ($reasonCodes !== null) {
+                ['codes' => $reasonCodes, 'reason' => $reason] = DocumentReviewReasons::summarize($verdict, $reasonCodes, $detail);
+            } elseif (in_array($verdict, ['rejected', 'correction_requested'], true) && mb_strlen($reason) < 3) {
                 throw new InvalidEnrollmentStateException('Indiquez un motif clair pour une pièce refusée ou à corriger.');
             }
             if ($document->review_status === $verdict && ($document->comment ?? '') === $reason) {
-                return;
+                if (empty($reasonCodes)) {
+                    return;
+                }
+                $previousReview = $entry->events()->where('event', 'document_reviewed')->where('payload->document_uuid', $uuid)->latest('id')->first()?->payload;
+                if (($previousReview['reason_codes'] ?? []) === $reasonCodes && ($previousReview['reason_detail'] ?? '') === $detail) {
+                    return;
+                }
             }
             $previous = $document->review_status;
             $document->fill(['review_status' => $verdict, 'verified' => $verdict === 'accepted', 'verified_by' => $actor, 'verified_at' => now(), 'comment' => $reason ?: null])->save();
-            $entry->events()->create(['event' => 'document_reviewed', 'actor_id' => $actor, 'payload' => ['document_uuid' => $uuid, 'document_name' => $document->filename, 'version' => $document->version, 'from' => $previous, 'verdict' => $verdict, 'reason' => $reason ?: null], 'occurred_at' => now()]);
+            $payload = ['document_uuid' => $uuid, 'document_name' => $document->filename, 'version' => $document->version,
+                'from' => $previous, 'verdict' => $verdict, 'reason' => $reason ?: null];
+            if ($reasonCodes !== null) {
+                $payload['reason_codes'] = $reasonCodes;
+                $payload['reason_detail'] = $detail !== '' ? $detail : null;
+            }
+            $entry->events()->create(['event' => 'document_reviewed', 'actor_id' => $actor, 'payload' => $payload, 'occurred_at' => now()]);
             if (in_array($verdict, ['accepted', 'rejected', 'correction_requested'], true)) {
-                $entry->student?->notify(new \App\Notifications\EnrollmentDocumentReviewed([
+                $entry->student?->notify(new EnrollmentDocumentReviewed([
                     'enrollment_id' => $entry->id, 'reference' => $entry->reference,
                     'document_uuid' => $document->uuid, 'filename' => $document->filename,
                     'version' => $document->version, 'verdict' => $verdict, 'comment' => $reason ?: null,

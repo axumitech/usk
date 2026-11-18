@@ -94,7 +94,7 @@ final class StudentResultsController
     {
         [$entry, $result] = $this->resolve($request, $reference, $portal);
         $input = $request->validate(['target' => ['required', 'string', 'regex:/^(decision|ec:[0-9]+)$/D', 'max:80'], 'body' => 'required|string|min:10|max:6000',
-            'file' => 'nullable|file|max:'.DocumentUploadLimit::kilobytes().'|extensions:pdf,jpg,jpeg,png,webp']);
+            'file' => DocumentUploadLimit::proofRules(required: false)], DocumentUploadLimit::proofMessages());
         $appeal = $this->appeals->submit($result, $entry, $request->user(), $input, $request->file('file'));
 
         return back(303)->with('success', 'Recours enregistré · Référence '.$appeal->id);

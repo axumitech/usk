@@ -27,17 +27,17 @@ class DocumentController extends Controller
     public function upload(Request $request)
     {
         $data = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.DocumentUploadLimit::kilobytes()],
+            'file' => DocumentUploadLimit::proofRules(),
             'key' => ['required', 'string', 'max:100'],
             // 'enrollment_uuid' => ['nullable','uuid'], // optionnel
-        ]);
+        ], DocumentUploadLimit::proofMessages());
 
         $file = $data['file'];
 
         // On stocke dans un disque/dossier temporaire
         // configure `filesystems.disks.temp` (storage/app/temp)
         $tempToken = (string) Str::uuid();
-        $ext = $file->getClientOriginalExtension();
+        $ext = $file->guessExtension();
         $basename = 'document';
 
         $tempPath = "enrollments/tmp/{$request->user()->id}/{$tempToken}/{$basename}.".($ext ?: 'bin');
@@ -64,7 +64,7 @@ class DocumentController extends Controller
 
     public function replaceReviewed(Request $request, string $uuid, ReplaceReviewedDocument $replace)
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.DocumentUploadLimit::kilobytes()]]);
+        $request->validate(['file' => DocumentUploadLimit::proofRules()], DocumentUploadLimit::proofMessages());
         $replace->execute($uuid, $request->user()->id, $request->file('file'));
 
         return back()->with('success', 'Votre nouveau justificatif a été transmis pour examen.');

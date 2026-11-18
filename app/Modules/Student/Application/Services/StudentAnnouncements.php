@@ -42,8 +42,21 @@ final class StudentAnnouncements
 
     public function query(AcademicEnrollment $entry, array $permissions): Builder
     {
+        $now = now()->startOfSecond();
+
         return AcademicResource::visible()->forStudent($entry)->forLearningPermissions($permissions)->where('kind', 'announcement')
+            ->where(fn ($query) => $query->whereNull('published_at')->orWhere('published_at', '<=', $now))
+            ->where(fn ($query) => $query->whereNull('opens_at')->orWhere('opens_at', '<=', $now))
+            ->where(fn ($query) => $query->whereNull('closes_at')->orWhere('closes_at', '>=', $now))
             ->whereIn('academic_offering_id', $this->access->offerings($entry)->select('academic_offerings.id'));
+    }
+
+    public static function withinPublicationWindow(AcademicResource $resource): bool
+    {
+        // Eloquent persists these dates and binds SQL comparisons at second precision.
+        $now = now()->startOfSecond();
+
+        return ! $resource->published_at?->gt($now) && ! $resource->opens_at?->gt($now) && ! $resource->closes_at?->lt($now);
     }
 
     public function overview(AcademicEnrollment $entry, array $permissions): array

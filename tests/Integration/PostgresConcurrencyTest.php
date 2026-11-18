@@ -109,11 +109,12 @@ class PostgresConcurrencyTest extends TestCase
         $entry->obligations()->create(['kind' => 'tuition', 'title' => 'Première tranche', 'installment' => 1, 'amount_cents' => 10000]);
         $finance = app(StudentFinanceService::class);
         config(['student.enrollment_auto_confirmation' => false]);
-        $payment = $finance->record($entry, $actor, ['amount' => '100', 'method' => 'bank_transfer', 'reference' => 'CONFIRMATION-RACE']);
+        $payment = $finance->record($entry, $actor, ['amount' => '30', 'method' => 'bank_transfer', 'reference' => 'CONFIRMATION-RACE']);
         $finance->transition($payment, $actor, 'confirmed', 'Versement validé avant le test concurrent.');
 
         $this->assertSame(['confirmed', 'confirmed'], $this->race('enrollment-confirmation', $entry->id, $actor->id, -$entry->id));
         $this->assertSame('confirmed', $entry->fresh()->enrollment_status);
+        $this->assertSame(7000, $finance->firstTuitionInstallment($entry->fresh())['remaining_cents']);
         $this->assertSame(1, AcademicAudit::where('action', 'academic_enrollment_confirmed')->where('entity_id', $entry->id)->count());
         $this->assertSame(1, $student->notifications()->where('type', AcademicEnrollmentChanged::class)->count());
     }
@@ -145,6 +146,17 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame(['booked', 'refused'], $results);
         $this->assertDatabaseCount('student_appointment_reservations', 1);
         $this->assertDatabaseHas('student_appointment_reservations', ['service' => $service, 'starts_at' => $day->copy()->setTime(9, 0)->utc()]);
+    }
+
+    public function test_concurrent_partial_draft_saves_without_a_uuid_reuse_the_same_dossier(): void
+    {
+        $year = AcademicYear::create(['title' => 'Année de test', 'start_date' => '2026-10-01', 'end_date' => '2027-09-30', 'status' => 'open']);
+        $candidate = User::factory()->create();
+        $results = $this->race('admission-save', $year->id, $candidate->id);
+        $this->assertSame($results[0], $results[1]);
+        $this->assertDatabaseCount('enrollments', 1);
+        $this->assertSame(Enrollment::sole()->uuid, $results[0]);
+        $this->assertNull(Enrollment::sole()->level_id);
     }
 
     public function test_concurrent_admission_submissions_and_conflicting_decisions_have_one_effect(): void

@@ -1,11 +1,11 @@
-import type { LevelDetails, AdmissionCondition } from '@/types/academic';
-import type { useLevelData } from './useLevelData';
-import { SetStateAction, useState } from 'react';
-import { useForm, router } from '@inertiajs/react';
+import type { AdmissionCondition, LevelDetails } from '@/types/academic';
 import Alert from '@/utils/sweetAlert';
+import { router, useForm } from '@inertiajs/react';
+import { SetStateAction, useState } from 'react';
 import { processOptionsValue } from '../utils/levelUtils';
+import type { useLevelData } from './useLevelData';
 
-export function useLevelModals(level: LevelDetails) {
+export function useLevelModals(level: LevelDetails, returnTab = 'infos') {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editField, setEditField] = useState('');
     const [editSaving, setEditSaving] = useState(false);
@@ -56,11 +56,15 @@ export function useLevelModals(level: LevelDetails) {
         });
         formData.append('_method', 'PUT');
 
-        router.post(route('dashboard.admin.levels.details.update', level.id), formData, {
+        router.post(route('dashboard.admin.levels.details.update', { id: level.id, tab: returnTab }), formData, {
             forceFormData: true,
             onStart: () => setEditSaving(true),
             onFinish: () => setEditSaving(false),
-            onSuccess: () => setIsEditModalOpen(false),
+            onSuccess: (page) => {
+                setIsEditModalOpen(false);
+                const flash = page.props.flash as { success?: string } | undefined;
+                Alert.success(flash?.success || 'Détails du niveau mis à jour avec succès.');
+            },
             onError: setEditErrors,
         });
     };
@@ -68,7 +72,7 @@ export function useLevelModals(level: LevelDetails) {
     const openConditionModal = (mode: string, conditionId: number | null = null, condition: AdmissionCondition | null = null) => {
         setConditionMode(mode);
         setEditIndex(conditionId);
-        
+
         if (mode === 'edit' && condition) {
             setConditionData({
                 faculty_id: level?.faculty_id || '',
@@ -91,35 +95,31 @@ export function useLevelModals(level: LevelDetails) {
                 id: null,
             });
         }
-        
+
         clearConditionErrors();
         setIsConditionModalOpen(true);
     };
 
-    const saveCondition = (e: { preventDefault: () => void; }) => {
+    const saveCondition = (e: { preventDefault: () => void }) => {
         e.preventDefault();
 
         if (conditionMode === 'add') {
             postCondition(route('dashboard.admin.levels.admission-conditions.store'), {
                 onSuccess: () => {
-
                     setIsConditionModalOpen(false);
                     resetCondition();
                 },
                 onError: (errors) => {
-
                     console.error("Erreur lors de l'ajout de la condition d'admission:", errors);
                 },
             });
         } else if (conditionMode === 'edit' && conditionData.id) {
             putCondition(route('dashboard.admin.levels.admission-conditions.update', conditionData.id), {
                 onSuccess: () => {
-
                     setIsConditionModalOpen(false);
                     resetCondition();
                 },
                 onError: (errors) => {
-
                     console.error("Erreur lors de la mise à jour de la condition d'admission:", errors);
                 },
             });
@@ -158,19 +158,19 @@ export function useLevelModals(level: LevelDetails) {
         setEditIndex,
         isImagePreviewOpen,
         setIsImagePreviewOpen,
-        
+
         // Condition form data
         conditionData,
         setConditionData,
         conditionProcessing,
         conditionErrors,
-        
+
         // Actions
         openEditModal,
         saveEdit,
         openConditionModal,
         saveCondition,
         deleteCondition,
-        resetCondition
+        resetCondition,
     };
 }

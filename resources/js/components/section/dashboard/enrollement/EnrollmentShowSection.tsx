@@ -315,7 +315,7 @@ export default function EnrollmentShowSection({ enrollment, success }: Props) {
                                                         )}
                                                     </div>
                                                     {doc.can_replace && (
-                                                        <ReplacementForm document={doc} limit={enrollment.document_upload_max_kb || 2048} />
+                                                        <ReplacementForm document={doc} />
                                                     )}
                                                 </article>
                                             ))}

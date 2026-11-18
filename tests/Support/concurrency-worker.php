@@ -12,8 +12,10 @@ use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\CurriculumService;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
 use App\Modules\Enrollment\Application\DTOs\SubmitEnrollmentDTO;
+use App\Modules\Enrollment\Application\DTOs\SaveProgressDTO;
 use App\Modules\Enrollment\Application\UseCases\RecordEnrollmentDecision;
 use App\Modules\Enrollment\Application\UseCases\SubmitEnrollmentUseCase;
+use App\Modules\Enrollment\Application\UseCases\SaveProgressUseCase;
 use App\Modules\Enrollment\Domain\Enums\EnrollmentStatus;
 use App\Modules\Enrollment\Domain\Exceptions\InvalidEnrollmentStateException;
 use App\Modules\Enrollment\Domain\Services\MatriculeGenerator;
@@ -45,6 +47,8 @@ while (! is_file($gate.'/go')) {
 try {
     if ($mode === 'matricule') {
         $result = app(MatriculeGenerator::class)->generate(Level::findOrFail($first), AcademicYear::findOrFail($second))->toString();
+    } elseif ($mode === 'admission-save') {
+        $result = app(SaveProgressUseCase::class)->execute(new SaveProgressDTO(null, (int) $second, 1, ['year_id' => (int) $first]))->uuid;
     } elseif ($mode === 'admission-submit') {
         Mail::fake();
         $entry = Enrollment::findOrFail($first);

@@ -533,8 +533,9 @@ class StudentAcademicJourneyTest extends TestCase
         $this->actingAs($admin);
         $this->post($base.'/'.$academic->id.'/fees', ['category' => 'national', 'first_due' => today()->addMonth()->toDateString(), 'second_due' => today()->addMonths(2)->toDateString(), 'reason' => 'Nationalité contrôlée avec le dossier.'])->assertSessionHasNoErrors();
         $this->post($base.'/rules', ['fee_kind' => 'tuition', 'feature' => 'assignments_submit', 'mode' => 'minimum', 'minimum' => '50.00', 'reason' => 'Règle financière approuvée pour les dépôts.'])->assertSessionHasNoErrors();
-        $this->payment($academic, $admin, '20.00');
-        $this->post($base.'/'.$academic->id.'/payments', ['kind' => 'tuition', 'amount' => '30.00', 'method' => 'bank_transfer', 'reference' => 'BANK-HTTP', 'note' => 'Virement à rapprocher au relevé.'])->assertSessionHasNoErrors();
+        $this->payment($academic, $admin, '10.00');
+        $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
+        $this->post($base.'/'.$academic->id.'/payments', ['kind' => 'tuition', 'amount' => '40.00', 'method' => 'bank_transfer', 'reference' => 'BANK-HTTP', 'note' => 'Virement à rapprocher au relevé.'])->assertSessionHasNoErrors();
         $payment = StudentPayment::where('reference', 'BANK-HTTP')->firstOrFail();
         $this->assertSame('pending', $payment->status);
         $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
@@ -639,9 +640,10 @@ class StudentAcademicJourneyTest extends TestCase
         $this->actingAs($student);
         $this->assertSame($source->matricule, $target->matricule);
         $this->assertSame(6000, (int) $target->obligations()->where('installment', 1)->value('amount_cents'));
-        $this->payment($target, $admin, '40.00');
+        $this->payment($target, $admin, '15.00');
         $this->assertSame('pending_confirmation', $target->fresh()->enrollment_status);
         app(StudentFinanceService::class)->adjust($target, $admin, ['type' => 'scholarship', 'amount' => '20.00', 'reason' => 'Aide validée pour la nouvelle année.']);
+        $this->assertSame('confirmed', $target->fresh()->enrollment_status);
         $this->get('/app/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $p) => $p
             ->where('academic.level', 'Licence 2')->where('progression.status', 'confirmed'));
         $this->assertSame('completed', $source->fresh()->enrollment_status);
@@ -754,7 +756,7 @@ class StudentAcademicJourneyTest extends TestCase
             ->component('dashboard/finance/Index')
             ->where('enrollmentConfirmation.status', 'pending_confirmation')
             ->where('enrollmentConfirmation.canConfirm', true)
-            ->where('enrollmentConfirmation.blocker', 'Première tranche à couvrir')
+            ->where('enrollmentConfirmation.blocker', 'Seuil d’activation de 30 % de la première tranche à atteindre avec des paiements validés et affectés')
             ->where('accountBackUrl', route('dashboard.admin.finance.confirmations', ['q' => 'Étudiant', 'page' => 2], false))
             ->where('statement.schedules.tuition.0.remaining_cents', 5000)
             ->where('statement.schedules.tuition.1.remaining_cents', 5000));
@@ -778,9 +780,9 @@ class StudentAcademicJourneyTest extends TestCase
         $academic = $application->academicEnrollment()->firstOrFail();
         $finance = app(StudentFinanceService::class);
         $finance->assess($academic, $admin, 'national');
-        $this->payment($academic, $admin, '20.00');
+        $this->payment($academic, $admin, '10.00');
         $finance->adjust($academic, $admin, [
-            'type' => 'scholarship', 'amount' => '30.00', 'reason' => 'Bourse validée couvrant le solde de la première tranche.',
+            'type' => 'scholarship', 'amount' => '20.00', 'reason' => 'Bourse validée réduisant la base du seuil de la première tranche.',
             'starts_at' => today('Africa/Kinshasa')->addDay()->toDateString(),
         ]);
         $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
@@ -788,18 +790,18 @@ class StudentAcademicJourneyTest extends TestCase
         $this->artisan('student:confirm-covered-enrollments')->assertSuccessful();
         $this->artisan('student:confirm-covered-enrollments')->assertSuccessful();
         $this->assertSame('confirmed', $academic->fresh()->enrollment_status);
-        $this->assertSame(5000, $finance->balance($academic, 'tuition')['balance_cents']);
+        $this->assertSame(7000, $finance->balance($academic, 'tuition')['balance_cents']);
         $this->assertSame(1, DB::table('academic_audits')->where('action', 'academic_enrollment_confirmed')->count());
     }
 
-    public function test_verified_provider_payment_can_complete_coverage_with_a_valid_scholarship(): void
+    public function test_verified_provider_payment_can_reach_activation_threshold_with_a_valid_scholarship(): void
     {
         [$admin, , $application] = $this->application();
         $this->actingAs($admin)->post('/app/dashboard/admin/enrollments/'.$application->id.'/validate')->assertSessionHasNoErrors();
         $academic = $application->academicEnrollment()->firstOrFail();
         $finance = app(StudentFinanceService::class);
         $finance->assess($academic, $admin, 'national');
-        $payment = $this->payment($academic, $admin, '20.00', 'pending');
+        $payment = $this->payment($academic, $admin, '10.00', 'pending');
         $finance->adjust($academic, $admin, ['type' => 'scholarship', 'amount' => '30.00', 'reason' => 'Bourse partielle validée par la comptabilité.']);
         $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
 
@@ -809,7 +811,7 @@ class StudentAcademicJourneyTest extends TestCase
 
             public function verify(array $serverPayload): VerifiedPayment
             {
-                return new VerifiedPayment($this->payment->reference, 2000, $this->payment->currency);
+                return new VerifiedPayment($this->payment->reference, 1000, $this->payment->currency);
             }
         };
         app()->instance($verifier::class, $verifier);
@@ -817,6 +819,8 @@ class StudentAcademicJourneyTest extends TestCase
         app(ProviderPaymentReconciliation::class)->reconcile([]);
         app(ProviderPaymentReconciliation::class)->reconcile([]);
         $this->assertSame('confirmed', $academic->fresh()->enrollment_status);
+        $this->assertSame(1000, $finance->firstTuitionInstallment($academic)['remaining_cents']);
+        $this->assertSame(6000, $finance->balance($academic, 'tuition')['balance_cents']);
         $this->assertSame(1, DB::table('academic_audits')->where('action', 'academic_enrollment_confirmed')->count());
     }
 

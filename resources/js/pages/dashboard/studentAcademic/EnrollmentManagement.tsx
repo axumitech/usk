@@ -40,7 +40,7 @@ type Props = {
         promotion?: number;
         group?: number;
     };
-    enrollmentPolicy: { automatic: boolean; firstInstallment: boolean };
+    enrollmentPolicy: { automatic: boolean; firstInstallment: boolean; activationPercentage?: number | null };
     statuses: string[];
     canClose: boolean;
     openRequests: { id: number; subject: string; category: string }[];
@@ -387,12 +387,14 @@ export default function EnrollmentManagement(props: Props) {
                     <summary>Conditions institutionnelles de confirmation</summary>
                     <p>
                         {props.enrollmentPolicy.firstInstallment
-                            ? 'La première tranche doit être couverte selon les écritures et aides du module Finance.'
+                            ? props.enrollmentPolicy.activationPercentage != null
+                                ? `Le seuil initial est de ${props.enrollmentPolicy.activationPercentage} % de la première tranche, après les aides approuvées, selon les versements validés et affectés dans Finance. La dette restante est conservée.`
+                                : 'Le service financier doit vérifier le seuil initial applicable à la première tranche.'
                             : 'La confirmation administrative est indépendante du paiement initial.'}
                     </p>
                     <p>
                         {props.enrollmentPolicy.automatic && props.enrollmentPolicy.firstInstallment
-                            ? 'Une inscription en attente peut être confirmée automatiquement lorsque les conditions financières sont remplies.'
+                            ? 'La vérification financière confirme automatiquement les inscriptions admissibles en attente. Aucune confirmation initiale manuelle supplémentaire n’est requise.'
                             : 'La confirmation exige une décision du service des inscriptions.'}
                     </p>
                 </details>

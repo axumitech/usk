@@ -74,8 +74,8 @@ final class PaymentRefundService
                 if ($previous + (int) $refund->amount_cents > (int) $payment->amount_cents) {
                     throw ValidationException::withMessages(['refund' => 'Le plafond remboursable est dépassé.']);
                 }
-                $checkCoverage = $entry->enrollment_status === 'confirmed'
-                    && $this->finance->firstTuitionInstallment($entry)['status'] === 'covered';
+                $firstBeforeRefund = $entry->enrollment_status === 'confirmed'
+                    ? $this->finance->firstTuitionInstallment($entry) : null;
                 $allocated = (int) $payment->allocations->sum(fn ($a) => (int) $a->amount_cents - (int) $a->reversals->sum('amount_cents'));
                 $unallocated = $payment->kind === 'unallocated' ? max(0, (int) $payment->amount_cents - $previous - $allocated) : 0;
                 $reverse = max(0, (int) $refund->amount_cents - $unallocated);
@@ -90,8 +90,8 @@ final class PaymentRefundService
                 if ($previous + (int) $refund->amount_cents === (int) $payment->amount_cents) {
                     FinanceMutation::run(fn () => $payment->update(['status' => 'refunded']));
                 }
-                if ($checkCoverage) {
-                    $this->finance->flagFirstInstallmentShortfall($entry, $actor->id, $data['reason']);
+                if ($firstBeforeRefund !== null) {
+                    $this->finance->flagFirstInstallmentShortfall($entry, $actor->id, $data['reason'], $firstBeforeRefund);
                 }
             } else {
                 throw ValidationException::withMessages(['refund' => 'Cette transition de remboursement est interdite.']);

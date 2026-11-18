@@ -5,6 +5,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRight, FileText, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import '../../../../css/admin-enrollments.css';
+import { changeFaculty, optionsForFaculty } from './facultyFilters';
 import { applicantName, formatDate, statusLabels, type Dossier } from './types';
 const queues = {
     new: 'Nouvelles candidatures',
@@ -37,8 +38,8 @@ export type ListProps = {
     faculties: { id: number; name: string }[];
     years: { id: number; title: string }[];
     reexamination_total: number;
-    levels: { id: number; title: string }[];
-    programs: { id: number; name: string }[];
+    levels: { id: number; title: string; faculty_id: number }[];
+    programs: { id: number; name: string; faculty_id: number }[];
     agents: { id: number; first_name: string; last_name: string }[];
     success?: string;
 };
@@ -148,7 +149,7 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
                         <select
                             id="dossier-faculty"
                             value={search.faculty_id ?? ''}
-                            onChange={(e) => setSearch({ ...search, faculty_id: e.target.value })}
+                            onChange={(e) => setSearch(changeFaculty(search, e.target.value, levels, programs))}
                         >
                             <option value="">Toutes les facultés</option>
                             {faculties.map((faculty) => (
@@ -171,8 +172,8 @@ export default function QueueList({ enrollments, filters, faculties, years, succ
                     </div>
                     {(
                         [
-                            { key: 'level_id', label: 'Niveau', options: levels.map((level) => [String(level.id), level.title]) },
-                            { key: 'program_id', label: 'Programme', options: programs.map((program) => [String(program.id), program.name]) },
+                            { key: 'level_id', label: 'Niveau', options: optionsForFaculty(levels, search.faculty_id).map((level) => [String(level.id), level.title]) },
+                            { key: 'program_id', label: 'Programme', options: optionsForFaculty(programs, search.faculty_id).map((program) => [String(program.id), program.name]) },
                             {
                                 key: 'agent_id',
                                 label: 'Agent chargé de l’analyse',

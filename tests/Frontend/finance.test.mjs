@@ -306,6 +306,43 @@ test('La file expose le solde de première tranche et respecte le blocage de con
     );
 });
 
+test('La file automatique affiche le seuil et ne propose aucune confirmation académique manuelle', () => {
+    const html = renderToStaticMarkup(React.createElement(Confirmations, {
+        entries: { data: [{
+            id: 7, name: 'Étudiant', level: 'L1', year: '2026-2027', faculty: 'Sciences', canConfirm: true, blocker: null,
+            first_installment: {
+                status: 'due', currency: 'USD', amount_cents: 10000, paid_cents: 3000, waived_cents: 0, remaining_cents: 7000,
+                activation: { automatic: true, percentage: 30, base_cents: 10000, required_cents: 3000, remaining_cents: 0, eligible: true, blocker: null },
+            },
+        }], total: 1, current_page: 1 }, filters: {}, requiresPayment: true, automaticConfirmation: true,
+    }));
+    assert.match(html, /Suivez les activations automatiques/);
+    assert.match(html, /Seuil d’activation initiale<\/dt><dd[^>]*>30 %/);
+    assert.match(html, /Reste dû sur cette tranche<\/dt><dd[^>]*>7000 USD/);
+    assert.match(html, /Aucune confirmation manuelle supplémentaire n’est requise/);
+    assert.doesNotMatch(html, /Confirmer l’inscription<\/button>|Confirmation réservée aux agents/);
+});
+
+test('Le compte automatique conserve la dette et masque le bouton manuel même pour un agent habilité', () => {
+    const html = renderToStaticMarkup(React.createElement(Finance, {
+        ...page,
+        selected: { id: 1, name: 'Étudiant', year: '2026-2027' }, accountBackUrl: '/finance', accountBackLabel: 'Comptes étudiants',
+        enrollmentConfirmation: {
+            status: 'pending_confirmation', canConfirm: true, blocker: null,
+            first_installment: {
+                status: 'due', currency: 'USD', amount_cents: 10000, paid_cents: 3000, waived_cents: 0, remaining_cents: 7000,
+                activation: { automatic: true, percentage: 30, base_cents: 10000, required_cents: 3000, remaining_cents: 0, eligible: true, blocker: null },
+            },
+        },
+        pendingPaymentCount: 0,
+        statement: { balance: { currency: 'USD', assessed: true }, schedules: {}, obligations: [], kinds: {}, kind_titles: {} },
+    }));
+    assert.match(html, /Activation automatique de l’inscription/);
+    assert.match(html, /Le seuil est atteint/);
+    assert.match(html, /Reste dû sur cette tranche<\/dt><dd[^>]*>7000 USD/);
+    assert.doesNotMatch(html, /Confirmer l’inscription<\/button>|Seul un agent habilité/);
+});
+
 test('Le compte signale le réexamen financier tout en affichant l’inscription confirmée', () => {
     const html = renderToStaticMarkup(React.createElement(Finance, {
         ...page,

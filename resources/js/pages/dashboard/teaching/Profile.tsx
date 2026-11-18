@@ -1,13 +1,15 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import ProfessorAvatar from '@/components/teaching/ProfessorAvatar';
 import TeacherModuleHeading from '@/components/teaching/TeacherModuleHeading';
-import { Head, useForm } from '@inertiajs/react';
+import { defaultUploadLimits, imageAccept, imageUploadError, uploadSize, type UploadLimits } from '@/lib/uploadLimits';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { Camera, Upload, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import '../../../../css/dashboard/professor-portraits.css';
 
 export default function TeacherProfile({ name, photoUrl }: { name: string; photoUrl: string | null }) {
     const form = useForm<{ photo: File | null }>({ photo: null });
+    const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const [preview, setPreview] = useState<string | null>(null);
 
     useEffect(() => {
@@ -42,6 +44,7 @@ export default function TeacherProfile({ name, photoUrl }: { name: string; photo
                     <form
                         onSubmit={(event) => {
                             event.preventDefault();
+                            if (form.processing || !form.data.photo) return;
                             form.post(route('dashboard.teaching.profile.photo'), { forceFormData: true });
                         }}
                     >
@@ -51,13 +54,23 @@ export default function TeacherProfile({ name, photoUrl }: { name: string; photo
                             <input
                                 required
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp"
+                                accept={imageAccept}
+                                disabled={form.processing}
                                 aria-describedby="teacher-photo-formats"
                                 aria-invalid={!!form.errors.photo}
-                                onChange={(event) => form.setData('photo', event.target.files?.[0] ?? null)}
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    const error = file && imageUploadError(file, limits);
+                                    form.clearErrors('photo');
+                                    form.setData('photo', error ? null : file);
+                                    if (error) {
+                                        form.setError('photo', error);
+                                        event.target.value = '';
+                                    }
+                                }}
                             />
                         </label>
-                        <p id="teacher-photo-formats">JPEG, PNG ou WebP · 5 Mo maximum.</p>
+                        <p id="teacher-photo-formats">JPEG, PNG ou WebP · {uploadSize(limits.image_kb)} maximum.</p>
                         {form.errors.photo && (
                             <p role="alert" className="professor-photo-error">
                                 {form.errors.photo}

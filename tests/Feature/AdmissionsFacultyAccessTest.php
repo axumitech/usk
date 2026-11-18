@@ -70,7 +70,8 @@ final class AdmissionsFacultyAccessTest extends TestCase
         $this->actingAs($this->candidate)->get(self::ADMISSIONS)->assertForbidden();
         $this->actingAs($this->agentA)->get(self::ADMISSIONS)->assertOk()->assertInertia(fn (Assert $page) => $page
             ->has('enrollments.data', 1)->where('enrollments.data.0.id', $this->dossierA->id)
-            ->where('stats.total', 1)->has('faculties', 1)->has('levels', 1)->has('programs', 1)->has('agents', 2));
+            ->where('stats.total', 1)->has('faculties', 1)->has('levels', 1)->has('programs', 1)->has('agents', 2)
+            ->where('levels.0.faculty_id', $this->programA->faculty_id)->where('programs.0.faculty_id', $this->programA->faculty_id));
         $this->get(self::ADMISSIONS.'/overview')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->where('counts.new', 1)->has('priorities', 1)->where('priorities.0.id', $this->dossierA->id));
         $this->get(self::ADMISSIONS.'?faculty_id='.$this->programB->faculty_id)->assertOk()->assertInertia(fn (Assert $page) => $page
@@ -90,6 +91,7 @@ final class AdmissionsFacultyAccessTest extends TestCase
         $foreign = self::ADMISSIONS.'/'.$this->dossierB->id;
         $this->actingAs($this->agentA)->post($foreign.'/start-analysis')->assertForbidden();
         $this->post($foreign.'/documents/'.$document->uuid.'/review', ['verdict' => 'accepted'])->assertForbidden();
+        $this->post($foreign.'/documents/'.$document->uuid.'/review', ['verdict' => 'rejected', 'reason_codes' => ['unreadable']])->assertForbidden();
         $this->post($foreign.'/request-corrections')->assertForbidden();
         $this->post($foreign.'/reject', ['reason' => 'Motif de décision de recette'])->assertForbidden();
         $this->post($foreign.'/validate')->assertForbidden();

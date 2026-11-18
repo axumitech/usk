@@ -10,7 +10,7 @@ type Params = {
     academic_program_id?: string;
 };
 
-export function useRequirements(params: Params) {
+export function useRequirements(params: Params, enabled = true) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [requirements, setRequirements] = useState<Requirements>({
@@ -20,7 +20,7 @@ export function useRequirements(params: Params) {
     });
 
     useEffect(() => {
-        if (!params.year_id || !params.level_id) {
+        if (!enabled || !params.year_id || !params.level_id) {
             setRequirements({ personal_info: [], academic_info: [], payment: undefined });
             setError(null);
             setLoading(false);
@@ -29,6 +29,7 @@ export function useRequirements(params: Params) {
 
         setLoading(true);
         setError(null);
+        setRequirements({ personal_info: [], academic_info: [], payment: undefined });
         const controller = new AbortController();
         const timer = setTimeout(async () => {
             try {
@@ -47,6 +48,7 @@ export function useRequirements(params: Params) {
                 });
 
                 const data = res.data;
+                if (controller.signal.aborted) return;
                 if (!data?.ok) {
                     setRequirements({ personal_info: [], academic_info: [], payment: undefined });
                     setError(data?.message || 'Impossible de récupérer les exigences.');
@@ -76,7 +78,7 @@ export function useRequirements(params: Params) {
                         : undefined,
                 });
             } catch (e: unknown) {
-                if (axios.isCancel?.(e)) return;
+                if (controller.signal.aborted || axios.isCancel?.(e)) return;
                 if (axios.isAxiosError(e) && e.response?.status === 422) setError(e.response?.data?.message || 'Année académique non active.');
                 else setError('Erreur serveur lors du chargement des exigences.');
                 setRequirements({ personal_info: [], academic_info: [], payment: undefined });
@@ -89,7 +91,7 @@ export function useRequirements(params: Params) {
             controller.abort();
             clearTimeout(timer);
         };
-    }, [params.faculty_id, params.level_id, params.year_id, params.academic_program_id]);
+    }, [params.faculty_id, params.level_id, params.year_id, params.academic_program_id, enabled]);
 
     return { requirements, loading, error };
 }

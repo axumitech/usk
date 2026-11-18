@@ -1,5 +1,6 @@
 import FeedbackToast, { type ToastFeedback } from '@/components/admin/FeedbackToast';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
+import FirstInstallmentDetails, { EnrollmentActivationStatus } from '@/components/student/FirstInstallmentDetails';
 import ModuleLanding from '@/components/student/ModuleLanding';
 import { studentHref, studentModules, studentSectionAccess, studentSectionLabels } from '@/components/student/navigation';
 import OfficialDocumentCenter from '@/components/student/OfficialDocumentCenter';
@@ -592,7 +593,19 @@ export default function Portal(props: PortalProps) {
                         <StudentShortcuts academic={academic.id} permissions={permissions} onGuide={() => setGuideRequest((value) => value + 1)} />
                         {academic.enrollment_status === 'pending_confirmation' && (
                             <div className="portal-alert">
-                                <p>Votre inscription est en attente de confirmation.</p>
+                                {props.first_installment ? (
+                                    <>
+                                        {!props.first_installment.activation?.automatic && <p>Votre inscription est en attente de confirmation.</p>}
+                                        <EnrollmentActivationStatus
+                                            installment={props.first_installment}
+                                            status={academic.enrollment_status}
+                                            admitted={academic.application_status === 'validated'}
+                                        />
+                                        <FirstInstallmentDetails installment={props.first_installment} />
+                                    </>
+                                ) : (
+                                    <p>Votre inscription est en attente de confirmation.</p>
+                                )}
                                 <Link href={studentHref('fees', academic.id, 'finance-first-installment')} className="underline">
                                     Consulter la première tranche et suivre vos versements
                                 </Link>

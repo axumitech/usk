@@ -38,6 +38,8 @@ export type Dossier = {
         needs_reexamination: boolean;
         review_status: 'pending' | 'accepted' | 'rejected' | 'correction_requested';
         review_comment?: string;
+        review_reason_codes?: string[];
+        review_reason_detail?: string | null;
         reviewed_at?: string;
         version: number;
         created_at: string;

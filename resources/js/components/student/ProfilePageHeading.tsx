@@ -145,9 +145,7 @@ export default function ProfilePageHeading({
                         className="sp-row sp-logout"
                         type="button"
                         disabled={phase !== null}
-                        onClick={() => {
-                            if (window.confirm('Voulez-vous vous déconnecter de votre espace étudiant ?')) logout(false);
-                        }}
+                        onClick={() => logout(false)}
                     >
                         <span className="sp-row-icon">
                             <LogOut size={20} aria-hidden="true" />

@@ -75,7 +75,7 @@ class AuthController extends Controller
 
         Inertia::clearHistory();
 
-        return redirect()->route('login.show');
+        return redirect()->route('login.show')->with('success', 'Déconnexion réussie.');
     }
 
     public function showRegister()
