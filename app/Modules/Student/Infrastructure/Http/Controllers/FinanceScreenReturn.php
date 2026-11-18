@@ -15,7 +15,7 @@ final class FinanceScreenReturn
     public static function forPayment(Request $request, int $academic): string
     {
         if (! $request->boolean('academic_return')) {
-            return self::account($request, $academic);
+            return self::accountUrl($academic, $request->boolean('finance_return') ? $request->all() : []);
         }
 
         $filters = self::filters($request->all(), [
@@ -41,7 +41,11 @@ final class FinanceScreenReturn
             }
         }
 
-        $source = $request->boolean('finance_return') ? $request->all() + $previous : $previous;
+        return self::accountUrl($academic, $request->boolean('finance_return') ? $request->all() + $previous : $previous);
+    }
+
+    private static function accountUrl(int $academic, array $source): string
+    {
         $filters = self::filters($source, [
             'q' => 'string|max:150', 'year' => 'integer|exists:academic_years,id',
             'faculty' => 'integer|exists:faculties,id', 'program' => 'integer|exists:academic_programs,id',

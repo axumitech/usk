@@ -1,4 +1,5 @@
 import AdminModal from '@/components/admin/AdminModal';
+import type { Page } from '@inertiajs/core';
 import { useForm } from '@inertiajs/react';
 import { isAxiosError } from 'axios';
 import { Plus, Trash2 } from 'lucide-react';
@@ -33,6 +34,7 @@ export type FormSpec = {
     submitLabel?: string;
     eyebrow?: string;
     requireSuccessFlash?: boolean;
+    acceptsResponse?: (page: Page) => boolean;
 };
 export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormSpec; onClose: () => void; onSuccess: (message: string) => void }) {
     const id = useId();
@@ -96,6 +98,11 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                         },
                         errorBag: `academic-${id.replace(/\W/g, '')}`,
                         onSuccess: (page) => {
+                            if (spec.acceptsResponse && !spec.acceptsResponse(page)) {
+                                form.setError('_response', 'Le retour vers ce dossier n’a pas été confirmé. Vérifiez le compte avant de réessayer.');
+                                return;
+                            }
+
                             const flash = page.props.flash as { success?: string } | undefined;
                             const message = flash?.success ?? page.props.success;
                             if (typeof message === 'string' && message.trim()) {

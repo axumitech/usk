@@ -8,17 +8,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
+let initialPageFlash = {};
 async function load(path, imports = {}) {
     const source = await readFile(new URL(`../../resources/js/${path}`, import.meta.url), 'utf8');
     const module = { exports: {} };
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
-    vm.runInNewContext(output, { module, exports: module.exports, route: (name, value) => `/route/${name}?${typeof value === 'object' ? new URLSearchParams(value) : `id=${value}`}`, URLSearchParams, crypto: { randomUUID: () => 'operation-key' }, require(name) {
+    vm.runInNewContext(output, { module, exports: module.exports, route: (name, value, absolute) => name === 'dashboard.admin.finance.index' && absolute === false ? '/app/dashboard/admin/finance' : `/route/${name}?${typeof value === 'object' ? new URLSearchParams(value) : `id=${value}`}`, URL, URLSearchParams, window: { location: { href: 'http://127.0.0.1/app/dashboard/admin/finance' } }, crypto: { randomUUID: () => 'operation-key' }, require(name) {
         if (name in imports) return imports[name];
         if (name.endsWith('.css')) return {};
-        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, preserveScroll, ...props }) => React.createElement('a', { ...props, 'data-inertia': 'true', 'data-preserve-scroll': preserveScroll || undefined }, children), useForm: data => ({ data, errors: {}, processing: false }), usePage: () => ({ props: {} }) };
+        if (name === '@inertiajs/react') return { Head: () => null, Link: ({ children, preserveScroll, ...props }) => React.createElement('a', { ...props, 'data-inertia': 'true', 'data-preserve-scroll': preserveScroll || undefined }, children), useForm: data => ({ data, errors: {}, processing: false }), usePage: () => ({ props: {}, flash: initialPageFlash }) };
         if (name === '@/components/layouts/Dashboard/Dashboard') return { default: ({ children }) => React.createElement('div', {}, children) };
         if (name === '../studentAcademic/AcademicForm' || name === '@/components/admin/AdminModal') return { default: () => null };
-        if (name === '@/components/admin/Pagination' || name === '@/components/admin/FeedbackToast') return { default: () => null };
+        if (name === '@/components/admin/Pagination') return { default: () => null };
+        if (name === '@/components/admin/FeedbackToast') return {
+            default: ({ feedback }) => React.createElement('output', { role: 'status' }, feedback.message),
+        };
         if (name === '@/hooks/use-panel-fade') return { usePanelFade: React.useRef };
         if (name === '@/components/student/types') return { labels: { confirmed: 'Confirmée' }, money: (value, currency) => `${value} ${currency}` };
         if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });
@@ -184,6 +188,47 @@ test('Le versement permet de choisir les frais facturés et indique le solde de 
         ['unallocated', 'Versement général à affecter après confirmation'],
     ]);
 });
+test('La saisie et la confirmation exigent le retour au compte qui a soumis la demande', () => {
+    const context = {
+        ...page,
+        filters: { academic: 8, q: 'etudiant.med3@usk.test' },
+        selected: { id: 8, name: 'Étudiant', year: '2026-2027' },
+        accountBackUrl: '/finance',
+        accountBackLabel: 'Comptes étudiants',
+        enrollmentConfirmation: { status: 'confirmed', canConfirm: false },
+        pendingPaymentCount: 1,
+        statement: { balance: total('USD', 10000), kinds: {}, kind_titles: {}, schedules: {}, obligations: [] },
+        payments: {
+            current_page: 1, first_page_url: '/finance', links: [],
+            data: [{ id: 23, reference: 'TEST-FRONT', amount_cents: 900, currency: 'USD', kind: 'tuition', status: 'pending', method: 'bank_transfer', can_confirm: true }],
+        },
+    };
+    const tree = AccountActions(context);
+    const returned = { component: 'dashboard/finance/Index', url: '/app/dashboard/admin/finance?academic=8&q=etudiant.med3%40usk.test', props: { selected: { id: 8 } } };
+    for (const [button, action] of [
+        ['Saisir un versement', '/route/dashboard.admin.student-academic.payments?id=8'],
+        ['Confirmer le versement', '/route/dashboard.admin.student-academic.payments.status?id=23'],
+    ]) {
+        findButton(tree, button).props.onClick();
+        assert.equal(capturedPaymentForm.action, action);
+        assert.equal(capturedPaymentForm.values.q, 'etudiant.med3@usk.test');
+        assert.ok(capturedPaymentForm.acceptsResponse(returned));
+        assert.equal(capturedPaymentForm.acceptsResponse({ ...returned, url: '/app/dashboard' }), false);
+        assert.equal(capturedPaymentForm.acceptsResponse({ ...returned, url: '/app/dashboard/admin/finance?academic=7' }), false);
+        assert.equal(capturedPaymentForm.acceptsResponse({ ...returned, props: { selected: { id: 7 } } }), false);
+    }
+
+    const message = 'Versement enregistré. Il attend la confirmation comptable.';
+    try {
+        initialPageFlash = { financePayment: { accountId: 8, message } };
+        assert.match(renderToStaticMarkup(AccountActions(context)), /role="status">Versement enregistré\. Il attend la confirmation comptable\./);
+        const different = { ...context, selected: { ...context.selected, id: 7 } };
+        assert.doesNotMatch(renderToStaticMarkup(AccountActions(different)), /Versement enregistré\. Il attend la confirmation comptable\./);
+    } finally {
+        initialPageFlash = {};
+    }
+});
+
 test('L’export CSV utilise un lien navigateur et conserve les filtres', () => {
     const html = renderToStaticMarkup(React.createElement(Finance, { ...page, filters: { year: 4, currency: 'USD' } }));
     assert.match(html, /<a[^>]*href="\/route\/dashboard\.admin\.finance\.export\?year=4&amp;currency=USD">\s*Exporter les totaux CSV<\/a>/);
@@ -330,6 +375,7 @@ test('Le formulaire financier garde les valeurs si le serveur ne confirme pas la
     })).default;
     const spec = {
         title: 'Valider le justificatif', description: 'Vérification comptable', action: '/proof/review', requireSuccessFlash: true,
+        acceptsResponse: (page) => page.url === '/app/dashboard/admin/finance?academic=8',
         fields: [{ name: 'reason', label: 'Précisez le motif', type: 'textarea', value: 'Motif saisi', minLength: 10, maxLength: 1000 }],
         values: { decision: 'reject', reason_code: 'other' },
     };
@@ -339,10 +385,13 @@ test('Le formulaire financier garde les valeurs si le serveur ne confirme pas la
     assert.match(html, /id="finance-mutation-reason-error" role="alert">Précisez le motif\./);
     element.props.children.props.onSubmit({ preventDefault() {} });
     assert.equal(visit.data.reason, 'Motif saisi');
-    visit.options.onSuccess({ props: {} });
+    visit.options.onSuccess({ url: '/app/dashboard', props: { flash: { success: 'Confirmation hors dossier' } } });
+    assert.equal(notice, undefined);
+    assert.match(errors.get('_response'), /retour vers ce dossier n’a pas été confirmé/);
+    visit.options.onSuccess({ url: '/app/dashboard/admin/finance?academic=8', props: {} });
     assert.equal(notice, undefined);
     assert.match(errors.get('_response'), /n’a pas été confirmé/);
-    visit.options.onSuccess({ props: { flash: { success: 'Justificatif refusé.' } } });
+    visit.options.onSuccess({ url: '/app/dashboard/admin/finance?academic=8', props: { flash: { success: 'Justificatif refusé.' } } });
     assert.equal(notice, 'Justificatif refusé.');
 });
 

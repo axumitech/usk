@@ -417,13 +417,17 @@ class AcademicAdministrationController extends Controller
         }
 
         $message = $payment->wasRecentlyCreated
-            ? 'Versement enregistré en attente de confirmation comptable.'
+            ? 'Versement enregistré. Il attend la confirmation comptable.'
             : match ($payment->status) {
                 'pending' => 'Ce versement est déjà enregistré et reste en attente de confirmation comptable.',
                 'confirmed' => 'Ce versement est déjà enregistré et confirmé.',
                 'cancelled' => 'Ce versement est déjà enregistré et a été annulé. Consultez son historique.',
                 default => 'Ce versement figure déjà dans l’historique du compte.',
             };
+
+        if (! $r->boolean('academic_return')) {
+            Inertia::flash('financePayment', ['accountId' => $academic, 'message' => $message]);
+        }
 
         return redirect()->to($url, 303)->with('success', $message);
     }
@@ -449,7 +453,11 @@ class AcademicAdministrationController extends Controller
 
         $message = $data['status'] === 'cancelled'
             ? 'Versement annulé et conservé dans l’historique. Le solde et les droits ont été recalculés.'
-            : 'Versement confirmé. Le solde et les droits ont été recalculés.';
+            : "Versement confirmé. Le solde de l'étudiant a été actualisé.";
+
+        if ($data['status'] === 'confirmed' && ! $r->boolean('academic_return')) {
+            Inertia::flash('financePayment', ['accountId' => (int) $entry->academic_enrollment_id, 'message' => $message]);
+        }
 
         return redirect()->to($url, 303)->with('success', $message);
     }

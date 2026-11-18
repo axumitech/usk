@@ -5,7 +5,8 @@ import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import FirstInstallmentDetails, { EnrollmentActivationStatus } from '@/components/student/FirstInstallmentDetails';
 import PaymentProofHistory, { paymentProofStatus, proofPaymentLabel, proofPaymentStatus } from '@/components/student/PaymentProofHistory';
 import { labels, money, type FirstInstallment, type StudentPaymentProof } from '@/components/student/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import type { Page } from '@inertiajs/core';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, Download, FileCheck2, Landmark, ShieldCheck, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import '../../../../css/dashboard/finance-account.css';
@@ -50,6 +51,7 @@ type PaymentProof = StudentPaymentProof & {
     decision_reason?: string | null;
     requires_distinct_receipt_verification?: boolean;
 };
+type FinancePaymentFlash = { accountId: number; message: string };
 type Paginated<T> = { data: T[]; links: { url: string | null; label: string; active: boolean }[]; total?: number };
 type Props = {
     selected: Entry;
@@ -135,6 +137,9 @@ export default function FinanceAccount(props: Props) {
     const [spec, setSpec] = useState<FormSpec | null>(null);
     const [allocating, setAllocating] = useState<Payment | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
+    const [dismissedPaymentFlash, setDismissedPaymentFlash] = useState<FinancePaymentFlash | null>(null);
+    const paymentFlash = usePage().flash?.financePayment as FinancePaymentFlash | undefined;
+    const feedback = paymentFlash?.accountId === props.selected.id && paymentFlash !== dismissedPaymentFlash ? paymentFlash.message : notice;
     const enrollment = props.enrollmentConfirmation;
     const pendingEnrollment = enrollment.status === 'pending_confirmation';
     const feeLabel = (kind: string) => props.statement.kind_titles[kind] ?? kind.replaceAll('_', ' ');
@@ -143,6 +148,17 @@ export default function FinanceAccount(props: Props) {
     const financeReturn = {
         ...Object.fromEntries(Object.entries(props.filters).filter(([key, value]) => financeReturnFields.has(key) && value !== undefined)),
         finance_return: true,
+    };
+    const acceptsAccountResponse = (page: Page) => {
+        if (page.component !== 'dashboard/finance/Index' || (page.props.selected as Entry | null)?.id !== props.selected.id) {
+            return false;
+        }
+
+        const expected = new URL(route('dashboard.admin.finance.index', {}, false), window.location.href);
+        const actual = new URL(page.url, window.location.href);
+
+        return actual.origin === expected.origin && actual.pathname === expected.pathname
+            && actual.searchParams.get('academic') === String(props.selected.id);
     };
     const paymentsLabel = props.pendingPaymentCount > 0 ? `À vérifier (${props.pendingPaymentCount})` : 'Voir les versements';
     const paymentsPageUrl = props.payments && props.payments.current_page > 1 ? props.payments.first_page_url + '#paiements' : null;
@@ -194,6 +210,7 @@ export default function FinanceAccount(props: Props) {
             action: route('dashboard.admin.student-academic.payments', props.selected.id),
             submitLabel: 'Enregistrer le versement',
             requireSuccessFlash: true,
+            acceptsResponse: acceptsAccountResponse,
             values: { ...financeReturn, operation_id: crypto.randomUUID() },
             fields: [
                 {
@@ -250,6 +267,7 @@ export default function FinanceAccount(props: Props) {
             ],
             values: { ...financeReturn, status },
             requireSuccessFlash: true,
+            acceptsResponse: acceptsAccountResponse,
         });
     }
 
@@ -306,7 +324,15 @@ export default function FinanceAccount(props: Props) {
     return (
         <Dashboard hideAppsNavigation>
             <Head title={`Compte financier · ${props.selected.name}`} />
-            {notice && <FeedbackToast feedback={{ id: 0, message: notice, tone: 'success' }} onDismiss={() => setNotice(null)} />}
+            {feedback && (
+                <FeedbackToast
+                    feedback={{ id: 0, message: feedback, tone: 'success' }}
+                    onDismiss={() => {
+                        setDismissedPaymentFlash(paymentFlash ?? null);
+                        setNotice(null);
+                    }}
+                />
+            )}
             {spec && (
                 <AcademicForm
                     spec={spec}

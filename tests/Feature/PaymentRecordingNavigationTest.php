@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Student\AcademicAudit;
 use App\Models\Student\StudentPayment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -37,29 +39,98 @@ class PaymentRecordingNavigationTest extends TestCase
         ], $overrides);
     }
 
-    public function test_recorded_payment_returns_to_its_account_with_a_previous_public_page(): void
+    private function inertiaHeaders(string $url): array
+    {
+        return [
+            'X-Inertia' => 'true',
+            'X-Requested-With' => 'XMLHttpRequest',
+            'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(Request::create($url)) ?? '',
+        ];
+    }
+
+    private function assertSameDestination(string $expected, string $actual): void
+    {
+        $this->assertSame(parse_url($expected, PHP_URL_PATH), parse_url($actual, PHP_URL_PATH));
+        parse_str(parse_url($expected, PHP_URL_QUERY) ?? '', $expectedParameters);
+        parse_str(parse_url($actual, PHP_URL_QUERY) ?? '', $actualParameters);
+        $this->assertEquals($expectedParameters, $actualParameters);
+    }
+
+    public function test_recording_and_confirming_a_payment_returns_to_its_account_with_feedback(): void
     {
         [$entry, $agent] = $this->context();
-        $response = $this->actingAs($agent)->withSession(['_previous' => ['url' => url('/')]])
-            ->post(route('dashboard.admin.student-academic.payments', $entry), $this->paymentPayload([
-                'finance_return' => true, 'from_proofs' => '1', 'page' => '2',
-            ]));
+        config(['finance.dual_control' => false]);
+        $filters = ['q' => 'etudiant.med3@usk.test', 'from_proofs' => '1', 'page' => '2'];
+        $parameters = ['academic' => $entry->id] + $filters;
+        $account = route('dashboard.admin.finance.index', $parameters);
+        $relativeAccount = route('dashboard.admin.finance.index', $parameters, false);
+        $headers = $this->inertiaHeaders($account);
+        $returnContext = ['finance_return' => true, 'academic' => 999999, 'payments_page' => -1] + $filters;
+        $recorded = 'Versement enregistré. Il attend la confirmation comptable.';
 
-        $this->assertDatabaseHas('student_payments', ['academic_enrollment_id' => $entry->id, 'status' => 'pending', 'amount_cents' => 3000]);
-        $response->assertStatus(303)->assertRedirect(route('dashboard.admin.finance.index', [
-            'academic' => $entry->id, 'from_proofs' => '1', 'page' => '2',
-        ]))->assertSessionHas('success', 'Versement enregistré en attente de confirmation comptable.');
+        $response = $this->actingAs($agent)->withSession(['_previous' => ['url' => route('dashboard.index')]])
+            ->post(route('dashboard.admin.student-academic.payments', $entry), $this->paymentPayload($returnContext), $headers);
+
+        $response->assertStatus(303)->assertHeader('Location', $account)
+            ->assertSessionHas('success', $recorded)
+            ->assertInertiaFlash('financePayment', ['accountId' => $entry->id, 'message' => $recorded]);
+        $page = $this->get($response->headers->get('Location'), $headers);
+        $page->assertOk()
+            ->assertJsonPath('component', 'dashboard/finance/Index')
+            ->assertJsonPath('props.selected.id', $entry->id)
+            ->assertJsonPath('props.flash.success', $recorded)
+            ->assertJsonPath('flash.financePayment.message', $recorded)
+            ->assertJsonPath('props.payments.data.0.status', 'pending')
+            ->assertJsonPath('props.statement.balance.pending_cents', 3000)
+            ->assertJsonPath('props.statement.balance.paid_cents', 0)
+            ->assertJsonPath('props.statement.balance.balance_cents', 10000);
+        $this->assertSameDestination($relativeAccount, $page->json('url'));
+
+        $payment = $entry->payments()->sole();
+        $confirmed = "Versement confirmé. Le solde de l'étudiant a été actualisé.";
+        $response = $this->post(route('dashboard.admin.student-academic.payments.status', $payment), [
+            'status' => 'confirmed',
+            'reason' => 'Reçu vérifié par la comptabilité.',
+        ] + $returnContext, $headers);
+
+        $response->assertStatus(303)->assertHeader('Location', $account)
+            ->assertSessionHas('success', $confirmed)
+            ->assertInertiaFlash('financePayment', ['accountId' => $entry->id, 'message' => $confirmed]);
+        $page = $this->get($response->headers->get('Location'), $headers);
+        $page->assertOk()
+            ->assertJsonPath('component', 'dashboard/finance/Index')
+            ->assertJsonPath('props.selected.id', $entry->id)
+            ->assertJsonPath('props.flash.success', $confirmed)
+            ->assertJsonPath('flash.financePayment.message', $confirmed)
+            ->assertJsonPath('props.payments.data.0.status', 'confirmed')
+            ->assertJsonPath('props.statement.balance.pending_cents', 0)
+            ->assertJsonPath('props.statement.balance.paid_cents', 3000)
+            ->assertJsonPath('props.statement.balance.balance_cents', 7000);
+        $this->assertSameDestination($relativeAccount, $page->json('url'));
+        $this->get($account, $headers)->assertOk()->assertJsonMissingPath('flash.financePayment');
+        $this->assertDatabaseCount('student_payments', 1);
     }
 
     public function test_invalid_payment_keeps_the_form_context_and_creates_no_entry(): void
     {
         [$entry, $agent] = $this->context();
-        $this->actingAs($agent)->withSession(['_previous' => ['url' => url('/')]])
+        $account = route('dashboard.admin.finance.index', ['academic' => $entry->id, 'q' => 'test']);
+        $referer = route('dashboard.admin.finance.index', ['academic' => $entry->id, 'from_proofs' => '1', 'page' => '2']);
+        $headers = $this->inertiaHeaders($account);
+        $error = 'Le montant doit être supérieur à zéro.';
+
+        $this->actingAs($agent)->from($referer)
             ->post(route('dashboard.admin.student-academic.payments', $entry), $this->paymentPayload([
                 'amount' => '0', 'finance_return' => true, 'q' => 'test', 'academic' => 999999,
-            ]))->assertRedirect(route('dashboard.admin.finance.index', ['academic' => $entry->id, 'q' => 'test']))
-            ->assertSessionHasErrors(['amount' => 'Le montant doit être supérieur à zéro.'])
-            ->assertSessionHasInput('reference', 'REC-CI-001');
+            ]), $headers)->assertRedirect($account)
+            ->assertSessionHasErrors(['amount' => $error])
+            ->assertSessionHasInput('reference', 'REC-CI-001')
+            ->assertInertiaFlashMissing('financePayment');
+        $this->get($account, $headers)->assertOk()
+            ->assertJsonPath('component', 'dashboard/finance/Index')
+            ->assertJsonPath('props.selected.id', $entry->id)
+            ->assertJsonPath('props.errors.amount', $error)
+            ->assertJsonMissingPath('flash.financePayment');
         $this->assertDatabaseCount('student_payments', 0);
     }
 
