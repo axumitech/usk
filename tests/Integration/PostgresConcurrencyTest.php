@@ -100,6 +100,29 @@ class PostgresConcurrencyTest extends TestCase
         $this->assertSame(10000, app(StudentFinanceService::class)->balance($entry)['paid_cents']);
     }
 
+    public function test_simultaneous_recording_and_distinct_reference_confirmation_share_the_financial_guards(): void
+    {
+        $student = $this->studentContext();
+        $actor = User::factory()->create()->assignRole(Role::findOrCreate('admin', 'web'));
+        $entry = $student->studentProfile->enrollments()->sole();
+        $entry->obligations()->create(['kind' => 'tuition', 'title' => 'Première tranche', 'installment' => 1, 'amount_cents' => 10000]);
+
+        $ids = $this->race('payment-record', $entry->id, $actor->id);
+        $first = $entry->payments()->sole();
+        $this->assertSame([$first->id, $first->id], $ids);
+        $this->assertSame(1, AcademicAudit::where('action', 'payment_recorded')->count());
+
+        $second = app(StudentFinanceService::class)->record($entry, $actor, [
+            'amount' => '30.00', 'method' => 'bank_transfer', 'reference' => 'RACE-ALT',
+        ]);
+        $results = $this->race('payment', $first->id, $actor->id, $second->id);
+        sort($results);
+
+        $this->assertSame(['confirmed', 'refused'], $results);
+        $this->assertSame(1, $entry->payments()->where('status', 'confirmed')->count());
+        $this->assertSame(3000, app(StudentFinanceService::class)->balance($entry)['paid_cents']);
+    }
+
     public function test_automatic_and_manual_enrollment_confirmation_share_one_decision_and_notice(): void
     {
         $student = $this->studentContext();

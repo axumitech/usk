@@ -208,7 +208,11 @@ class AcademicTeachingTest extends TestCase
             'members' => [$manager->id, $secretary->id], 'reason' => self::REASON];
         $this->post($admin.'/rules/'.$rule->id.'/deliberations', $juryForm)->assertSessionHasErrors('rule');
         $this->post($admin.'/rules/'.$rule->id.'/approval', ['reason' => self::REASON])->assertForbidden();
-        $this->actingAs($publisher)->post($admin.'/rules/'.$rule->id.'/approval', ['reason' => self::REASON])->assertStatus(303);
+        $approval = $admin.'/rules/'.$rule->id.'/approval';
+        $ruleWorkspace = $admin.'?rule='.$rule->id;
+        $this->actingAs($publisher)->from('/app/dashboard')->post($approval, [])->assertRedirect($ruleWorkspace)->assertSessionHasErrors('reason');
+        $this->from('/app/dashboard')->post($approval, ['reason' => self::REASON])->assertStatus(303)->assertRedirect($ruleWorkspace)
+            ->assertInertiaFlash('dashboardAction', 'Règlement de résultats approuvé.');
         $this->actingAs($manager)->post($admin.'/rules/'.$rule->id.'/deliberations', $juryForm)->assertStatus(303)->assertSessionHasNoErrors();
         $run = \App\Models\Student\AcademicDeliberation::sole();
         $result = $run->results()->sole();
@@ -224,16 +228,20 @@ class AcademicTeachingTest extends TestCase
             ->where('course_credits.planned', 500)->where('course_credits.earned', null)->where('course_credits.remaining', null));
         $this->get($pdf)->assertNotFound();
         $this->actingAs($manager);
-        $move('open', ['attendance' => [$manager->id]])->assertSessionHasErrors('attendance');
+        $runWorkspace = $admin.'?run='.$run->id;
+        $this->from('/app/dashboard');
+        $move('open', ['attendance' => [$manager->id]])->assertRedirect($runWorkspace)->assertSessionHasErrors('attendance');
         $move('open', ['attendance' => [$manager->id, $secretary->id]])->assertStatus(303)->assertSessionHasNoErrors();
         $move('approve')->assertSessionHasErrors('state');
         $this->post($admin.'/deliberations/'.$run->id.'/results/'.$result->id.'/decision', [
             'revision' => $run->fresh()->revision, 'decision' => 'verified', 'reason' => self::REASON,
-        ])->assertStatus(303)->assertSessionHasNoErrors();
+        ])->assertStatus(303)->assertRedirect($runWorkspace.'&result='.$result->id)->assertSessionHasNoErrors()
+            ->assertInertiaFlash('dashboardAction', 'Décision du jury enregistrée.');
         $move('approve')->assertStatus(303)->assertSessionHasNoErrors();
         $move('publish')->assertForbidden();
         $this->actingAs($publisher);
-        $move('publish', ['notify' => true])->assertStatus(303)->assertSessionHasNoErrors();
+        $move('publish', ['notify' => true])->assertStatus(303)->assertRedirect($runWorkspace)->assertSessionHasNoErrors()
+            ->assertInertiaFlash('dashboardAction', 'Résultats publiés.');
         $move('publish', ['revision' => 1, 'notify' => true])->assertStatus(303);
         $this->assertDatabaseCount('notifications', 1);
         $this->get($admin.'?run='.$run->id.'&result='.$result->id)->assertInertia(fn (Assert $page) => $page
@@ -270,8 +278,16 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame($result->id, $progression->academic_official_result_id);
         $this->assertNull($progression->target_enrollment_id);
 
-        $appealUrl = '/app/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id;
-        $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303)->assertSessionHasNoErrors();
+        $appealUrl = '/app/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id.'&semester=1';
+        $resultsReturn = route('dashboard.student.index', [
+            'section' => 'results', 'academic' => $entry->id, 'official' => $result->reference, 'semester' => 1,
+        ]);
+        $this->from(url('/'))->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Court'])
+            ->assertRedirect($resultsReturn)->assertSessionHasErrors(['body' => 'Saisissez au moins 10 caractères pour expliquer le recours.']);
+        $this->assertSame(0, $entry->serviceRequests()->count());
+        $this->from(url('/'))->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])
+            ->assertStatus(303)->assertRedirect($resultsReturn)->assertSessionHasNoErrors();
+        $this->assertStringStartsWith('Recours enregistré', session('success'));
         $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303);
         $appeal = \App\Models\Student\ServiceRequest::sole();
         $this->travel(8)->days();
@@ -282,7 +298,8 @@ class AcademicTeachingTest extends TestCase
                 'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
         }
         $this->actingAs($publisher)->post($admin.'/appeals/'.$appeal->id, ['action' => 'accept', 'revision' => $appeal->fresh()->result_revision,
-            'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
+            'reason' => self::REASON])->assertStatus(303)->assertRedirect($admin.'#recours')->assertSessionHasNoErrors()
+            ->assertInertiaFlash('dashboardAction', 'Décision sur le recours enregistrée.');
         $this->assertSame('accepted', $appeal->fresh()->status);
         $source = $assessments[0]->records()->sole();
         $assessmentCorrections = app(\App\Modules\Assessment\Application\AssessmentCorrections::class);

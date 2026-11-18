@@ -6,6 +6,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ObserveHttp;
 use App\Http\Middleware\SeoResponse;
 use App\Http\Middleware\StartNavigationSession;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -45,6 +46,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->dontFlash(['email_current_password', 'uid']);
+        $exceptions->render(function (AuthenticationException $exception, Request $request) {
+            if ($request->is('app/*') && $request->header('X-Inertia') && ! $request->isMethodSafe()) {
+                return response()->json(['message' => 'Votre session a expiré. Reconnectez-vous avant de réessayer.'], 401);
+            }
+        });
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request) {
             if ($response->getStatusCode() >= 400) {
                 $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive');

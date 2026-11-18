@@ -1,7 +1,9 @@
 import AdminModal from '@/components/admin/AdminModal';
+import type { Page } from '@inertiajs/core';
 import { useForm } from '@inertiajs/react';
+import { isAxiosError } from 'axios';
 import { Plus, Trash2 } from 'lucide-react';
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 type FormValue = string | number | boolean | null | File | { amount: string; due_at: string }[];
 export type Field = {
     name: string;
@@ -11,9 +13,11 @@ export type Field = {
     accept?: string;
     options?: { value: string | number; label: string }[];
     optionsFor?: (values: Record<string, FormValue>) => NonNullable<Field['options']>;
-    visibleFor?: (values: Record<string, FormValue>) => boolean;
+    visibleFor?: (values: Record<string, FormValue>, errors: Record<string, string | undefined>) => boolean;
     clears?: string | string[];
     help?: string;
+    minLength?: number;
+    maxLength?: number;
     pattern?: string;
     value?: FormValue;
     scheduleCurrencyField?: string;
@@ -29,9 +33,12 @@ export type FormSpec = {
     values?: Record<string, FormValue>;
     submitLabel?: string;
     eyebrow?: string;
+    requireSuccessFlash?: boolean;
+    acceptsResponse?: (page: Page) => boolean;
 };
 export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormSpec; onClose: () => void; onSuccess: (message: string) => void }) {
     const id = useId();
+    const submitting = useRef(false);
     const form = useForm<Record<string, FormValue>>({
         ...spec.values,
         ...Object.fromEntries(
@@ -41,6 +48,41 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
             ]),
         ),
     });
+    const { setError } = form;
+    useEffect(() => {
+        const isAction = (url: string) => {
+            const requested = new URL(url, window.location.href);
+            const action = new URL(spec.action, window.location.href);
+            return requested.origin === action.origin && requested.pathname === action.pathname;
+        };
+
+        const showNetworkError = (event: Event) => {
+            if (!submitting.current) return;
+            const error = (event as CustomEvent<{ exception: unknown }>).detail?.exception;
+            if (!isAxiosError(error) || error.response || !error.config?.url) return;
+            if (!['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '')) return;
+            if (!isAction(error.config.url)) return;
+
+            event.preventDefault();
+            setError('_response', 'Réponse non reçue. Réessayez ce formulaire ou consultez le compte avant une nouvelle saisie.');
+        };
+        const showSessionError = (event: Event) => {
+            if (!submitting.current) return;
+            const response = (event as CustomEvent<{ response: { status: number; config?: { url?: string } } }>).detail?.response;
+            if (!response?.config?.url || !isAction(response.config.url) || ![401, 419].includes(response.status)) return;
+
+            event.preventDefault();
+            setError('_response', 'Votre session a expiré. Reconnectez-vous dans un autre onglet, puis revenez à ce formulaire.');
+        };
+
+        document.addEventListener('inertia:exception', showNetworkError, true);
+        document.addEventListener('inertia:invalid', showSessionError, true);
+        return () => {
+            document.removeEventListener('inertia:exception', showNetworkError, true);
+            document.removeEventListener('inertia:invalid', showSessionError, true);
+        };
+    }, [setError, spec.action]);
+
     return (
         <AdminModal
             title={spec.title}
@@ -59,22 +101,55 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                 className="academic-admin-form"
                 onSubmit={(event) => {
                     event.preventDefault();
+                    if (form.processing || submitting.current) return;
+                    submitting.current = true;
+                    form.clearErrors('_response');
+
                     form.submit(spec.method ?? 'post', spec.action, {
                         preserveScroll: true,
                         forceFormData: spec.fields.some((field) => field.type === 'file'),
+                        onFinish: () => {
+                            submitting.current = false;
+                        },
                         errorBag: `academic-${id.replace(/\W/g, '')}`,
                         onSuccess: (page) => {
+                            if (spec.acceptsResponse && !spec.acceptsResponse(page)) {
+                                form.setError('_response', 'Le retour vers ce dossier n’a pas été confirmé. Vérifiez le compte avant de réessayer.');
+                                return;
+                            }
+
+                            if (typeof page.flash?.dashboardAction === 'string' && page.flash.dashboardAction.trim()) {
+                                onClose();
+                                return;
+                            }
+
                             const flash = page.props.flash as { success?: string } | undefined;
-                            onSuccess(String(page.props.success || flash?.success || 'Modification enregistrée.'));
+                            const message = flash?.success ?? page.props.success;
+                            if (typeof message === 'string' && message.trim()) {
+                                onSuccess(message);
+                            } else if (spec.requireSuccessFlash) {
+                                form.setError(
+                                    '_response',
+                                    'Le résultat de cette opération n’a pas été confirmé. Vérifiez le dossier avant de réessayer.',
+                                );
+                            } else {
+                                onSuccess('Modification enregistrée.');
+                            }
                         },
                     });
                 }}
             >
                 <fieldset disabled={form.processing}>
                     {spec.fields.map((field) => {
-                        if (field.visibleFor && !field.visibleFor(form.data)) return null;
+                        if (field.visibleFor && !field.visibleFor(form.data, form.errors)) return null;
 
                         const inputId = `${id}-${field.name}`;
+                        const errorId = `${inputId}-error`;
+                        const fieldError = form.errors[field.name];
+                        const fieldErrorProps = {
+                            'aria-invalid': fieldError ? true : undefined,
+                            'aria-describedby': fieldError ? errorId : undefined,
+                        };
                         if (field.type === 'schedule') {
                             const rows = (Array.isArray(form.data[field.name]) ? form.data[field.name] : []) as { amount: string; due_at: string }[];
                             const currency = field.scheduleCurrencyField ? form.data[field.scheduleCurrencyField] : 'USD';
@@ -147,8 +222,10 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                     {field.type === 'checkbox' && (
                                         <input
                                             id={inputId}
+                                            {...fieldErrorProps}
                                             type="checkbox"
                                             checked={Boolean(form.data[field.name])}
+                                            required={field.required}
                                             onChange={(event) => form.setData(field.name, event.target.checked)}
                                         />
                                     )}
@@ -158,6 +235,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                 {field.type === 'select' ? (
                                     <select
                                         id={inputId}
+                                        {...fieldErrorProps}
                                         value={String(form.data[field.name] ?? '')}
                                         required={field.required}
                                         onChange={(event) =>
@@ -178,17 +256,27 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                 ) : field.type === 'textarea' ? (
                                     <textarea
                                         id={inputId}
+                                        {...fieldErrorProps}
                                         rows={4}
                                         value={String(form.data[field.name] ?? '')}
                                         required={field.required}
+                                        minLength={field.minLength}
+                                        maxLength={field.maxLength}
                                         onChange={(event) => form.setData(field.name, event.target.value)}
                                     />
                                 ) : field.type === 'file' ? (
-                                    <input id={inputId} type="file" accept={field.accept} onChange={(event) => form.setData(field.name, event.target.files?.[0] || null)} />
+                                    <input
+                                        id={inputId}
+                                        {...fieldErrorProps}
+                                        type="file"
+                                        accept={field.accept}
+                                        onChange={(event) => form.setData(field.name, event.target.files?.[0] || null)}
+                                    />
                                 ) : (
                                     field.type !== 'checkbox' && (
                                         <input
                                             id={inputId}
+                                            {...fieldErrorProps}
                                             type={field.type || 'text'}
                                             value={String(form.data[field.name] ?? '')}
                                             required={field.required}
@@ -208,7 +296,11 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                                     )
                                 )}
                                 {field.help && <small>{field.help}</small>}
-                                {form.errors[field.name] && <p role="alert">{form.errors[field.name]}</p>}
+                                {fieldError && (
+                                    <p id={errorId} role="alert">
+                                        {fieldError}
+                                    </p>
+                                )}
                             </div>
                         );
                     })}

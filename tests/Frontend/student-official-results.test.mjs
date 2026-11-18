@@ -11,6 +11,7 @@ import uploadLimits from './support/upload-limits.mjs';
 const require = createRequire(import.meta.url);
 const source = await readFile(new URL('../../resources/js/components/student/OfficialResults.tsx', import.meta.url), 'utf8');
 const module = { exports: {} };
+let flash = {};
 vm.runInNewContext(ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 },
 }).outputText, {
@@ -18,7 +19,10 @@ vm.runInNewContext(ts.transpileModule(source, {
     route: (name) => name,
     require(name) {
         if (name === '@/lib/uploadLimits') return uploadLimits;
-        if (name === '@inertiajs/react') return { Link: ({ children, ...props }) => React.createElement('a', props, children) };
+        if (name === '@inertiajs/react') return {
+            Link: ({ children, ...props }) => React.createElement('a', props, children),
+            usePage: () => ({ props: { flash } }),
+        };
         if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });
         if (name === '@/lib/studentEnrollment') return { formatDate: (date) => date };
         if (name === '@/components/admin/Pagination' || name === './StudentResultCelebration') return () => null;
@@ -60,4 +64,13 @@ test('La grille conserve une ancienne compensation sans présenter la nouvelle r
     assert.doesNotMatch(html, /cours requis/);
     const carried = renderResult({ ...unit, is_composite: true, earned_credits: 600, status: 'compensated', ordinary_acquisition_preserved: true });
     assert.match(carried, /Validation acquise lors d’une session précédente/);
+});
+
+test('Le recours reçu est annoncé avec sa référence, indépendamment du formulaire', () => {
+    flash = { success: 'Recours enregistré · Référence 42' };
+    try {
+        assert.match(renderResult(unit), /role="status">Recours enregistré · Référence 42<\/p>/);
+    } finally {
+        flash = {};
+    }
 });

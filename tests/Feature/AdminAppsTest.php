@@ -21,7 +21,10 @@ class AdminAppsTest extends TestCase
     {
         $user = new User;
         $user->forceFill(['first_name' => 'Test', 'last_name' => 'Admin', 'email' => $admin ? 'admin@example.test' : 'student@example.test', 'password' => 'test-password', 'email_verified_at' => now()])->save();
-        if ($admin) $user->assignRole(Role::findOrCreate('admin', 'web'));
+        if ($admin) {
+            $user->assignRole(Role::findOrCreate('admin', 'web'));
+            $user->givePermissionTo(Permission::findOrCreate('manage academic access', 'web'));
+        }
         return $user;
     }
 

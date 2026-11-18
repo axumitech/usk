@@ -1,8 +1,10 @@
+import FeedbackToast from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { labels, money } from '@/components/student/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { ArrowRight, CalendarDays, Download, FileSpreadsheet, Filter, Landmark, Users } from 'lucide-react';
+import { useState } from 'react';
 import '../../../../css/dashboard/finance.css';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
@@ -26,6 +28,7 @@ type DirectoryProps = {
     methods: string[];
     dualControl: boolean;
     preview: {
+        id: string;
         account: string;
         rows: { bank_reference: string; payment_reference: string; amount_cents: number; currency: string; date: string; state: string }[];
     } | null;
@@ -260,7 +263,7 @@ function FinanceDirectory(props: DirectoryProps) {
                         Gérer les barèmes par année <ArrowRight size={16} aria-hidden="true" />
                     </Link>
                 </section>
-                <Reconciliation preview={props.preview} />
+                <Reconciliation preview={props.preview} filters={props.filters} />
                 <section className="portal-panel finance-operational-panel" id="settings">
                     <h2>Paramètres financiers appliqués</h2>
                     <p>
@@ -275,18 +278,31 @@ function FinanceDirectory(props: DirectoryProps) {
         </Dashboard>
     );
 }
-function Reconciliation({ preview }: { preview: DirectoryProps['preview'] }) {
+const reconciliationErrorBag = 'finance-reconciliation-confirm';
+
+function Reconciliation({ preview, filters }: { preview: DirectoryProps['preview']; filters: DirectoryProps['filters'] }) {
     const upload = useForm<{ file: File | null; account: string }>({ file: null, account: '' });
-    const confirm = useForm<{ rows: number[]; reason: string }>({ rows: [], reason: '' });
+    const { flash, props } = usePage();
+    const [dismissed, setDismissed] = useState<typeof flash>();
+    const message = flash?.financeReconciliation;
+    const errors = props.errors?.[reconciliationErrorBag];
     return (
         <section className="portal-panel finance-operational-panel" id="reconciliation">
+            {typeof message === 'string' && message && flash !== dismissed && (
+                <FeedbackToast feedback={{ id: 0, message, tone: 'success' }} onDismiss={() => setDismissed(flash)} />
+            )}
             <h2>Rapprochement explicite d’un relevé CSV</h2>
             <p>Colonnes : bank_reference,payment_reference,amount,currency,date. Aucun paiement n’est confirmé par le seul dépôt du fichier.</p>
             <form
                 className="portal-form"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    upload.post(route('dashboard.admin.finance.reconciliation.preview'), { forceFormData: true });
+                    if (upload.processing) return;
+                    upload.post(route('dashboard.admin.finance.reconciliation.preview', filters), {
+                        forceFormData: true,
+                        preserveScroll: true,
+                        errorBag: 'finance-reconciliation-preview',
+                    });
                 }}
             >
                 <label>
@@ -306,45 +322,59 @@ function Reconciliation({ preview }: { preview: DirectoryProps['preview'] }) {
                     Prévisualiser sans modifier les paiements
                 </button>
             </form>
-            {preview && (
-                <form
-                    className="portal-form"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        confirm.post(route('dashboard.admin.finance.reconciliation.commit'));
-                    }}
-                >
-                    <h3>{preview.account}</h3>
-                    {preview.rows.map((row, index) => (
-                        <label key={index}>
-                            <input
-                                type="checkbox"
-                                disabled={row.state !== 'match'}
-                                checked={confirm.data.rows.includes(index)}
-                                onChange={(e) =>
-                                    confirm.setData(
-                                        'rows',
-                                        e.target.checked ? [...confirm.data.rows, index] : confirm.data.rows.filter((v) => v !== index),
-                                    )
-                                }
-                            />
-                            {row.bank_reference} · {row.payment_reference} · {money(row.amount_cents, row.currency)} · {statusLabel(row.state)}
-                        </label>
-                    ))}
-                    <label>
-                        Justification du rapprochement
-                        <textarea required minLength={10} value={confirm.data.reason} onChange={(e) => confirm.setData('reason', e.target.value)} />
-                    </label>
-                    {Object.values(confirm.errors).map((error) => (
-                        <p key={error} role="alert">
-                            {error}
-                        </p>
-                    ))}
-                    <button className="portal-primary" disabled={confirm.processing || !confirm.data.rows.length}>
-                        Confirmer les correspondances sélectionnées
-                    </button>
-                </form>
-            )}
+            {errors && typeof errors === 'object' && Object.entries(errors).map(([field, error]) => (
+                typeof error === 'string' ? <p key={field} role="alert">{error}</p> : null
+            ))}
+            {preview && <ReconciliationSelection key={preview.id} preview={preview} filters={filters} uploading={upload.processing} />}
         </section>
+    );
+}
+
+function ReconciliationSelection({
+    preview,
+    filters,
+    uploading,
+}: {
+    preview: NonNullable<DirectoryProps['preview']>;
+    filters: DirectoryProps['filters'];
+    uploading: boolean;
+}) {
+    const confirm = useForm<{ preview_id: string; rows: number[]; reason: string }>({ preview_id: preview.id, rows: [], reason: '' });
+    const busy = uploading || confirm.processing;
+
+    return (
+        <form
+            className="portal-form"
+            onSubmit={(event) => {
+                event.preventDefault();
+                if (busy || !confirm.data.rows.length) return;
+                confirm.post(route('dashboard.admin.finance.reconciliation.commit', filters), {
+                    preserveScroll: true,
+                    errorBag: reconciliationErrorBag,
+                });
+            }}
+        >
+            <h3>{preview.account}</h3>
+            {preview.rows.map((row, index) => (
+                <label key={index}>
+                    <input
+                        type="checkbox"
+                        disabled={busy || row.state !== 'match'}
+                        checked={confirm.data.rows.includes(index)}
+                        onChange={(e) =>
+                            confirm.setData('rows', e.target.checked ? [...confirm.data.rows, index] : confirm.data.rows.filter((v) => v !== index))
+                        }
+                    />
+                    {row.bank_reference} · {row.payment_reference} · {money(row.amount_cents, row.currency)} · {statusLabel(row.state)}
+                </label>
+            ))}
+            <label>
+                Justification du rapprochement (au moins 10 caractères)
+                <textarea required disabled={busy} minLength={10} maxLength={2000} value={confirm.data.reason} onChange={(e) => confirm.setData('reason', e.target.value)} />
+            </label>
+            <button className="portal-primary" disabled={busy || !confirm.data.rows.length}>
+                {confirm.processing ? 'Rapprochement en cours…' : 'Confirmer les correspondances sélectionnées'}
+            </button>
+        </form>
     );
 }

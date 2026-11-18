@@ -89,7 +89,7 @@ const appeals: Record<string, string> = {
 };
 const quantity = (value: number, divisor = 100) => new Intl.NumberFormat('fr', { maximumFractionDigits: 3 }).format(value / divisor);
 
-function AppealForm({ result, academic }: { result: Selected; academic: number }) {
+function AppealForm({ result, academic, semester }: { result: Selected; academic: number; semester?: 1 | 2 }) {
     const form = useForm({ target: '', body: '', file: null as File | null });
     const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const filed = new Set(result.appeals.map((appeal) => appeal.result_target));
@@ -111,7 +111,7 @@ function AppealForm({ result, academic }: { result: Selected; academic: number }
                         form.setError('file', error);
                         return;
                     }
-                    form.post(route('dashboard.student.results.appeal', { reference: result.reference, academic }), {
+                    form.post(route('dashboard.student.results.appeal', { reference: result.reference, academic, ...(semester && { semester }) }), {
                         forceFormData: true,
                         preserveScroll: true,
                         onSuccess: () => form.reset(),
@@ -489,7 +489,7 @@ function PublishedSheet({
                 <section className="student-results-appeals" aria-label="Recours">
                     <h3>Recours</h3>
                     {result.deadline && <p>Dépôt possible jusqu’au {formatDate(result.deadline, true)}.</p>}
-                    {result.can_appeal && <AppealForm key={result.reference} result={result} academic={academicId} />}
+                    {result.can_appeal && <AppealForm key={result.reference} result={result} academic={academicId} semester={semester?.number} />}
                     {result.appeals.length > 0 && (
                         <ul>
                             {result.appeals.map((appeal) => (
@@ -507,6 +507,7 @@ function PublishedSheet({
 }
 
 export default function OfficialResults({ data, academic }: { data: OfficialResultsProps; academic: Academic }) {
+    const success = usePage<{ flash?: { success?: string } }>().props.flash?.success;
     const selected = data.selected;
     if (!data.items) return null;
 
@@ -540,6 +541,11 @@ export default function OfficialResults({ data, academic }: { data: OfficialResu
                     <GraduationCap size={28} aria-hidden="true" />
                 </span>
             </header>
+            {success?.startsWith('Recours enregistré') && (
+                <p className="portal-alert" role="status">
+                    {success}
+                </p>
+            )}
             {semesters.length > 0 && (
                 <nav className="student-results-semesters" aria-label="Semestres">
                     {semesters.map((item) => (

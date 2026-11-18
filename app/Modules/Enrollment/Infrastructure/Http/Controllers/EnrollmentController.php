@@ -121,14 +121,15 @@ class EnrollmentController extends Controller
                 return;
             }
             if (! $entry->status->canTransitionTo(EnrollmentStatus::CANCELLED)) {
-                throw ValidationException::withMessages(['withdrawal' => 'Ce dossier a déjà fait l’objet d’une décision.']);
+                throw ValidationException::withMessages(['withdrawal' => 'Ce dossier a déjà fait l’objet d’une décision.'])
+                    ->redirectTo(route('dashboard.enrollments.show', $uuid));
             }
             $entry->update(['status' => 'cancelled']);
             $entry->events()->create(['event' => 'cancelled', 'actor_id' => $request->user()->id,
                 'payload' => ['from' => $status, 'reason' => 'Retrait demandé par le candidat.'], 'occurred_at' => now()]);
         });
 
-        return back()->with('success', 'Votre candidature a été retirée. Son historique reste accessible.');
+        return to_route('dashboard.enrollments.show', $uuid, 303)->with('success', 'Votre candidature a été retirée. Son historique reste accessible.');
     }
 
     public function show(Request $request, string $uuid)

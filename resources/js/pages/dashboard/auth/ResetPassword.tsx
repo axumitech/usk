@@ -1,11 +1,10 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import Alert from '@/utils/sweetAlert';
 import { useForm } from '@inertiajs/react';
 import { CircleAlert, Eye, EyeOff, KeyRound, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 export default function ResetPassword({ token, email }: { token?: string; email?: string }) {
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, setError } = useForm({
         token,
         email: email || '',
         password: '',
@@ -15,21 +14,13 @@ export default function ResetPassword({ token, email }: { token?: string; email?
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const newErrors: typeof errors = {};
-        if (!data.email) newErrors.email = 'Email requis';
-        if (!data.password) newErrors.password = 'Mot de passe requis';
+        if (processing) return;
         if (data.password !== data.password_confirmation) {
-            newErrors.password_confirmation = 'Les mots de passe ne correspondent pas';
+            setError('password_confirmation', 'Les mots de passe ne correspondent pas.');
+            return;
         }
 
-        post(route('password.update'), {
-            onSuccess: () => {
-                Alert.success('Mot de passe réinitialisé avec succès!');
-            },
-            onError: () => {
-                Alert.error('Une erreur est survenue lors de la réinitialisation de votre mot de passe.');
-            },
-        });
+        post(route('password.update'), { preserveScroll: true });
     };
 
     const [focused, setFocused] = useState<string | null>(null);
@@ -125,12 +116,14 @@ export default function ResetPassword({ token, email }: { token?: string; email?
                         <p className="text-base leading-relaxed text-gray-500">Créez un mot de passe sécurisé pour protéger votre compte</p>
                     </div>
 
-                    <div className="space-y-7">
+                    <form className="space-y-7" onSubmit={handleSubmit}>
                         <div className="relative">
                             <div className="relative flex items-center">
                                 <input
                                     type="email"
                                     name="email"
+                                    aria-label="Adresse email"
+                                    aria-invalid={Boolean(errors.email)}
                                     value={data.email}
                                     onChange={(e) => setData({ ...data, email: e.target.value })}
                                     className="h-16 w-full rounded-2xl border-2 border-gray-200 bg-gray-50 px-6 pl-16 text-base font-medium text-slate-900 transition-all duration-300 outline-none focus:-translate-y-1 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10"
@@ -159,6 +152,9 @@ export default function ResetPassword({ token, email }: { token?: string; email?
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     name="password"
+                                    aria-label="Nouveau mot de passe"
+                                    aria-invalid={Boolean(errors.password)}
+                                    minLength={8}
                                     value={data.password}
                                     onChange={(e) => setData({ ...data, password: e.target.value })}
                                     className="h-16 w-full rounded-2xl border-2 border-gray-200 bg-gray-50 px-6 pr-16 pl-16 text-base font-medium text-slate-900 transition-all duration-300 outline-none focus:-translate-y-1 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10"
@@ -213,6 +209,8 @@ export default function ResetPassword({ token, email }: { token?: string; email?
                                 <input
                                     type={showConfirmPassword ? 'text' : 'password'}
                                     name="password_confirmation"
+                                    aria-label="Confirmer le nouveau mot de passe"
+                                    aria-invalid={Boolean(errors.password_confirmation)}
                                     value={data.password_confirmation}
                                     onChange={(e) => setData({ ...data, password_confirmation: e.target.value })}
                                     className="h-16 w-full rounded-2xl border-2 border-gray-200 bg-gray-50 px-6 pr-16 pl-16 text-base font-medium text-slate-900 transition-all duration-300 outline-none focus:-translate-y-1 focus:border-emerald-500 focus:bg-white focus:shadow-lg focus:shadow-emerald-500/10"
@@ -252,10 +250,9 @@ export default function ResetPassword({ token, email }: { token?: string; email?
                         </div>
 
                         <button
-                            type="button"
+                            type="submit"
                             className="relative h-16 cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 text-base text-sm font-bold tracking-wide text-white uppercase shadow-lg shadow-emerald-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/50 active:translate-y-0 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                             disabled={processing}
-                            onClick={handleSubmit}
                         >
                             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-all duration-600 hover:translate-x-full"></span>
                             {processing && (
@@ -263,7 +260,7 @@ export default function ResetPassword({ token, email }: { token?: string; email?
                             )}
                             {processing ? 'Réinitialisation...' : 'Réinitialiser le mot de passe'}
                         </button>
-                    </div>
+                    </form>
 
                     <div className="mt-8 rounded-2xl border border-green-100 bg-gradient-to-br from-green-50 to-emerald-50 p-5 text-center text-sm leading-relaxed text-green-600">
                         <span className="mb-2 block text-xl">

@@ -13,6 +13,7 @@ use App\Modules\Faculty\Domain\Exceptions\DuplicateFacultyException;
 use App\Modules\Faculty\Domain\Repositories\FacultyRepository;
 use App\Modules\Faculty\Infrastructure\Http\Requests\StoreFacultyRequest;
 use App\Modules\Faculty\Infrastructure\Http\Requests\UpdateFacultyRequest;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -40,6 +41,7 @@ final class FacultyController extends Controller
             'selectedFacultyId' => isset($selection['faculty']) ? (int) $selection['faculty'] : null,
             'viewDepartments' => $viewDepartments,
             'manageStructure' => Gate::allows('manage', AcademicProgram::class),
+            'facultyScope' => $request->user()->academicFaculties()->pluck('faculties.id'),
         ]);
     }
 
@@ -77,8 +79,10 @@ final class FacultyController extends Controller
     }
 
 
-    public function destroy(int $id, DeleteFaculty $deleteFaculty, FacultyRepository $repository)
+    public function destroy(Request $request, int $id, DeleteFaculty $deleteFaculty, FacultyRepository $repository)
     {
+        Gate::authorize('manage', AcademicProgram::class);
+        abort_unless(TeachingScope::allows($request->user(), $id), 403);
         $faculty = $repository->findById($id);
 
         if (!$faculty) {
@@ -105,10 +109,13 @@ final class FacultyController extends Controller
             ->with('success', 'Faculté supprimée avec succès.');
     }
 
-    public function show(int $id)
+    public function show(Request $request, int $id)
     {
         $faculty = \App\Models\Faculty::with(['levels' => fn ($query) => $query->orderBy('code')->orderBy('title')])->findOrFail($id);
 
-        return Inertia::render('dashboard/faculties/Show', ['faculty' => $faculty]);
+        return Inertia::render('dashboard/faculties/Show', [
+            'faculty' => $faculty,
+            'canManage' => Gate::allows('manage', AcademicProgram::class) && TeachingScope::allows($request->user(), $id),
+        ]);
     }
 }

@@ -11,7 +11,7 @@ import { useState, type FormEvent } from 'react';
 import '../../../../css/dashboard/faculty-detail.css';
 import '../../../../css/dashboard/levels-catalog.css';
 type Faculty = { id: number; name: string; code: string; description?: string; duration_years: number; is_active: boolean; levels: CatalogLevel[] };
-export default function FacultyShow({ faculty }: { faculty: Faculty }) {
+export default function FacultyShow({ faculty, canManage }: { faculty: Faculty; canManage: boolean }) {
     const [view, setView] = useCatalogView({ search: '', status: 'all' });
     const { search, status } = view;
     const [createLevel, setCreateLevel] = useState(false);
@@ -46,7 +46,7 @@ export default function FacultyShow({ faculty }: { faculty: Faculty }) {
             <div className="levels-catalog faculty-detail-page">
                 <div className="fd-topline">
                     <span>GESTION UNIVERSITAIRE · FACULTÉ</span>
-                    <div className="fd-actions">
+                    {canManage && <div className="fd-actions">
                         <button
                             className="fd-delete"
                             disabled={deleteForm.processing}
@@ -62,7 +62,7 @@ export default function FacultyShow({ faculty }: { faculty: Faculty }) {
                             <Pencil size={15} />
                             Modifier la faculté
                         </button>
-                    </div>
+                    </div>}
                 </div>
                 <header className="fd-hero">
                     <div className="fd-hero-copy">
@@ -118,10 +118,12 @@ export default function FacultyShow({ faculty }: { faculty: Faculty }) {
                             <h2 id="faculty-levels-heading">Ses niveaux de formation.</h2>
                             <p>Explorez et gérez les parcours rattachés à {faculty.name}.</p>
                         </div>
-                        <button className="admin-primary" onClick={() => setCreateLevel(true)}>
-                            <Plus size={17} />
-                            Nouveau niveau
-                        </button>
+                        {canManage && (
+                            <button className="admin-primary" onClick={() => setCreateLevel(true)}>
+                                <Plus size={17} />
+                                Nouveau niveau
+                            </button>
+                        )}
                     </div>
                     <div className="fd-filters">
                         <label className="levels-search">
@@ -175,12 +177,12 @@ export default function FacultyShow({ faculty }: { faculty: Faculty }) {
                             </p>
                             {levels.length ? (
                                 <button onClick={reset}>Voir tous ses niveaux</button>
-                            ) : (
+                            ) : canManage ? (
                                 <button onClick={() => setCreateLevel(true)}>
                                     <Plus size={16} />
                                     Créer un niveau
                                 </button>
-                            )}
+                            ) : null}
                         </div>
                     )}
                 </section>

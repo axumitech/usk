@@ -22,12 +22,14 @@ use App\Modules\Student\Application\Services\FinanceReceiptService;
 use App\Modules\Student\Application\Services\FinanceReconciliationService;
 use App\Modules\Student\Application\Services\FinanceReportingService;
 use App\Modules\Student\Application\Services\PaymentAllocationService;
+use App\Modules\Student\Application\Services\PaymentProofReviewReasons;
 use App\Modules\Student\Application\Services\PaymentRefundService;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Student\Application\Services\StudentPaymentProofs;
 use App\Modules\Student\Infrastructure\Exports\FinanceWorkbook;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -71,7 +73,7 @@ final class FinanceController extends Controller
             'cycles' => AcademicCycle::orderBy('name')->get(['id', 'name']),
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
             'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => config('finance.dual_control'),
-            'preview' => ($r->session()->get('finance.preview.actor_id') === $r->user()->id && $r->session()->get('finance.preview.expires_at', 0) >= now()->timestamp) ? $r->session()->get('finance.preview') : null,
+            'preview' => $this->currentPreview($r),
         ]);
     }
 
@@ -94,6 +96,7 @@ final class FinanceController extends Controller
         if ($fromProofs) {
             $backUrl = route('dashboard.admin.finance.proofs.index', Arr::only($filters, ['q', 'page']), false);
         }
+        $similarReceipts = [];
 
         return Inertia::render('dashboard/finance/Index', [
             'selected' => $read->row($entry),
@@ -102,16 +105,25 @@ final class FinanceController extends Controller
             'accountBackLabel' => $fromProofs ? 'Justificatifs de paiement' : ($fromConfirmations ? 'Inscriptions en attente' : 'Comptes étudiants'),
             'enrollmentConfirmation' => $this->enrollmentConfirmation($entry, $actor, $finance, $statement),
             'statement' => $statement,
-            'paymentProofs' => fn () => app(StudentPaymentProofs::class)->adminRows($entry, $statement['kind_titles']),
+            'paymentProofs' => fn () => app(StudentPaymentProofs::class)->adminRows($entry, $statement['kind_titles'], $actor),
+            'paymentProofReviewReasons' => PaymentProofReviewReasons::options(),
             'adjustments' => $entry->adjustments()->latest('id')->paginate(15, ['*'], 'adjustments_page')->withQueryString(),
             'obligations' => $entry->obligations()->orderBy('installment')->orderBy('id')->get(),
             'pendingPaymentCount' => $entry->payments()->where('status', 'pending')->count(),
             'payments' => $entry->payments()->with('allocations')
                 ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")->latest('id')
-                ->paginate(20, ['*'], 'payments_page')->withQueryString()->through(fn (StudentPayment $payment) => $payment->toArray() + [
-                    'can_confirm' => $payment->status === 'pending' && (! $dualControl || (int) $payment->recorded_by !== (int) $actor->id),
-                    'recorded_at' => $payment->created_at?->toIso8601String(),
-                ]),
+                ->paginate(20, ['*'], 'payments_page')->withQueryString()->through(function (StudentPayment $payment) use ($entry, $actor, $finance, $dualControl, &$similarReceipts) {
+                    $canConfirm = $payment->status === 'pending' && (! $dualControl || (int) $payment->recorded_by !== (int) $actor->id);
+                    $group = implode(':', [$payment->kind, $payment->amount_cents, $payment->method]);
+
+                    return $payment->toArray() + [
+                        'can_confirm' => $canConfirm,
+                        'recorded_at' => $payment->created_at?->toIso8601String(),
+                        'requires_distinct_receipt_verification' => $canConfirm && ($similarReceipts[$group] ??= $finance->hasSimilarConfirmedReceipt(
+                            $entry, $payment->kind, (int) $payment->amount_cents, $payment->method, $payment->id,
+                        )),
+                    ];
+                }),
             'refunds' => PaymentRefund::whereIn('student_payment_id', $entry->payments()->select('id'))->latest('id')->paginate(15, ['*'], 'refunds_page')->withQueryString(),
             'tariffs' => ['data' => $tariffs->billableFor($entry, $actor)->orderBy('title')->get(['id', 'title', 'version', 'category', 'currency', 'status'])],
             'currencies' => config('finance.currencies'), 'methods' => config('finance.methods'), 'dualControl' => $dualControl,
@@ -383,64 +395,183 @@ final class FinanceController extends Controller
     public function bill(Request $r, AcademicEnrollment $academic, FeeTariffService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['tariff_id' => 'required|integer|exists:finance_tariffs,id', 'reason' => 'required|string|min:10|max:2000']);
-        $service->bill(FinanceTariff::findOrFail($d['tariff_id']), $academic, $r->user(), $d['reason']);
 
-        return back(303);
+        return $this->updateAccount($r, $academic->id, function () use ($r, $academic, $service): string {
+            $d = $r->validate(
+                ['tariff_id' => 'required|integer|exists:finance_tariffs,id', 'reason' => 'required|string|min:10|max:2000'],
+                self::accountActionMessages() + [
+                    'tariff_id.required' => 'Choisissez le barème à appliquer.',
+                    'tariff_id.integer' => 'Choisissez un barème proposé.',
+                    'tariff_id.exists' => 'Ce barème n’existe plus.',
+                ],
+            );
+            $service->bill(FinanceTariff::findOrFail($d['tariff_id']), $academic, $r->user(), $d['reason']);
+
+            return 'Les obligations du barème sont en place sur le compte.';
+        });
     }
 
     public function allocate(Request $r, StudentPayment $payment, PaymentAllocationService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['allocations' => 'required|array|min:1|max:24', 'allocations.*.obligation_id' => 'required|integer|distinct|exists:student_obligations,id', 'allocations.*.amount' => 'required', 'reason' => 'required|string|min:10|max:2000']);
-        $service->allocate($payment, $r->user(), $d['allocations'], $d['reason']);
 
-        return back(303);
+        return $this->updateAccount($r, $payment->academic_enrollment_id, function () use ($r, $payment, $service): string {
+            $d = $r->validate([
+                'allocations' => 'required|array|min:1|max:24',
+                'allocations.*.obligation_id' => 'required|integer|distinct|exists:student_obligations,id',
+                'allocations.*.amount' => 'required',
+                'reason' => 'required|string|min:10|max:2000',
+            ], self::accountActionMessages());
+            $service->allocate($payment, $r->user(), $d['allocations'], $d['reason']);
+
+            return 'Versement affecté. Le solde et les droits ont été recalculés.';
+        });
     }
 
     public function refund(Request $r, StudentPayment $payment, PaymentRefundService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['amount' => 'required', 'operation_key' => 'required|uuid', 'reason' => 'required|string|min:10|max:2000']);
-        $service->request($payment, $r->user(), $d);
 
-        return back(303);
+        return $this->updateAccount($r, $payment->academic_enrollment_id, function () use ($r, $payment, $service): string {
+            $d = $r->validate([
+                'amount' => 'required', 'operation_key' => 'required|uuid', 'reason' => 'required|string|min:10|max:2000',
+            ], self::accountActionMessages());
+            $service->request($payment, $r->user(), $d);
+
+            return 'La demande de remboursement figure dans l’historique du compte.';
+        });
     }
 
     public function refundStatus(Request $r, PaymentRefund $refund, PaymentRefundService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['status' => 'required|in:approved,cancelled,executed', 'reason' => 'required|string|min:10|max:2000', 'method' => 'required_if:status,executed|nullable|string', 'execution_reference' => 'required_if:status,executed|nullable|string|max:180']);
-        $service->transition($refund, $r->user(), $d);
 
-        return back(303);
+        return $this->updateAccount($r, $refund->payment->academic_enrollment_id, function () use ($r, $refund, $service): string {
+            $d = $r->validate([
+                'status' => 'required|in:approved,cancelled,executed',
+                'reason' => 'required|string|min:10|max:2000',
+                'method' => 'required_if:status,executed|nullable|string',
+                'execution_reference' => 'required_if:status,executed|nullable|string|max:180',
+            ], self::accountActionMessages());
+            $service->transition($refund, $r->user(), $d);
+
+            return match ($d['status']) {
+                'approved' => 'Remboursement autorisé. Le décaissement reste à confirmer.',
+                'cancelled' => 'Demande de remboursement annulée et conservée dans l’historique.',
+                'executed' => 'Décaissement confirmé. Le solde et les droits ont été recalculés.',
+            };
+        });
+    }
+
+    private function updateAccount(Request $request, int $academic, \Closure $operation): \Illuminate\Http\RedirectResponse
+    {
+        return FinanceScreenReturn::update(FinanceScreenReturn::account($request, $academic), $academic, $operation);
+    }
+
+    private static function accountActionMessages(): array
+    {
+        return [
+            'reason.required' => 'Renseignez le motif de cette opération.',
+            'reason.min' => 'Le motif doit comporter au moins :min caractères.',
+            'reason.max' => 'Le motif ne doit pas dépasser :max caractères.',
+            'allocations.required' => 'Ajoutez au moins une affectation.',
+            'allocations.*.obligation_id.required' => 'Choisissez des frais à régler pour chaque affectation.',
+            'allocations.*.obligation_id.distinct' => 'Chaque ligne de frais doit apparaître une seule fois.',
+            'allocations.*.obligation_id.exists' => 'Choisissez une ligne de frais existante.',
+            'allocations.*.amount.required' => 'Indiquez un montant pour chaque affectation.',
+            'amount.required' => 'Indiquez le montant du remboursement.',
+            'operation_key.uuid' => 'La tentative est invalide. Rouvrez le formulaire depuis le compte.',
+            'status.in' => 'Choisissez une décision de remboursement proposée.',
+            'method.required_if' => 'Indiquez le mode du décaissement.',
+            'execution_reference.required_if' => 'Indiquez la référence du décaissement.',
+        ];
     }
 
     public function preview(Request $r, FinanceReconciliationService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['file' => 'required|file|max:2048', 'account' => 'required|string|max:100']);
-        $rows = $service->preview($r->user(), $r->file('file')->get());
-        $r->session()->put('finance.preview', ['actor_id' => $r->user()->id, 'rows' => $rows, 'account' => $d['account'], 'expires_at' => now()->addMinutes(30)->timestamp]);
+        $url = FinanceScreenReturn::listing($r);
+        try {
+            $d = $r->validate(['file' => 'required|file|max:2048', 'account' => 'required|string|max:100'], [
+                'file.required' => 'Sélectionnez un relevé CSV.',
+                'file.file' => 'Sélectionnez un fichier valide.',
+                'file.max' => 'Le relevé ne doit pas dépasser 2 Mo.',
+                'account.required' => 'Indiquez le compte ou le journal bancaire.',
+                'account.string' => 'Saisissez le nom du compte ou du journal.',
+                'account.max' => 'Le nom du compte ne doit pas dépasser :max caractères.',
+            ]);
+            $rows = $service->preview($r->user(), $d['file']->get());
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
 
-        return back(303);
+        $r->session()->put('finance.preview', [
+            'id' => (string) Str::uuid(),
+            'actor_id' => $r->user()->id,
+            'rows' => $rows,
+            'account' => $d['account'],
+            'expires_at' => now()->addMinutes(30)->timestamp,
+        ]);
+
+        return $this->reconciliationFeedback($url, 'Relevé prévisualisé. Aucune écriture n’a été modifiée.');
     }
 
     public function reconcile(Request $r, FinanceReconciliationService $service)
     {
         $this->staff($r);
-        $d = $r->validate(['rows' => 'required|array|min:1|max:500', 'rows.*' => 'required|integer|distinct|min:0', 'reason' => 'required|string|min:10|max:2000']);
-        $preview = $r->session()->get('finance.preview');
-        abort_unless($preview && $preview['actor_id'] === $r->user()->id && $preview['expires_at'] >= now()->timestamp, 422, 'La prévisualisation a expiré.');
-        $rows = array_map(function ($index) use ($preview) {
-            abort_unless(isset($preview['rows'][$index]), 422);
+        $url = FinanceScreenReturn::listing($r);
+        $expired = 'Cet aperçu a expiré ou a été remplacé. Prévisualisez le relevé et sélectionnez à nouveau les correspondances.';
+        try {
+            $d = $r->validate([
+                'preview_id' => 'required|uuid',
+                'rows' => 'required|array|min:1|max:500',
+                'rows.*' => 'required|integer|distinct|min:0',
+                'reason' => 'required|string|min:10|max:2000',
+            ], self::accountActionMessages() + [
+                'preview_id.required' => $expired,
+                'preview_id.uuid' => $expired,
+                'rows.required' => 'Sélectionnez au moins une correspondance exacte.',
+                'rows.array' => 'Sélectionnez les correspondances dans l’aperçu.',
+                'rows.min' => 'Sélectionnez au moins une correspondance exacte.',
+                'rows.max' => 'Sélectionnez au maximum :max correspondances.',
+                'rows.*' => 'La sélection contient une ligne invalide ou répétée.',
+            ]);
+            $preview = $this->currentPreview($r);
+            if ($preview === null || $preview['id'] !== $d['preview_id']) {
+                throw ValidationException::withMessages(['preview_id' => $expired]);
+            }
+            $rows = array_map(function ($index) use ($preview) {
+                if (! isset($preview['rows'][$index])) {
+                    throw ValidationException::withMessages(['rows' => 'Cette ligne ne figure pas dans l’aperçu. Vérifiez votre sélection.']);
+                }
 
-            return $preview['rows'][$index];
-        }, $d['rows']);
-        $service->commit($r->user(), $preview['account'], $rows, $d['reason']);
+                return $preview['rows'][$index];
+            }, $d['rows']);
+            $service->commit($r->user(), $preview['account'], $rows, $d['reason']);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
         $r->session()->forget('finance.preview');
 
-        return back(303);
+        return $this->reconciliationFeedback($url, 'Correspondances confirmées. Le rapprochement figure dans l’historique financier.');
+    }
+
+    private function currentPreview(Request $request): ?array
+    {
+        $preview = $request->session()->get('finance.preview');
+
+        return isset($preview['id'])
+            && $preview['actor_id'] === $request->user()->id
+            && $preview['expires_at'] >= now()->timestamp
+            ? $preview
+            : null;
+    }
+
+    private function reconciliationFeedback(string $url, string $message): \Illuminate\Http\RedirectResponse
+    {
+        Inertia::flash('financeReconciliation', $message);
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     public function export(Request $r, FinanceReportingService $reports)

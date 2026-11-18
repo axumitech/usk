@@ -70,8 +70,18 @@ export default function DocumentReview({
                         form.transform((data) => ({ ...data, reason_codes: codes, reason: detail }));
                         form.post(`/app/dashboard/admin/enrollments/${enrollmentId}/documents/${document.uuid}/review`, {
                             preserveScroll: true,
-                            onSuccess: () =>
-                                onFeedback(`${document.filename} : ${documentReviewLabels[form.data.verdict] || 'verdict enregistré'}.`, 'success'),
+                            onSuccess: (page) => {
+                                if (
+                                    page.component === 'dashboard/adminEnrollments/Show' &&
+                                    (page.props.enrollment as Dossier | undefined)?.id === enrollmentId &&
+                                    typeof page.props.success === 'string' &&
+                                    page.props.success
+                                ) {
+                                    onFeedback(page.props.success, 'success');
+                                } else {
+                                    onFeedback('Le résultat du contrôle n’a pas été confirmé. Vérifiez le dossier avant de réessayer.', 'error');
+                                }
+                            },
                             onError: (errors) =>
                                 onFeedback(Object.values(errors)[0] || 'Le verdict n’a pas pu être enregistré. Veuillez réessayer.', 'error'),
                         });

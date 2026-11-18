@@ -339,6 +339,7 @@ export default function EnrollmentManagement(props: Props) {
                             <TransitionForm
                                 key={`transition-${props.selected.id}-${props.selected.context_token}`}
                                 entry={props.selected}
+                                filters={props.filters}
                                 transitions={props.transitions}
                                 groups={props.groups}
                                 openRequests={props.openRequests}
@@ -404,6 +405,7 @@ export default function EnrollmentManagement(props: Props) {
 }
 function TransitionForm({
     entry,
+    filters,
     transitions,
     groups,
     departments,
@@ -411,6 +413,7 @@ function TransitionForm({
 }: {
     entry: Entry;
     transitions: string[];
+    filters: Props['filters'];
     groups: Props['groups'];
     departments: Props['departments'];
     openRequests: Props['openRequests'];
@@ -432,6 +435,7 @@ function TransitionForm({
             className="portal-form"
             onSubmit={(event) => {
                 event.preventDefault();
+                if (form.processing) return;
                 form.transform((data) => ({
                     ...data,
                     class_id: data.class_id ? Number(data.class_id) : null,
@@ -439,9 +443,12 @@ function TransitionForm({
                     ends_at: data.ends_at || null,
                     service_request_id: data.service_request_id || null,
                 }));
-                form.post(route('dashboard.admin.student-academic.transition', entry.id), {
+                form.post(route('dashboard.admin.student-academic.transition', { ...filters, academic: entry.id }), {
                     preserveScroll: true,
-                    onSuccess: () => {
+                    onSuccess: (page) => {
+                        const selected = page.props.selected as Entry | null | undefined;
+                        if (page.component !== 'dashboard/studentAcademic/EnrollmentManagement' || selected?.id !== entry.id
+                            || typeof page.flash?.dashboardAction !== 'string') return;
                         form.reset('reason', 'service_request_id', 'student_response');
                         form.setData('operation_key', crypto.randomUUID());
                     },
@@ -531,6 +538,7 @@ function TransferForm({ entry, versions, openRequests }: { entry: Entry; version
             className="portal-form"
             onSubmit={(event) => {
                 event.preventDefault();
+                if (form.processing) return;
                 form.post(route('dashboard.admin.student-academic.transfer', entry.id));
             }}
         >

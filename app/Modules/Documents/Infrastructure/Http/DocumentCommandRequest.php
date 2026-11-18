@@ -36,8 +36,44 @@ final class DocumentCommandRequest extends FormRequest
         ]).($view ? '#student-document-services' : '');
     }
 
+    public function adminWorkspace(): string
+    {
+        $parameters = match ($this->route()->getActionMethod()) {
+            'activate', 'template' => ['type' => $this->route('type')->id],
+            'templateState' => ['type' => $this->route('template')->official_document_type_id],
+            'submit' => ['academic' => $this->route('entry')->id],
+            default => [],
+        };
+        foreach (['academic', 'type'] as $field) {
+            $value = filter_var($this->query($field), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($value !== false) {
+                $parameters[$field] ??= $value;
+            }
+        }
+        foreach ([
+            'status' => ['open', 'reviewed', 'correction', 'approved', 'refused', 'issued'],
+            'kind' => OfficialDocumentType::KINDS,
+            'archive' => ['print', 'delivery', 'issued', 'revoked', 'replaced'],
+        ] as $field => $values) {
+            $value = $this->query($field);
+            if (in_array($value, $values, true)) {
+                $parameters[$field] = $value;
+            }
+        }
+        $q = $this->query('q');
+        if (is_string($q) && mb_strlen($q) <= 100) {
+            $parameters['q'] = $q;
+        }
+
+        return route('dashboard.admin.official-documents.index', $parameters);
+    }
+
     protected function getRedirectUrl()
     {
+        if ($this->routeIs('dashboard.admin.official-documents.*')) {
+            return $this->adminWorkspace();
+        }
+
         return $this->libraryUrl() ?? parent::getRedirectUrl();
     }
 

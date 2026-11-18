@@ -113,7 +113,6 @@ export default function Learning({
 }: Props) {
     const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const [modal, setModal] = useState<FormSpec | null>(null);
-    const [message, setMessage] = useState('');
     const index = route(prefix + 'index');
     const admin = downloads !== null;
     const teacher = prefix === 'dashboard.teaching.learning.';
@@ -121,8 +120,11 @@ export default function Learning({
     const chapterTitle = chapter === 'unassigned' ? 'Sans chapitre' : sections.find((section) => section.id === chapter)?.title;
     const libraryUrl = (params: Props['filters'] = {}) =>
         route(prefix + 'index', { ...filters, offering: offering ?? undefined, resource: undefined, ...params });
-    const open = (title: string, description: string, action: string, fields: Field[], values?: FormSpec['values']) =>
-        setModal({ title, description, action, fields, values, eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined });
+    const open = (title: string, description: string, action: string, fields: Field[], values?: FormSpec['values']) => {
+        const url = new URL(action, window.location.origin);
+        if (chapter !== null) url.searchParams.set('section', String(chapter));
+        setModal({ title, description, action: url.href, fields, values, requireSuccessFlash: true, eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined });
+    };
     const edit = (item?: Item) => {
         if (!offering) return;
         const fields: Field[] = [
@@ -390,10 +392,7 @@ export default function Learning({
                 <AcademicForm
                     spec={modal}
                     onClose={() => setModal(null)}
-                    onSuccess={(feedback) => {
-                        setModal(null);
-                        setMessage(feedback);
-                    }}
+                    onSuccess={() => setModal(null)}
                 />
             )}
             <div
@@ -474,11 +473,6 @@ export default function Learning({
                             </div>
                         )}
                     </div>
-                )}
-                {message && (
-                    <p role="status" className="portal-alert">
-                        {message}
-                    </p>
                 )}
                 {teacher && selected && (
                     <TeacherLearningResource

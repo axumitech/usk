@@ -40,10 +40,10 @@ const DashboardLogin = () => {
         setFeedback('checking');
 
         post(route('login'), {
-            onSuccess: ({ flash }) => {
-                setFeedback('idle');
+            onSuccess: ({ flash, props }) => {
+                const user = (props.auth as { user?: unknown } | undefined)?.user;
+                setFeedback(user ? 'idle' : 'interrupted');
                 if (flash?.dashboardArrival === true) Alert.close();
-                else Alert.success('Connexion réussie !');
             },
             onError: () => setFeedback('rejected'),
             onCancel: () => setFeedback('idle'),

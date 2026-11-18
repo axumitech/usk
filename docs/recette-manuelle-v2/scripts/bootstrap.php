@@ -5,6 +5,33 @@ use Illuminate\Foundation\Application;
 use Illuminate\Mail\Events\MessageSending;
 use Symfony\Component\Mime\Address;
 
+function recettePort(): int
+{
+    $port = filter_var(getenv('USK_RECETTE_V2_PORT') ?: '8016', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1024, 'max_range' => 65535]]);
+    if ($port === false) {
+        throw new RuntimeException('Le port de recette est invalide.');
+    }
+
+    return $port;
+}
+
+function recetteBuiltPublicPath(): ?string
+{
+    if (getenv('USK_RECETTE_V2_BUILD_ONLY') !== 'true') {
+        return null;
+    }
+
+    $project = dirname(__DIR__, 3);
+    $root = realpath(getenv('USK_RECETTE_V2_ROOT') ?: $project.'/storage/app/recette-manuelle-v2');
+    $public = $root ? realpath($root.'/public') : false;
+    if (! $public || $public !== $root.DIRECTORY_SEPARATOR.'public' || ! is_file($public.'/build/manifest.json')) {
+        throw new RuntimeException('Compilez le bundle dans public/build du profil de recette.');
+    }
+
+    return $public;
+}
+
+
 function recetteApplication(bool $initialize = false): Application
 {
     $project = dirname(__DIR__, 3);
@@ -28,7 +55,7 @@ function recetteApplication(bool $initialize = false): Application
         'APP_ENV' => 'local',
         'APP_DEBUG' => 'false',
         'APP_KEY' => $profile['app_key'],
-        'APP_URL' => 'http://127.0.0.1:8016',
+        'APP_URL' => 'http://127.0.0.1:'.recettePort(),
         'APP_MAINTENANCE_DRIVER' => 'file',
         'DB_CONNECTION' => 'sqlite',
         'DB_DATABASE' => $profile['database'],
@@ -40,7 +67,7 @@ function recetteApplication(bool $initialize = false): Application
         'SESSION_DRIVER' => 'database',
         'SESSION_CONNECTION' => 'sqlite',
         'SESSION_DOMAIN' => 'null',
-        'SESSION_COOKIE' => 'usk_recette_v2',
+        'SESSION_COOKIE' => 'usk_recette_v2_'.recettePort(),
         'SESSION_SECURE_COOKIE' => 'false',
         'QUEUE_CONNECTION' => 'database',
         'DB_QUEUE_CONNECTION' => 'sqlite',
@@ -59,7 +86,7 @@ function recetteApplication(bool $initialize = false): Application
         'INERTIA_SSR_ENABLED' => 'false',
         'SEO_INDEXABLE' => 'false',
         'SEO_ENFORCE_ORIGIN' => 'false',
-        'SEO_BUILT_ASSETS' => 'false',
+        'SEO_BUILT_ASSETS' => recetteBuiltPublicPath() ? 'true' : 'false',
         'STUDENT_ENROLLMENT_AUTO_CONFIRMATION' => 'true',
         'STUDENT_ENROLLMENT_REQUIRES_FIRST_INSTALLMENT' => 'true',
         'STUDENT_ENROLLMENT_ACTIVATION_PERCENTAGE' => '30',
@@ -75,6 +102,9 @@ function recetteApplication(bool $initialize = false): Application
     $app = require $project.'/bootstrap/app.php';
     $app->useEnvironmentPath($root)->loadEnvironmentFrom('recette.env');
     $app->useStoragePath($storage);
+    if ($public = recetteBuiltPublicPath()) {
+        $app->usePublicPath($public);
+    }
     $app->addAbsoluteCachePathPrefix($storage.'/');
     $app->booted(function (Application $app) {
         $app['events']->listen(MessageSending::class, function (MessageSending $event): ?bool {

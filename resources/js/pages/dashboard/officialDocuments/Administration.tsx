@@ -76,7 +76,7 @@ export default function Administration({
         fields: Field[] = [documentReason],
         description = 'Cette action est journalisée.',
     ) {
-        setModal({ title, action: route(prefix + endpoint, params), description, values, fields });
+        setModal({ title, action: route(prefix + endpoint, { ...filters, ...params }), description, values, fields, requireSuccessFlash: true });
     }
     function start(entryId: number, typeId: number, title: string, operation = 'initial', previous: number | null = null) {
         action(

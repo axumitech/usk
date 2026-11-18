@@ -820,19 +820,56 @@ class UniversityFinanceTest extends TestCase
         $this->assertSame('confirmed', $notices->first()->data['status']);
     }
 
-    public function test_http_csv_preview_is_actor_bound_and_commit_is_explicit(): void
+    public function test_http_csv_confirmation_is_bound_to_the_current_preview_and_keeps_its_workspace(): void
     {
-        [$admin,,$entry,$finance] = $this->context();
+        [$admin, , $entry, $finance] = $this->context();
         $this->obligation($entry);
-        $p = $finance->record($entry, $admin, ['amount' => '20.00', 'reference' => 'HTTP-BANK', 'method' => 'bank_transfer', 'note' => 'Versement avec référence bancaire.']);
-        $csv = "bank_reference,payment_reference,amount,currency,date\nHTTP-OP,HTTP-BANK,20.00,USD,".today()->toDateString()."\n";
-        $this->actingAs($admin)->post('/app/dashboard/admin/finance/reconciliation/preview', ['file' => UploadedFile::fake()->createWithContent('bank.csv', $csv), 'account' => 'Journal banque'])->assertStatus(303);
-        $this->assertSame('pending', $p->fresh()->status);
+        $first = $finance->record($entry, $admin, ['amount' => '19.00', 'reference' => 'HTTP-BANK-A', 'method' => 'bank_transfer', 'note' => 'Versement avec référence bancaire.']);
+        $second = $finance->record($entry, $admin, ['amount' => '20.00', 'reference' => 'HTTP-BANK-B', 'method' => 'bank_transfer', 'note' => 'Versement avec référence bancaire.']);
+        $filters = ['q' => 'Étudiant fictif'];
+        $listing = route('dashboard.admin.finance.index', $filters);
+        $redirect = $listing.'#reconciliation';
+        $preview = route('dashboard.admin.finance.reconciliation.preview', $filters);
+        $commit = route('dashboard.admin.finance.reconciliation.commit', $filters);
+        $header = "bank_reference,payment_reference,amount,currency,date\n";
+        $date = today()->toDateString();
+        $previewed = 'Relevé prévisualisé. Aucune écriture n’a été modifiée.';
+        $this->actingAs($admin)->withSession(['_previous' => ['url' => route('dashboard.index')]])->post($preview, [
+            'file' => UploadedFile::fake()->createWithContent('bank-a.csv', $header."HTTP-OP-A,HTTP-BANK-A,19.00,USD,{$date}\n"),
+            'account' => 'Journal A',
+        ])->assertStatus(303)->assertRedirect($redirect)->assertInertiaFlash('financeReconciliation', $previewed);
+        $firstId = session('finance.preview.id');
+        $this->assertTrue(Str::isUuid($firstId));
+        $this->get($listing)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/finance/Index')->where('preview.id', $firstId)->where('preview.account', 'Journal A'));
+
+        $this->post($preview, [
+            'file' => UploadedFile::fake()->createWithContent('bank-b.csv', $header."HTTP-OP-B,HTTP-BANK-B,20.00,USD,{$date}\n"),
+            'account' => 'Journal B',
+        ])->assertStatus(303)->assertRedirect($redirect);
+        $secondId = session('finance.preview.id');
+        $this->assertTrue(Str::isUuid($secondId));
+        $this->assertNotSame($firstId, $secondId);
+        $this->get($listing)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/finance/Index')->where('preview.id', $secondId)->where('preview.account', 'Journal B')
+            ->hasFlash('financeReconciliation', $previewed));
+        $attempt = ['rows' => [0], 'reason' => 'Rapprochement explicitement contrôlé.'];
+        $this->post($commit, $attempt)->assertRedirect($redirect)->assertSessionHasErrors('preview_id');
+        $this->post($commit, $attempt + ['preview_id' => $firstId])->assertRedirect($redirect)
+            ->assertSessionHasErrors('preview_id')->assertInertiaFlashMissing('financeReconciliation');
+        $this->assertSame('pending', $first->fresh()->status);
+        $this->assertSame('pending', $second->fresh()->status);
         $this->assertDatabaseCount('finance_bank_lines', 0);
-        $this->post('/app/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Rapprochement explicitement contrôlé.'])->assertStatus(303);
-        $this->assertSame('confirmed', $p->fresh()->status);
+        $this->assertDatabaseMissing('academic_audits', ['action' => 'payment_reconciled']);
+
+        $this->post($commit, $attempt + ['preview_id' => $secondId])->assertStatus(303)->assertRedirect($redirect)
+            ->assertInertiaFlash('financeReconciliation', 'Correspondances confirmées. Le rapprochement figure dans l’historique financier.');
+        $this->assertSame('pending', $first->fresh()->status);
+        $this->assertSame('confirmed', $second->fresh()->status);
         $this->assertDatabaseCount('finance_bank_lines', 1);
-        $this->post('/app/dashboard/admin/finance/reconciliation/commit', ['rows' => [0], 'reason' => 'Prévisualisation déjà consommée.'])->assertStatus(422);
+        $this->assertDatabaseHas('finance_bank_lines', ['account' => 'Journal B', 'student_payment_id' => $second->id]);
+        $this->post($commit, $attempt + ['preview_id' => $secondId])->assertRedirect($redirect)->assertSessionHasErrors('preview_id');
+        $this->assertDatabaseCount('finance_bank_lines', 1);
     }
 
     public function test_refund_records_cannot_be_edited_outside_audited_workflow(): void

@@ -53,6 +53,45 @@ Créer un nouveau compte fictif, par exemple `nouveau.candidat@usk.test`, pour r
 
 Contrôler séparément le passage au statut admis, l’activation financière et l’ouverture des droits dans USK. La notification `StudentAdmissionActivated` ainsi que les notifications financières, pédagogiques et de résultats sont enregistrées dans l’application. MailHog reflète uniquement les événements dotés d’un canal email. Utiliser le worker pour les événements applicatifs mis en file.
 
+## Recette d’une révision compilée
+
+Utiliser ces commandes depuis le worktree de la branche à vérifier. Le port doit être libre. Le profil doit être neuf ou provenir d’une copie SQLite contrôlée. Le serveur garde son stockage et son cookie de session propres. Il charge son bundle compilé même si un autre Vite tourne sur le PC.
+
+```powershell
+$env:USK_RECETTE_V2_ROOT = 'C:\chemin\vers\profil-fictif'
+$env:USK_RECETTE_V2_PORT = '8042'
+$revision = git rev-parse --verify HEAD
+if (git status --porcelain --untracked-files=no) { throw 'La révision de recette a des modifications locales.' }
+
+# Sur un profil neuf uniquement
+php docs/recette-manuelle-v2/scripts/recette.php install
+if ($LASTEXITCODE -ne 0) { throw 'Installation du profil impossible.' }
+
+$build = Join-Path $env:USK_RECETTE_V2_ROOT 'public\build'
+if (Test-Path (Join-Path $build 'manifest.json')) { throw 'Utiliser un profil neuf pour une nouvelle compilation.' }
+npm run build -- --outDir $build
+if ($LASTEXITCODE -ne 0) { throw 'Compilation Vite impossible.' }
+Copy-Item -LiteralPath 'public/pwa' -Destination (Split-Path -Parent $build) -Recurse
+if ((git rev-parse --verify HEAD) -ne $revision -or (git status --porcelain --untracked-files=no)) {
+    throw 'Les sources ont changé pendant la compilation.'
+}
+$manifest = Join-Path $build 'manifest.json'
+$entry = (Get-Content -Raw -LiteralPath $manifest | ConvertFrom-Json).'resources/js/app.tsx'.file
+$stamp = @{
+    revision = $revision
+    manifest_sha256 = (Get-FileHash -LiteralPath $manifest).Hash.ToLowerInvariant()
+    entry_sha256 = (Get-FileHash -LiteralPath (Join-Path $build $entry)).Hash.ToLowerInvariant()
+}
+[IO.File]::WriteAllText((Join-Path $build 'usk-recipe-build.json'), ($stamp | ConvertTo-Json))
+$env:USK_RECETTE_V2_BUILD_ONLY = 'true'
+php -S 127.0.0.1:8042 -t public docs/recette-manuelle-v2/scripts/router.php
+```
+
+Ouvrir [la version de recette](http://127.0.0.1:8042/__usk_recipe/version) avant de se connecter. `revision` et `assets.revision` doivent être identiques, `tracked_changes` doit être faux et l’asset d’entrée indiqué doit apparaître dans l’onglet Réseau du navigateur. Une révision d’assets vide signifie que le bundle n’a pas pu être rattaché à une version Git. En mode Vite, contrôler également le port HMR et son répertoire de lancement. Le point de diagnostic appartient au routeur local de recette. Utiliser une fenêtre de navigation privée distincte des autres profils USK pour isoler aussi le cookie CSRF. Dans Réseau, vérifier que /app/sw.js répond 200.
+
+Démarrer le worker depuis le même worktree, avec le même `USK_RECETTE_V2_ROOT`, le même `USK_RECETTE_V2_PORT` et `USK_RECETTE_V2_BUILD_ONLY=true`. Les liens signés des courriels utiliseront alors exactement le port testé.
+
+
 ## Comptes fictifs
 
 Mot de passe local commun `password`.

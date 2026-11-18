@@ -15,9 +15,11 @@ use App\Modules\AcademicYear\Infrastructure\Http\Requests\CreateAcademicYearRequ
 use App\Modules\AcademicYear\Infrastructure\Http\Requests\UpdateAcademicYearRequest;
 use App\Modules\AcademicYear\Infrastructure\Http\Resources\AcademicYearResource;
 use App\Modules\Student\Application\Services\AcademicStaffScope;
+use App\Support\DashboardFormResponse;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AcademicYearController extends Controller
@@ -112,39 +114,36 @@ class AcademicYearController extends Controller
         }
     }
 
-    public function open(\Illuminate\Http\Request $request, int $id, OpenAcademicYear $useCase): RedirectResponse
+    public function open(Request $request, int $id, OpenAcademicYear $useCase): RedirectResponse
     {
+        return $this->changeStatus($request, $id, $useCase, 'Année académique ouverte avec succès.');
+    }
+
+    public function close(Request $request, int $id, CloseAcademicYear $useCase): RedirectResponse
+    {
+        return $this->changeStatus($request, $id, $useCase, 'Année académique clôturée.');
+    }
+
+    private function changeStatus(Request $request, int $id, OpenAcademicYear|CloseAcademicYear $useCase, string $message): RedirectResponse
+    {
+        abort_unless($request->user()->can('manage academic access'), 403);
+        $url = $request->query('return') === 'index'
+            ? route('dashboard.admin.academic-years.index')
+            : route('dashboard.admin.academic-years.show', $id);
+
         try {
-            abort_unless($request->user()->can('manage academic access'), 403);
             $data = $request->validate(['reason' => 'nullable|string|min:10|max:1000']);
             $useCase->execute($id, $request->user()->id, $data['reason'] ?? '');
 
-            return back()
-                ->with('success', 'Année académique ouverte avec succès.');
-        } catch (DomainException $e) {
-            return back()->withErrors(['general' => $e->getMessage()]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            report($e);
+            return DashboardFormResponse::success($url, $message);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        } catch (DomainException $exception) {
+            return redirect()->to($url, 303)->withErrors(['general' => $exception->getMessage()]);
+        } catch (\Illuminate\Database\QueryException $exception) {
+            report($exception);
 
-            return back()->withErrors(['general' => 'La base de données est momentanément indisponible. Vérifiez l’état de l’année avant de réessayer.']);
-        }
-    }
-
-    public function close(\Illuminate\Http\Request $request, int $id, CloseAcademicYear $closeAcademicYear)
-    {
-        try {
-            abort_unless($request->user()->can('manage academic access'), 403);
-            $data = $request->validate(['reason' => 'nullable|string|min:10|max:1000']);
-            $closeAcademicYear->execute($id, $request->user()->id, $data['reason'] ?? '');
-
-            return back()
-                ->with('success', 'Année académique clôturée');
-        } catch (DomainException $e) {
-            return back()->withErrors(['general' => $e->getMessage()]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            report($e);
-
-            return back()->withErrors(['general' => 'La base de données est momentanément indisponible. Vérifiez l’état de l’année avant de réessayer.']);
+            return redirect()->to($url, 303)->withErrors(['general' => 'La base de données est momentanément indisponible. Vérifiez l’état de l’année avant de réessayer.']);
         }
     }
 }

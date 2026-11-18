@@ -6,6 +6,7 @@ export default function NetworkFailureNotice() {
     useEffect(
         () =>
             router.on('exception', (event) => {
+                if (event.defaultPrevented) return;
                 const error = event.detail.exception;
                 if (!isAxiosError(error) || error.response || !['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error.code ?? '')) return;
                 event.preventDefault();

@@ -13,6 +13,7 @@ use App\Modules\Student\Infrastructure\Http\Controllers\StudentPortalController;
 use App\Support\DocumentUploadLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 final class StudentResultsController
 {
@@ -93,11 +94,31 @@ final class StudentResultsController
     public function appeal(Request $request, string $reference, StudentPortalController $portal)
     {
         [$entry, $result] = $this->resolve($request, $reference, $portal);
-        $input = $request->validate(['target' => ['required', 'string', 'regex:/^(decision|ec:[0-9]+)$/D', 'max:80'], 'body' => 'required|string|min:10|max:6000',
-            'file' => DocumentUploadLimit::proofRules(required: false)], DocumentUploadLimit::proofMessages());
-        $appeal = $this->appeals->submit($result, $entry, $request->user(), $input, $request->file('file'));
+        $semester = $request->integer('semester');
+        $url = route('dashboard.student.index', [
+            'section' => 'results', 'academic' => $entry->id, 'official' => $result->reference,
+        ] + (in_array($semester, [1, 2], true) ? ['semester' => $semester] : []), false);
+        try {
+            $input = $request->validate([
+                'target' => ['required', 'string', 'regex:/^(decision|ec:[0-9]+)$/D', 'max:80'],
+                'body' => 'required|string|min:10|max:6000',
+                'file' => DocumentUploadLimit::proofRules(required: false),
+            ], DocumentUploadLimit::proofMessages() + [
+                'target.required' => 'Choisissez le résultat concerné.',
+                'target.string' => 'Choisissez un résultat autorisé.',
+                'target.regex' => 'Choisissez un résultat autorisé.',
+                'target.max' => 'Choisissez un résultat autorisé.',
+                'body.required' => 'Expliquez le motif de votre recours.',
+                'body.string' => 'Saisissez le motif en texte.',
+                'body.min' => 'Saisissez au moins :min caractères pour expliquer le recours.',
+                'body.max' => 'Le motif ne doit pas dépasser :max caractères.',
+            ]);
+            $appeal = $this->appeals->submit($result, $entry, $request->user(), $input, $request->file('file'));
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
 
-        return back(303)->with('success', 'Recours enregistré · Référence '.$appeal->id);
+        return redirect()->to($url, 303)->with('success', 'Recours enregistré · Référence '.$appeal->id);
     }
 
     private function resolve(Request $request, string $reference, StudentPortalController $portal): array

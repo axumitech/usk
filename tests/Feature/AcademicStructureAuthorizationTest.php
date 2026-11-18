@@ -44,6 +44,44 @@ class AcademicStructureAuthorizationTest extends TestCase
         $this->scienceAgent->academicFaculties()->attach($this->sciences);
     }
 
+    public function test_legacy_faculty_and_level_writes_require_the_structure_permission(): void
+    {
+        Role::findByName('admin', 'web')->syncPermissions([]);
+        $level = Level::create(['faculty_id' => $this->law->id, 'code' => 'L1', 'title' => 'Licence 1']);
+        $this->actingAs($this->institutional->fresh());
+        $this->post(route('dashboard.admin.faculties.store'))->assertForbidden();
+        $this->put(route('dashboard.admin.faculties.update', $this->law))->assertForbidden();
+        $this->delete(route('dashboard.admin.faculties.destroy', $this->law))->assertForbidden();
+        $this->post(route('dashboard.admin.levels.store'))->assertForbidden();
+        $this->put(route('dashboard.admin.levels.update', $level))->assertForbidden();
+        $this->delete(route('dashboard.admin.levels.destroy', $level))->assertForbidden();
+        $this->get(route('dashboard.admin.faculties.show', $this->law))
+            ->assertInertia(fn (Assert $page) => $page->where('canManage', false));
+        $this->assertDatabaseHas('levels', ['id' => $level->id, 'title' => 'Licence 1']);
+    }
+
+    public function test_legacy_level_writes_respect_both_faculties_when_moving_a_level(): void
+    {
+        $level = Level::create(['faculty_id' => $this->law->id, 'code' => 'L1', 'title' => 'Licence 1']);
+        $data = ['faculty_id' => $this->sciences->id, 'title' => 'Licence 2', 'code' => 'L2'];
+        $this->actingAs($this->lawAgent);
+        $this->post(route('dashboard.admin.faculties.store'))->assertForbidden();
+        $this->put(route('dashboard.admin.faculties.update', $this->sciences))->assertForbidden();
+        $this->delete(route('dashboard.admin.faculties.destroy', $this->sciences))->assertForbidden();
+        $this->post(route('dashboard.admin.levels.store'), $data)->assertForbidden();
+        $this->put(route('dashboard.admin.levels.update', $level), $data)->assertForbidden();
+        $this->get(route('dashboard.admin.faculties.show', $this->sciences))
+            ->assertInertia(fn (Assert $page) => $page->where('canManage', false));
+
+        $this->actingAs($this->scienceAgent)->delete(route('dashboard.admin.levels.destroy', $level))->assertForbidden();
+        $this->put(route('dashboard.admin.levels.update', $level), $data)->assertForbidden();
+        $this->assertSame($this->law->id, $level->fresh()->faculty_id);
+
+        $this->actingAs($this->lawAgent)->put(route('dashboard.admin.levels.update', $level),
+            ['faculty_id' => $this->law->id] + $data)->assertStatus(303)->assertSessionHasNoErrors();
+        $this->assertSame('Licence 2', $level->fresh()->title);
+    }
+
     public function test_department_and_program_writes_are_limited_to_the_owning_faculty(): void
     {
         $department = $this->reference('department');
