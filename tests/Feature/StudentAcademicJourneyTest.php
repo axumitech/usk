@@ -533,8 +533,9 @@ class StudentAcademicJourneyTest extends TestCase
         $this->actingAs($admin);
         $this->post($base.'/'.$academic->id.'/fees', ['category' => 'national', 'first_due' => today()->addMonth()->toDateString(), 'second_due' => today()->addMonths(2)->toDateString(), 'reason' => 'Nationalité contrôlée avec le dossier.'])->assertSessionHasNoErrors();
         $this->post($base.'/rules', ['fee_kind' => 'tuition', 'feature' => 'assignments_submit', 'mode' => 'minimum', 'minimum' => '50.00', 'reason' => 'Règle financière approuvée pour les dépôts.'])->assertSessionHasNoErrors();
-        $this->payment($academic, $admin, '20.00');
-        $this->post($base.'/'.$academic->id.'/payments', ['kind' => 'tuition', 'amount' => '30.00', 'method' => 'bank_transfer', 'reference' => 'BANK-HTTP', 'note' => 'Virement à rapprocher au relevé.'])->assertSessionHasNoErrors();
+        $this->payment($academic, $admin, '10.00');
+        $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
+        $this->post($base.'/'.$academic->id.'/payments', ['kind' => 'tuition', 'amount' => '40.00', 'method' => 'bank_transfer', 'reference' => 'BANK-HTTP', 'note' => 'Virement à rapprocher au relevé.'])->assertSessionHasNoErrors();
         $payment = StudentPayment::where('reference', 'BANK-HTTP')->firstOrFail();
         $this->assertSame('pending', $payment->status);
         $this->assertSame('pending_confirmation', $academic->fresh()->enrollment_status);
@@ -639,9 +640,10 @@ class StudentAcademicJourneyTest extends TestCase
         $this->actingAs($student);
         $this->assertSame($source->matricule, $target->matricule);
         $this->assertSame(6000, (int) $target->obligations()->where('installment', 1)->value('amount_cents'));
-        $this->payment($target, $admin, '40.00');
+        $this->payment($target, $admin, '15.00');
         $this->assertSame('pending_confirmation', $target->fresh()->enrollment_status);
         app(StudentFinanceService::class)->adjust($target, $admin, ['type' => 'scholarship', 'amount' => '20.00', 'reason' => 'Aide validée pour la nouvelle année.']);
+        $this->assertSame('confirmed', $target->fresh()->enrollment_status);
         $this->get('/app/dashboard/student/fees?academic='.$target->id)->assertInertia(fn (Assert $p) => $p
             ->where('academic.level', 'Licence 2')->where('progression.status', 'confirmed'));
         $this->assertSame('completed', $source->fresh()->enrollment_status);
