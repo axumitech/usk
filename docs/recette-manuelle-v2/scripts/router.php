@@ -40,7 +40,8 @@ if ($uri && $built && str_starts_with($uri, '/build/')) {
 
 $asset = $uri ? realpath($public.'/'.rawurldecode($uri)) : false;
 if ($asset && str_starts_with($asset, $public.DIRECTORY_SEPARATOR) && is_file($asset)
-    && in_array(strtolower(pathinfo($asset, PATHINFO_EXTENSION)), ['css', 'js', 'json', 'svg', 'png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'ico', 'woff', 'woff2', 'webmanifest', 'pdf'], true)) {
+    && ($uri === '/pwa/offline.html'
+        || in_array(strtolower(pathinfo($asset, PATHINFO_EXTENSION)), ['css', 'js', 'json', 'svg', 'png', 'jpg', 'jpeg', 'webp', 'avif', 'gif', 'ico', 'woff', 'woff2', 'webmanifest', 'pdf'], true))) {
     return false;
 }
 
