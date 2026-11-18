@@ -115,6 +115,9 @@ final class AcademicEnrollmentService
                 app(\App\Modules\Teaching\Application\Services\CourseRegistrationService::class)->closeOutsideAudience($entry, $actor);
             }
             $this->record($entry, $actor, 'transition', $before, $data);
+            if ($next === 'pending_confirmation' && $before['enrollment_status'] !== 'pending_confirmation') {
+                $this->finance->confirmPendingEnrollment($entry, $actor->id);
+            }
 
             return $entry;
         }, 3);

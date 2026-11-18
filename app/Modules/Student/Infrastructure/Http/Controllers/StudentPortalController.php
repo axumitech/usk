@@ -349,7 +349,7 @@ class StudentPortalController extends Controller
         $detail = $entry->level->detail;
         $statement = $this->finance->statement($entry);
         $balance = $statement['balance'];
-        $firstInstallment = $financeSection ? $this->finance->firstTuitionInstallment($entry, $statement) : null;
+        $firstInstallment = $financeSection || $section === 'overview' ? $this->finance->firstTuitionInstallment($entry, $statement) : null;
         $financeActivity = app(StudentFinanceActivity::class);
         $financeView = $section === 'transactions' ? ($request->query('view') === 'receipts' ? 'receipts' : 'history') : null;
         $paymentsPage = $financeView !== null ? $financeActivity->transactions($entry, $statement['kind_titles'], $financeView === 'receipts') : null;

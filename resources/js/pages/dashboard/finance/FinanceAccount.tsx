@@ -2,7 +2,7 @@ import AdminModal from '@/components/admin/AdminModal';
 import FeedbackToast from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import FirstInstallmentDetails from '@/components/student/FirstInstallmentDetails';
+import FirstInstallmentDetails, { EnrollmentActivationStatus } from '@/components/student/FirstInstallmentDetails';
 import { labels, money, type FirstInstallment } from '@/components/student/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, Download, FileCheck2, Landmark, ShieldCheck, Wallet } from 'lucide-react';
@@ -345,15 +345,25 @@ export default function FinanceAccount(props: Props) {
                         aria-labelledby="finance-confirmation-title"
                     >
                         <div className="grow">
-                            <h2 id="finance-confirmation-title">{pendingEnrollment ? 'Confirmation de l’inscription' : 'Suivi de l’inscription'}</h2>
-                            <p>
+                            <h2 id="finance-confirmation-title">
                                 {pendingEnrollment
-                                    ? (enrollment.blocker ??
-                                      (enrollment.canConfirm
-                                          ? 'Le dossier est prêt à être confirmé.'
-                                          : 'Seul un agent habilité à gérer les inscriptions peut confirmer ce dossier.'))
-                                    : `Inscription ${(labels[enrollment.status] ?? enrollment.status).toLowerCase()}`}
-                            </p>
+                                    ? enrollment.first_installment?.activation?.automatic
+                                        ? 'Activation automatique de l’inscription'
+                                        : 'Confirmation de l’inscription'
+                                    : 'Suivi de l’inscription'}
+                            </h2>
+                            {enrollment.first_installment?.activation?.automatic && (pendingEnrollment || enrollment.status === 'confirmed') ? (
+                                <EnrollmentActivationStatus installment={enrollment.first_installment} status={enrollment.status} />
+                            ) : (
+                                <p>
+                                    {pendingEnrollment
+                                        ? (enrollment.blocker ??
+                                          (enrollment.canConfirm
+                                              ? 'Le dossier est prêt à être confirmé.'
+                                              : 'Seul un agent habilité à gérer les inscriptions peut confirmer ce dossier.'))
+                                        : `Inscription ${(labels[enrollment.status] ?? enrollment.status).toLowerCase()}`}
+                                </p>
+                            )}
                             {enrollment.first_installment && (
                                 <div className="mt-3">
                                     <h3 className="mb-2 font-semibold">Première tranche des frais académiques</h3>
@@ -364,7 +374,7 @@ export default function FinanceAccount(props: Props) {
                                 <p role="status">La couverture de la première tranche nécessite un réexamen administratif.</p>
                             )}
                         </div>
-                        {pendingEnrollment && enrollment.canConfirm && !enrollment.blocker && (
+                        {pendingEnrollment && !enrollment.first_installment?.activation?.automatic && enrollment.canConfirm && !enrollment.blocker && (
                             <button type="button" className="portal-primary" onClick={confirmEnrollment}>
                                 <ClipboardCheck size={17} aria-hidden="true" /> Confirmer l’inscription
                             </button>

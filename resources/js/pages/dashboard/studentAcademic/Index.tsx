@@ -676,7 +676,7 @@ export default function Index(props: Props) {
                                 {history
                                     ? 'Consultez les inscriptions de la plus récente à la plus ancienne, par année académique.'
                                     : pendingEnrollments
-                                      ? 'Les candidatures admises apparaissent ici jusqu’à la couverture intégrale de la première tranche.'
+                                      ? 'Les candidatures admises apparaissent ici jusqu’à la confirmation de leur inscription, selon le seuil financier initial et les conditions applicables.'
                                       : 'Retrouvez une inscription par faculté, département ou niveau.'}
                             </p>
                         </div>

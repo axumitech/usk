@@ -99,6 +99,74 @@ test('Le suivi distingue une première tranche couverte de la confirmation annue
     assert.doesNotMatch(confirmed, /doit encore confirmer votre inscription/);
 });
 
+test('L’activation automatique distingue le seuil de 30 % et la dette restant à payer', () => {
+    const academic = { id: 7, level: 'L1', year: '2026-2027', application_status: 'validated', enrollment_status: 'pending_confirmation' };
+    const installment = {
+        status: 'due', currency: 'USD', amount_cents: 10000, paid_cents: 2000, waived_cents: 0, remaining_cents: 8000,
+        activation: { automatic: true, percentage: 30, base_cents: 10000, required_cents: 3000, remaining_cents: 1000, eligible: false, blocker: 'Seuil initial à atteindre.' },
+    };
+    const waiting = renderFinance({ academic, first_installment: installment });
+    assert.match(waiting, /Admission acceptée/);
+    assert.match(waiting, /Activation initiale en attente/);
+    assert.match(waiting, /Seuil d’activation initiale<\/dt><dd[^>]*>30 %/);
+    assert.match(waiting, /Montant validé nécessaire pour l’activation<\/dt><dd[^>]*>30\.00 USD/);
+    assert.match(waiting, /Reste à valider pour l’activation<\/dt><dd[^>]*>10\.00 USD/);
+    assert.match(waiting, /Reste dû sur cette tranche<\/dt><dd[^>]*>80\.00 USD/);
+    assert.match(waiting, /Faites vérifier vos versements et leur affectation/);
+    assert.doesNotMatch(waiting, /doit encore confirmer votre inscription/);
+
+    const confirmed = renderFinance({
+        academic: { ...academic, enrollment_status: 'confirmed' },
+        first_installment: { ...installment, paid_cents: 3000, remaining_cents: 7000, activation: { ...installment.activation, remaining_cents: 0, eligible: true, blocker: null } },
+    });
+    assert.match(confirmed, /Inscription confirmée\. Le solde financier restant demeure dû/);
+    assert.match(confirmed, /Reste dû sur cette tranche<\/dt><dd[^>]*>70\.00 USD/);
+    assert.doesNotMatch(confirmed, /Activation initiale en attente|doit encore confirmer votre inscription/);
+});
+
+test('Le suivi conserve l’action administrative transmise par le serveur même si un montant reste à payer', () => {
+    const html = renderFinance({
+        academic: { id: 7, enrollment_status: 'pending_confirmation' },
+        first_installment: {
+            status: 'due', currency: 'USD', amount_cents: 10000, paid_cents: 2000, waived_cents: 0, remaining_cents: 8000,
+            activation: { automatic: true, percentage: 30, base_cents: 10000, required_cents: 3000, remaining_cents: 1000, eligible: false,
+                blocker: 'Profil étudiant inactif', action_required: 'Contactez le service des inscriptions pour régulariser votre situation académique.' },
+        },
+    });
+    assert.match(html, /Profil étudiant inactif/);
+    assert.match(html, /Contactez le service des inscriptions pour régulariser votre situation académique/);
+    assert.doesNotMatch(html, /Faites vérifier vos versements/);
+});
+
+test('Le suivi affiche le pourcentage et les montants calculés par le serveur après aides approuvées', () => {
+    const html = renderFinance({
+        academic: { id: 7, enrollment_status: 'pending_confirmation' },
+        first_installment: {
+            status: 'due', currency: 'USD', amount_cents: 8000, paid_cents: 1000, waived_cents: 750, remaining_cents: 6250,
+            activation: { automatic: true, percentage: 40, base_cents: 7250, required_cents: 2900, remaining_cents: 1900, eligible: false, blocker: 'Seuil initial à atteindre.' },
+        },
+    });
+    assert.match(html, /Seuil d’activation initiale<\/dt><dd[^>]*>40 %/);
+    assert.match(html, /Montant validé nécessaire pour l’activation<\/dt><dd[^>]*>29\.00 USD/);
+    assert.match(html, /Reste à valider pour l’activation<\/dt><dd[^>]*>19\.00 USD/);
+    assert.match(html, /Remises et aides approuvées<\/dt><dd[^>]*>7\.50 USD/);
+    assert.match(html, /Le seuil tient compte des aides approuvées/);
+});
+
+test('Une activation confirmée conserve le signalement financier après remboursement sous le seuil', () => {
+    const html = renderFinance({
+        academic: { id: 7, enrollment_status: 'confirmed' },
+        first_installment: {
+            status: 'due', currency: 'USD', amount_cents: 10000, paid_cents: 2000, waived_cents: 0, remaining_cents: 8000,
+            activation: { automatic: true, percentage: 30, base_cents: 10000, required_cents: 3000, remaining_cents: 1000, eligible: false, blocker: 'Seuil initial à atteindre.' },
+        },
+        first_installment_review_required: true,
+    });
+    assert.match(html, /Inscription confirmée/);
+    assert.match(html, /La couverture de la première tranche doit être réexaminée/);
+    assert.doesNotMatch(html, /Activation initiale en attente/);
+});
+
 test('La jauge exclut les versements en attente et les crédits non affectés', () => {
     const html = renderFinance();
     assert.match(html, /stroke-dasharray="50 100"/);

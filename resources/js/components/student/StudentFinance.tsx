@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import '../../../css/student-finance.css';
-import FirstInstallmentDetails from './FirstInstallmentDetails';
+import FirstInstallmentDetails, { EnrollmentActivationStatus } from './FirstInstallmentDetails';
 import { studentHref } from './navigation';
 import {
     labels,
@@ -375,9 +375,10 @@ function EnrollmentPaymentSummary({ props }: { props: PortalProps }) {
     return (
         <section id="finance-first-installment" className="sf-panel scroll-mt-24" aria-label="Première tranche et inscription">
             <PanelHeading title="Première tranche des frais académiques" description={`Inscription ${statusLabel}`} icon={Wallet} />
+            <EnrollmentActivationStatus installment={installment} status={status} admitted={props.academic.application_status === 'validated'} />
             <FirstInstallmentDetails installment={installment} />
             {proofUnderReview && <p>Un justificatif de versement est en cours de vérification par la comptabilité.</p>}
-            {status === 'pending_confirmation' && installment.status === 'covered' && (
+            {status === 'pending_confirmation' && !installment.activation?.automatic && installment.status === 'covered' && (
                 <p>La première tranche est couverte. Le service des inscriptions doit encore confirmer votre inscription.</p>
             )}
             {props.first_installment_review_required && (

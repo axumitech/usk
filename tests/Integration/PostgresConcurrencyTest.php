@@ -109,11 +109,12 @@ class PostgresConcurrencyTest extends TestCase
         $entry->obligations()->create(['kind' => 'tuition', 'title' => 'Première tranche', 'installment' => 1, 'amount_cents' => 10000]);
         $finance = app(StudentFinanceService::class);
         config(['student.enrollment_auto_confirmation' => false]);
-        $payment = $finance->record($entry, $actor, ['amount' => '100', 'method' => 'bank_transfer', 'reference' => 'CONFIRMATION-RACE']);
+        $payment = $finance->record($entry, $actor, ['amount' => '30', 'method' => 'bank_transfer', 'reference' => 'CONFIRMATION-RACE']);
         $finance->transition($payment, $actor, 'confirmed', 'Versement validé avant le test concurrent.');
 
         $this->assertSame(['confirmed', 'confirmed'], $this->race('enrollment-confirmation', $entry->id, $actor->id, -$entry->id));
         $this->assertSame('confirmed', $entry->fresh()->enrollment_status);
+        $this->assertSame(7000, $finance->firstTuitionInstallment($entry->fresh())['remaining_cents']);
         $this->assertSame(1, AcademicAudit::where('action', 'academic_enrollment_confirmed')->where('entity_id', $entry->id)->count());
         $this->assertSame(1, $student->notifications()->where('type', AcademicEnrollmentChanged::class)->count());
     }

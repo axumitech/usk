@@ -18,6 +18,7 @@ use App\Models\Student\StudentProfile;
 use App\Modules\Student\Application\Services\AcademicEnrollmentReadService;
 use App\Modules\Student\Application\Services\AcademicEnrollmentService;
 use App\Modules\Student\Application\Services\AcademicProgressionService;
+use App\Modules\Student\Application\Services\EnrollmentFinancialConfirmation;
 use App\Modules\Student\Application\Services\AnnualEnrollmentClosure;
 use App\Modules\Student\Application\Services\StudentFinanceService;
 use App\Modules\Student\Application\Services\StudentPortalContext;
@@ -61,10 +62,18 @@ final class EnrollmentManagementController extends Controller
             'groups' => Classes::with('intake:id,name')->whereIn('faculty_id', $facultyIds)->orderBy('id')->get(['id', 'intake_id', 'level_id', 'academic_promotion_id']),
         ];
 
+        $transitions = $canManage && $selected->academicYear->status === 'open' && ! in_array($selected->enrollment_status, ['completed', 'cancelled', 'transferred'], true)
+            ? array_values(array_unique(array_merge([$selected->enrollment_status], AcademicEnrollmentService::TRANSITIONS[$selected->enrollment_status] ?? []))) : [];
+        if (EnrollmentFinancialConfirmation::automatic() && in_array($selected?->enrollment_status, ['pending_confirmation', 'under_review', 'correction_required'], true)) {
+            $transitions = array_values(array_diff($transitions, ['confirmed']));
+        }
+
         return Inertia::render('dashboard/studentAcademic/EnrollmentManagement', [
             'entries' => $entries->latest('id')->paginate(20)->withQueryString()->through(fn ($entry) => $read->row($entry)),
             'filterOptions' => $filterOptions,
-            'enrollmentPolicy' => ['automatic' => (bool) config('student.enrollment_auto_confirmation'), 'firstInstallment' => (bool) config('student.enrollment_requires_first_installment')],
+            'enrollmentPolicy' => ['automatic' => EnrollmentFinancialConfirmation::automatic(),
+                'firstInstallment' => (bool) config('student.enrollment_requires_first_installment'),
+                'activationPercentage' => EnrollmentFinancialConfirmation::percentage()],
             'statuses' => array_keys(AcademicEnrollmentService::TRANSITIONS),
             'canClose' => $request->user()->can('manage academic access') && ! $request->user()->academicFaculties()->exists(),
             'openRequests' => $canManage ? ServiceRequest::where('academic_enrollment_id', $selected->id)->where('status', 'open')->latest('id')->get(['id', 'subject', 'category']) : [],
@@ -72,7 +81,7 @@ final class EnrollmentManagementController extends Controller
             'selected' => $selected ? $read->row($selected) : null,
             'changes' => $selected && $request->user()->can('manage academic access') ? $selected->changes()->with('actor:id,first_name,last_name')->latest('id')->paginate(15, ['*'], 'history_page')->withQueryString() : null,
             'balance' => $selected && $request->user()->can('manage academic finance') ? $finance->balance($selected) : null,
-            'transitions' => $canManage && $selected->academicYear->status === 'open' && ! in_array($selected->enrollment_status, ['completed', 'cancelled', 'transferred'], true) ? array_values(array_unique(array_merge([$selected->enrollment_status], AcademicEnrollmentService::TRANSITIONS[$selected->enrollment_status] ?? []))) : [],
+            'transitions' => $transitions,
             'departments' => $canManage ? $selected->level->departmentOptions()->where('is_active', true)->get(['academic_departments.id', 'name']) : [],
             'groups' => $canManage ? Classes::with('intake:id,name')->where('level_id', $selected->level_id)->get(['id', 'intake_id', 'capacity']) : [],
             'versions' => $canManage && $request->user()->can('publish academic content') ? $versionQuery->where(fn ($q) => $q->where('academic_year_id', $selected->academic_year_id)->orWhereNull('academic_year_id'))->with('units:id,curriculum_version_id,level_id,level_title')->get(['id', 'academic_program_id', 'code', 'name']) : [],

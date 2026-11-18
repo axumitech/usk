@@ -246,6 +246,7 @@ final class FinanceController extends Controller
         return Inertia::render('dashboard/finance/Confirmations', [
             'filters' => $filters,
             'requiresPayment' => $requiresPayment,
+            'automaticConfirmation' => EnrollmentFinancialConfirmation::automatic(),
             'entries' => $read->query($actor, $filters + ['status' => 'pending_confirmation'])
                 ->with('application')->latest('academic_enrollments.id')->paginate(15)->withQueryString()
                 ->through(fn (AcademicEnrollment $entry) => $read->row($entry) + $this->enrollmentConfirmation($entry, $actor, $finance)),
@@ -260,7 +261,7 @@ final class FinanceController extends Controller
             'status' => $entry->enrollment_status,
             'blocker' => $entry->enrollment_status === 'pending_confirmation'
                 ? app(EnrollmentFinancialConfirmation::class)->blocker($entry, $installment) : null,
-            'canConfirm' => $actor->can('manage', $entry),
+            'canConfirm' => ! EnrollmentFinancialConfirmation::automatic() && $actor->can('manage', $entry),
             'context' => AcademicEnrollmentService::contextToken($entry),
             'first_installment' => $installment,
             'first_installment_review_required' => $finance->firstInstallmentReviewRequired($entry, $installment),

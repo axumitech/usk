@@ -64,7 +64,7 @@ Artisan::command('student:confirm-covered-enrollments', function () {
                 }
             });
         });
-})->purpose('Confirmer les inscriptions en attente couvertes, y compris lors de la prise d’effet d’une aide.');
+})->purpose('Confirmer les inscriptions en attente au seuil financier configuré, y compris lors de la prise d’effet d’une aide.');
 
 Schedule::command('student:confirm-covered-enrollments')->daily()->timezone('Africa/Kinshasa');
 
