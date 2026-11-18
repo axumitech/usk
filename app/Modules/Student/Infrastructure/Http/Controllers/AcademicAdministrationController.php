@@ -44,6 +44,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AcademicAdministrationController extends Controller
@@ -394,19 +395,79 @@ class AcademicAdministrationController extends Controller
     public function payment(Request $r, int $academic)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/', 'amount' => 'required|numeric|gt:0', 'method' => 'required|in:cash,bank_transfer,other', 'reference' => 'required|string|max:180', 'note' => 'required|string|min:5|max:1000']);
-        $this->finance->record(AcademicEnrollment::findOrFail($academic), $r->user(), $data);
+        $entry = AcademicEnrollment::findOrFail($academic);
+        $this->finance->authorize($entry, $r->user());
+        $url = FinanceScreenReturn::forPayment($r, $academic);
 
-        return back()->with('success', 'Versement enregistré en attente de confirmation comptable.');
+        try {
+            $data = $r->validate([
+                'kind' => 'required|string|max:50|regex:/^[a-z][a-z0-9_]*$/',
+                'amount' => 'required|numeric|gt:0',
+                'method' => ['required', Rule::in(config('finance.methods'))],
+                'reference' => 'required|string|max:180',
+                'note' => 'required|string|min:5|max:1000',
+                'operation_id' => 'nullable|uuid',
+            ], self::paymentMessages(), [
+                'kind' => 'frais concernés', 'amount' => 'montant', 'method' => 'mode de versement',
+                'reference' => 'référence du reçu', 'note' => 'explication',
+            ]);
+            $payment = $this->finance->record($entry, $r->user(), $data);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
+
+        $message = $payment->wasRecentlyCreated
+            ? 'Versement enregistré en attente de confirmation comptable.'
+            : match ($payment->status) {
+                'pending' => 'Ce versement est déjà enregistré et reste en attente de confirmation comptable.',
+                'confirmed' => 'Ce versement est déjà enregistré et confirmé.',
+                'cancelled' => 'Ce versement est déjà enregistré et a été annulé. Consultez son historique.',
+                default => 'Ce versement figure déjà dans l’historique du compte.',
+            };
+
+        return redirect()->to($url, 303)->with('success', $message);
     }
 
     public function paymentStatus(Request $r, int $payment)
     {
         $this->authorizeStaff($r, 'manage academic finance');
-        $data = $r->validate(['status' => 'required|in:confirmed,cancelled,refunded', 'reason' => 'required|string|min:10|max:1000']);
-        $this->finance->transition(StudentPayment::findOrFail($payment), $r->user(), $data['status'], $data['reason']);
+        $entry = StudentPayment::findOrFail($payment);
+        $this->finance->authorize($entry->enrollment, $r->user());
+        $url = FinanceScreenReturn::forPayment($r, $entry->academic_enrollment_id);
 
-        return back()->with('success', 'Écriture comptable mise à jour. Les droits sont recalculés à partir des versements confirmés.');
+        try {
+            $data = $r->validate([
+                'status' => 'required|in:confirmed,cancelled,refunded',
+                'reason' => 'required|string|min:10|max:1000',
+                'distinct_receipt_verified' => 'sometimes|boolean',
+            ], self::paymentMessages(), ['status' => 'décision', 'reason' => 'motif']);
+            $this->finance->transition($entry, $r->user(), $data['status'], $data['reason'],
+                distinctReceiptVerified: $r->boolean('distinct_receipt_verified'));
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo($url);
+        }
+
+        $message = $data['status'] === 'cancelled'
+            ? 'Versement annulé et conservé dans l’historique. Le solde et les droits ont été recalculés.'
+            : 'Versement confirmé. Le solde et les droits ont été recalculés.';
+
+        return redirect()->to($url, 303)->with('success', $message);
+    }
+
+    private static function paymentMessages(): array
+    {
+        return [
+            'required' => 'Renseignez le champ :attribute.',
+            'string' => 'Renseignez le champ :attribute sous forme de texte.',
+            'numeric' => 'Saisissez un montant numérique.',
+            'amount.gt' => 'Le montant doit être supérieur à zéro.',
+            'in' => 'Choisissez une valeur proposée pour :attribute.',
+            'regex' => 'Choisissez des frais valides.',
+            'min.string' => 'Le champ :attribute doit comporter au moins :min caractères.',
+            'max.string' => 'Le champ :attribute ne doit pas dépasser :max caractères.',
+            'operation_id.uuid' => 'La tentative de saisie est invalide. Rouvrez le formulaire depuis le compte.',
+            'distinct_receipt_verified.boolean' => 'Indiquez si les deux reçus ont été vérifiés.',
+        ];
     }
 
     public function adjustment(Request $r, int $academic)

@@ -39,7 +39,11 @@ async function loadStudentFinanceComponent(name, imports = {}) {
     return module.exports;
 }
 const installmentDetails = await loadStudentFinanceComponent('FirstInstallmentDetails');
-const StudentFinance = (await loadStudentFinanceComponent('StudentFinance', { './FirstInstallmentDetails': installmentDetails })).default;
+const proofHistory = await loadStudentFinanceComponent('PaymentProofHistory');
+const StudentFinance = (await loadStudentFinanceComponent('StudentFinance', {
+    './FirstInstallmentDetails': installmentDetails,
+    '@/components/student/PaymentProofHistory': proofHistory,
+})).default;
 
 const renderFinance = (extra) =>
     renderToStaticMarkup(
@@ -251,6 +255,28 @@ test('Le compte permet le dépôt d’un document et le suivi des décisions', (
     assert.match(html, /Refusé/);
     assert.match(html, /Document illisible/);
     assert.match(html, /href="\/app\/dashboard\/student\/payment-proofs\/5\/file"/);
+});
+
+test('Un justificatif accepté reste accepté lorsque le versement est annulé', () => {
+    const html = renderFinance({
+        payment_proofs: {
+            submit_url: null, methods: [], kinds: [],
+            submissions: [{
+                id: 6, kind_label: 'Frais académiques', amount_cents: 2500, currency: 'USD', method: 'bank_transfer',
+                reference: 'ANNULATION-7', status: 'accepted', proof_status: 'accepted', payment_status: 'cancelled',
+                submitted_at: '2026-11-18T08:00:00Z', review_note: null, download_url: null,
+                history: [
+                    { event: 'proof_submitted', at: '2026-11-18T08:00:00Z' },
+                    { event: 'proof_accepted', at: '2026-11-18T09:00:00Z' },
+                    { event: 'payment_cancelled', at: '2026-11-18T10:00:00Z' },
+                ],
+            }],
+        },
+    });
+    assert.match(html, /Justificatif accepté/);
+    assert.match(html, /Versement annulé/);
+    assert.match(html, /<time dateTime="2026-11-18T10:00:00Z"/);
+    assert.doesNotMatch(html, /Justificatif refusé/);
 });
 
 test('Les frais de bibliothèque affichent leur date limite et entrent dans le reste à payer', () => {

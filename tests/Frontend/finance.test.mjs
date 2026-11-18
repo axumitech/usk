@@ -36,7 +36,8 @@ const installmentDetails = await load('components/student/FirstInstallmentDetail
     './types': { money: (value, currency) => `${value} ${currency}` },
 });
 const installmentImport = { '@/components/student/FirstInstallmentDetails': installmentDetails };
-const accountImports = { ...installmentImport, './FinanceAccountOverview': accountOverview };
+const proofHistory = await load('components/student/PaymentProofHistory.tsx', { './types': { money: (value, currency) => `${value} ${currency}` } });
+const accountImports = { ...installmentImport, './FinanceAccountOverview': accountOverview, '@/components/student/PaymentProofHistory': proofHistory };
 const account = await load('pages/dashboard/finance/FinanceAccount.tsx', accountImports);
 const Confirmations = (await load('pages/dashboard/finance/Confirmations.tsx', installmentImport)).default;
 let capturedPaymentForm;
@@ -157,6 +158,7 @@ test('Le versement permet de choisir les frais facturés et indique le solde de 
     };
     const accountPage = AccountActions({
         ...page,
+        filters: { q: 'Étudiant', from_proofs: 1, unrelated: 'ignoré' },
         selected: { id: 1, name: 'Étudiant', year: '2026-2027' },
         accountBackUrl: '/finance',
         accountBackLabel: 'Comptes étudiants',
@@ -166,6 +168,12 @@ test('Le versement permet de choisir les frais facturés et indique le solde de 
         obligations: [{ kind: 'tuition' }, { kind: 'tuition' }, { kind: 'fiche_enrolement' }, { kind: 'library' }],
     });
     findButton(accountPage, 'Saisir un versement').props.onClick();
+    assert.equal(capturedPaymentForm.requireSuccessFlash, true);
+    assert.equal(capturedPaymentForm.values.operation_id, 'operation-key');
+    assert.equal(capturedPaymentForm.values.finance_return, true);
+    assert.equal(capturedPaymentForm.values.q, 'Étudiant');
+    assert.equal(capturedPaymentForm.values.from_proofs, 1);
+    assert.equal(capturedPaymentForm.values.unrelated, undefined);
     const fields = Object.fromEntries(capturedPaymentForm.fields.map((field) => [field.name, field]));
     assert.equal(fields.kind.value, '');
     assert.equal(fields.amount.value, '');
@@ -276,6 +284,15 @@ test('Le compte distingue les justificatifs à contrôler des versements déjà 
         paymentProofs: [
             {...proof, id: 1, reference: 'EN-ATTENTE', download_url: '/account/proof/1/download', review_url: '/account/proof/1/review', payment_id: null},
             {...proof, id: 2, reference: 'DEJA-SAISI', download_url: '/account/proof/2/download', review_url: null, payment_id: 21},
+            {
+                ...proof, id: 3, reference: 'ANNULE', status: 'accepted', proof_status: 'accepted', payment_status: 'cancelled',
+                download_url: '/account/proof/3/download', review_url: null, payment_id: 22,
+                history: [
+                    { event: 'proof_submitted', at: '2026-11-16T10:00:00Z' },
+                    { event: 'proof_accepted', at: '2026-11-16T11:00:00Z' },
+                    { event: 'payment_cancelled', at: '2026-11-17T09:00:00Z' },
+                ],
+            },
         ],
     }));
     assert.match(html, /href="\/payment-proofs"/);
@@ -286,6 +303,47 @@ test('Le compte distingue les justificatifs à contrôler des versements déjà 
     assert.match(html, /aria-label="Refuser le justificatif EN-ATTENTE"/);
     assert.doesNotMatch(html, /aria-label="Valider le justificatif DEJA-SAISI"/);
     assert.match(html, /Versement à confirmer/);
+    const cancelled = html.match(/id="justificatif-3"[\s\S]+?<\/li><\/ul>/)?.[0] ?? '';
+    assert.match(cancelled, /Justificatif accepté/);
+    assert.match(cancelled, /Versement annulé/);
+    assert.match(cancelled, /<time dateTime="2026-11-17T09:00:00Z"/);
+    assert.doesNotMatch(cancelled, /Justificatif refusé/);
+});
+
+test('Le formulaire financier garde les valeurs si le serveur ne confirme pas la réussite', async () => {
+    let visit;
+    let notice;
+    const errors = new Map();
+    const Form = (await load('pages/dashboard/studentAcademic/AcademicForm.tsx', {
+        react: { useId: () => 'finance-mutation', useRef: (value) => ({ current: value }), useEffect() {} },
+        '@inertiajs/react': {
+            useForm(data) {
+                return {
+                    data, errors: { reason: 'Précisez le motif.' }, processing: false,
+                    submit(method, url, options) { visit = { method, url, options, data }; },
+                    setError(field, error) { errors.set(field, error); },
+                    clearErrors(field) { errors.delete(field); },
+                };
+            },
+        },
+        '@/components/admin/AdminModal': { default: ({ children }) => children },
+    })).default;
+    const spec = {
+        title: 'Valider le justificatif', description: 'Vérification comptable', action: '/proof/review', requireSuccessFlash: true,
+        fields: [{ name: 'reason', label: 'Précisez le motif', type: 'textarea', value: 'Motif saisi', minLength: 10, maxLength: 1000 }],
+        values: { decision: 'reject', reason_code: 'other' },
+    };
+    const element = Form({ spec, onSuccess: (msg) => { notice = msg; } });
+    const html = renderToStaticMarkup(element);
+    assert.match(html, /<textarea[^>]+aria-describedby="finance-mutation-reason-error"[^>]+minLength="10"/);
+    assert.match(html, /id="finance-mutation-reason-error" role="alert">Précisez le motif\./);
+    element.props.children.props.onSubmit({ preventDefault() {} });
+    assert.equal(visit.data.reason, 'Motif saisi');
+    visit.options.onSuccess({ props: {} });
+    assert.equal(notice, undefined);
+    assert.match(errors.get('_response'), /n’a pas été confirmé/);
+    visit.options.onSuccess({ props: { flash: { success: 'Justificatif refusé.' } } });
+    assert.equal(notice, 'Justificatif refusé.');
 });
 
 test('La file expose le solde de première tranche et respecte le blocage de confirmation', () => {

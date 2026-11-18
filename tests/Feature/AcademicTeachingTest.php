@@ -270,8 +270,16 @@ class AcademicTeachingTest extends TestCase
         $this->assertSame($result->id, $progression->academic_official_result_id);
         $this->assertNull($progression->target_enrollment_id);
 
-        $appealUrl = '/app/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id;
-        $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303)->assertSessionHasNoErrors();
+        $appealUrl = '/app/dashboard/student/results/official/'.$result->reference.'/appeal?academic='.$entry->id.'&semester=1';
+        $resultsReturn = route('dashboard.student.index', [
+            'section' => 'results', 'academic' => $entry->id, 'official' => $result->reference, 'semester' => 1,
+        ]);
+        $this->from(url('/'))->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Court'])
+            ->assertRedirect($resultsReturn)->assertSessionHasErrors(['body' => 'Saisissez au moins 10 caractères pour expliquer le recours.']);
+        $this->assertSame(0, $entry->serviceRequests()->count());
+        $this->from(url('/'))->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])
+            ->assertStatus(303)->assertRedirect($resultsReturn)->assertSessionHasNoErrors();
+        $this->assertStringStartsWith('Recours enregistré', session('success'));
         $this->post($appealUrl, ['target' => 'ec:'.$item->id, 'body' => 'Demande de vérification du report.'])->assertStatus(303);
         $appeal = \App\Models\Student\ServiceRequest::sole();
         $this->travel(8)->days();

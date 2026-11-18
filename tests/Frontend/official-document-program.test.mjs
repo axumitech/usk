@@ -65,10 +65,11 @@ function catalog() {
     const form = {
         get data() { return data; }, errors: {}, processing: false,
         setData(key, value) { data = typeof key === 'function' ? key(data) : { ...data, [key]: value }; },
+        clearErrors() {},
         submit(method, action) { submissions.push({ method, action, data: { ...data } }); },
     };
     const AcademicForm = load(academicForm, {
-        react: { useId: () => 'catalog-form' },
+        react: { useId: () => 'catalog-form', useRef: (value) => ({ current: value }), useEffect() {} },
         '@inertiajs/react': { useForm: (initial) => { data ??= initial; return form; } },
         '@/components/admin/AdminModal': placeholder,
         'lucide-react': { Plus: placeholder, Trash2: placeholder },

@@ -431,6 +431,37 @@ export default function Index(props: Props) {
     const base = '/app/dashboard/admin/student-academic';
     const show = (title: string, description: string, action: string, fields: Field[], submitLabel?: string) =>
         setSpec({ title, description, action, fields, submitLabel });
+    const openPaymentForm = (
+        title: string,
+        description: string,
+        action: string,
+        fields: Field[],
+        submitLabel?: string,
+        recording = false,
+    ) => {
+        const { q, year, faculty, department, program, level, view, history, enrollment_status } = props.filters;
+        setSpec({
+            title,
+            description,
+            action,
+            fields,
+            submitLabel,
+            requireSuccessFlash: true,
+            values: {
+                academic_return: true,
+                q: q ?? null,
+                year: year ?? null,
+                faculty: faculty ?? null,
+                department: department ?? null,
+                program: program ?? null,
+                level: level ?? null,
+                view: view ?? null,
+                history: history ?? null,
+                enrollment_status: enrollment_status ?? null,
+                ...(recording ? { operation_id: crypto.randomUUID() } : {}),
+            },
+        });
+    };
     const choose = (tab: string, id = selected?.id) => `${base}?${new URLSearchParams({ tab, ...(id ? { academic: String(id) } : {}) })}`;
     const optionsLevels = props.levels.map((level) => ({ value: level.id, label: `${level.faculty.name} · ${level.title}` }));
     const optionsYears = props.years.map((year) => ({ value: year.id, label: year.title }));
@@ -1178,7 +1209,7 @@ export default function Index(props: Props) {
                                     <button
                                         className="admin-primary"
                                         onClick={() =>
-                                            show(
+                                            openPaymentForm(
                                                 'Enregistrer un versement à vérifier',
                                                 'Ce versement restera en attente jusqu’à une confirmation comptable explicite, après vérification de la pièce justificative.',
                                                 `${base}/${selected.id}/payments`,
@@ -1202,8 +1233,10 @@ export default function Index(props: Props) {
                                                         ],
                                                     },
                                                     { name: 'reference', label: 'Référence bancaire ou de caisse unique', required: true },
-                                                    { name: 'note', label: 'Source et explication', type: 'textarea', required: true },
+                                                    { name: 'note', label: 'Source et explication', type: 'textarea', required: true, minLength: 5 },
                                                 ],
+                                                'Enregistrer le versement',
+                                                true,
                                             )
                                         }
                                     >
@@ -1247,7 +1280,7 @@ export default function Index(props: Props) {
                                                                 <button
                                                                     className="academic-link-button"
                                                                     onClick={() =>
-                                                                        show(
+                                                                        openPaymentForm(
                                                                             'Confirmer le versement',
                                                                             `${money(payment.amount_cents, payment.currency)} · ${payment.reference}. Confirmez uniquement après vérification de la pièce comptable ou du rapprochement bancaire.`,
                                                                             `${base}/payments/${payment.id}/status`,
@@ -1261,6 +1294,13 @@ export default function Index(props: Props) {
                                                                                     options: [{ value: 'confirmed', label: 'Versement confirmé' }],
                                                                                 },
                                                                                 reason,
+                                                                                {
+                                                                                    name: 'distinct_receipt_verified',
+                                                                                    label: 'J’ai vérifié qu’il s’agit d’un reçu distinct',
+                                                                                    type: 'checkbox',
+                                                                                    required: true,
+                                                                                    visibleFor: (_values, errors) => Boolean(errors.distinct_receipt_verified),
+                                                                                },
                                                                             ],
                                                                             'Confirmer après vérification',
                                                                         )
@@ -1273,7 +1313,7 @@ export default function Index(props: Props) {
                                                                 <button
                                                                     className="academic-link-button"
                                                                     onClick={() =>
-                                                                        show(
+                                                                        openPaymentForm(
                                                                             'Corriger une écriture comptable',
                                                                             'Cette action corrige le registre. Elle n’exécute aucun transfert bancaire. Un remboursement ne doit être enregistré qu’après son exécution effective.',
                                                                             `${base}/payments/${payment.id}/status`,

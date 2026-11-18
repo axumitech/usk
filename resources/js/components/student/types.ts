@@ -178,24 +178,36 @@ export type StudentPayment = {
     refunded_cents?: number;
     receipt_url: string | null;
 };
+export type PaymentProofStatus = 'pending' | 'accepted' | 'rejected';
+export type ProofPaymentStatus = 'pending' | 'confirmed' | 'cancelled' | 'refunded';
+export type PaymentProofEvent = {
+    event:
+        'proof_submitted' | 'proof_accepted' | 'proof_rejected' | 'payment_recorded' | 'payment_confirmed' | 'payment_cancelled' | 'refund_executed';
+    at: string | null;
+    amount_cents?: number;
+};
+export type StudentPaymentProof = {
+    id: number;
+    kind_label: string;
+    amount_cents: number;
+    currency: string;
+    method: string;
+    reference: string;
+    status: PaymentProofStatus | 'confirmed';
+    proof_status?: PaymentProofStatus;
+    payment_status?: ProofPaymentStatus | null;
+    history?: PaymentProofEvent[];
+    submitted_at: string;
+    review_note: string | null;
+    download_url: string | null;
+};
 export type StudentPaymentProofs = {
     submit_url: string | null;
     max_kb: number;
     methods: string[];
     kinds: { id: string; label: string; balance_cents?: number; overdue_cents?: number; currency?: string }[];
     selected_kind?: string | null;
-    submissions: {
-        id: number;
-        kind_label: string;
-        amount_cents: number;
-        currency: string;
-        method: string;
-        reference: string;
-        status: 'pending' | 'confirmed' | 'rejected';
-        submitted_at: string;
-        review_note: string | null;
-        download_url: string | null;
-    }[];
+    submissions: StudentPaymentProof[];
 };
 export type Session = {
     id: number;

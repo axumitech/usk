@@ -3,7 +3,8 @@ import FeedbackToast from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import FirstInstallmentDetails, { EnrollmentActivationStatus } from '@/components/student/FirstInstallmentDetails';
-import { labels, money, type FirstInstallment } from '@/components/student/types';
+import PaymentProofHistory, { paymentProofStatus, proofPaymentLabel, proofPaymentStatus } from '@/components/student/PaymentProofHistory';
+import { labels, money, type FirstInstallment, type StudentPaymentProof } from '@/components/student/types';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, CalendarDays, ClipboardCheck, Download, FileCheck2, Landmark, ShieldCheck, Wallet } from 'lucide-react';
 import { useState } from 'react';
@@ -22,6 +23,7 @@ type Payment = {
     confirmed_at: string | null;
     recorded_at: string | null;
     can_confirm: boolean;
+    requires_distinct_receipt_verification?: boolean;
     note: string | null;
 };
 type Tariff = {
@@ -42,19 +44,11 @@ type Refund = {
     execution_reference: string | null;
     executed_at: string | null;
 };
-type PaymentProof = {
-    id: number;
-    kind_label: string;
-    amount_cents: number;
-    currency: string;
-    method: string;
-    reference: string;
-    status: 'pending' | 'confirmed' | 'rejected';
-    submitted_at: string;
-    review_note: string | null;
-    download_url: string | null;
+type PaymentProof = StudentPaymentProof & {
     review_url: string | null;
     payment_id: number | null;
+    decision_reason?: string | null;
+    requires_distinct_receipt_verification?: boolean;
 };
 type Paginated<T> = { data: T[]; links: { url: string | null; label: string; active: boolean }[]; total?: number };
 type Props = {
@@ -73,6 +67,7 @@ type Props = {
     };
     pendingPaymentCount: number;
     paymentProofs?: PaymentProof[];
+    paymentProofReviewReasons?: Record<'approve' | 'reject', Record<string, string>>;
     dualControl: boolean;
     methods: string[];
     obligations: { id: number; title: string; kind: string; amount_cents: number; due_at: string | null }[];
@@ -93,11 +88,34 @@ const reason: Field = { name: 'reason', label: 'Justification', required: true, 
 const tariffCategory = (category: string) => ({ national: 'Étudiants nationaux', foreign: 'Étudiants étrangers' })[category] ?? category;
 const paymentMethod = (value: string) => ({ cash: 'Espèces', bank_transfer: 'Virement bancaire', other: 'Autre' })[value] ?? value;
 const paymentDate = new Intl.DateTimeFormat('fr-CD', { dateStyle: 'medium', timeZone: 'Africa/Kinshasa' });
-const proofStatuses: Record<PaymentProof['status'], string> = {
+const proofStatuses: Record<ReturnType<typeof paymentProofStatus>, string> = {
     pending: 'En vérification',
-    confirmed: 'Versement confirmé',
+    accepted: 'Justificatif accepté',
     rejected: 'Justificatif refusé',
 };
+const financeReturnFields = new Set([
+    'q',
+    'year',
+    'faculty',
+    'program',
+    'level',
+    'from_confirmations',
+    'confirmation_q',
+    'confirmation_page',
+    'from_proofs',
+    'page',
+    'payments_page',
+    'refunds_page',
+    'adjustments_page',
+]);
+const distinctReceiptField = (applicable = false): Field => ({
+    name: 'distinct_receipt_verified',
+    type: 'checkbox',
+    label: 'J’ai vérifié qu’il s’agit d’un reçu distinct',
+    help: 'Un autre versement confirmé présente les mêmes caractéristiques. Comparez les reçus avant de poursuivre.',
+    required: true,
+    visibleFor: (_values, errors) => applicable || Boolean(errors.distinct_receipt_verified),
+});
 const statusLabel = (value: string) =>
     labels[value] ||
     ({
@@ -122,6 +140,10 @@ export default function FinanceAccount(props: Props) {
     const feeLabel = (kind: string) => props.statement.kind_titles[kind] ?? kind.replaceAll('_', ' ');
     const activeTariffs = props.tariffs.data.filter((tariff) => tariff.status === 'active');
     const paymentProofs = props.paymentProofs ?? [];
+    const financeReturn = {
+        ...Object.fromEntries(Object.entries(props.filters).filter(([key, value]) => financeReturnFields.has(key) && value !== undefined)),
+        finance_return: true,
+    };
     const paymentsLabel = props.pendingPaymentCount > 0 ? `À vérifier (${props.pendingPaymentCount})` : 'Voir les versements';
     const paymentsPageUrl = props.payments && props.payments.current_page > 1 ? props.payments.first_page_url + '#paiements' : null;
     const show = (
@@ -171,6 +193,8 @@ export default function FinanceAccount(props: Props) {
             description: `${props.selected.name} · ${props.selected.year} · ${props.statement.balance.currency}. Le solde est mis à jour après confirmation.`,
             action: route('dashboard.admin.student-academic.payments', props.selected.id),
             submitLabel: 'Enregistrer le versement',
+            requireSuccessFlash: true,
+            values: { ...financeReturn, operation_id: crypto.randomUUID() },
             fields: [
                 {
                     name: 'kind',
@@ -213,14 +237,19 @@ export default function FinanceAccount(props: Props) {
         });
     }
 
-    function confirmPayment(payment: Payment) {
+    function updatePaymentStatus(payment: Payment, status: 'confirmed' | 'cancelled') {
+        const title = status === 'confirmed' ? 'Confirmer le versement' : 'Annuler l’écriture comptable';
         setSpec({
-            title: 'Confirmer le versement',
+            title,
             description: `${props.selected.name} · ${feeLabel(payment.kind)} · ${money(payment.amount_cents, payment.currency)} · ${payment.reference} · ${paymentMethod(payment.method)}`,
             action: route('dashboard.admin.student-academic.payments.status', payment.id),
-            submitLabel: 'Confirmer le versement',
-            fields: [{ ...reason, label: 'Motif après contrôle de la réception du versement' }],
-            values: { status: 'confirmed' },
+            submitLabel: title,
+            fields: [
+                { ...reason, label: status === 'confirmed' ? 'Motif après contrôle de la réception du versement' : 'Motif de l’annulation' },
+                ...(status === 'confirmed' ? [distinctReceiptField(payment.requires_distinct_receipt_verification)] : []),
+            ],
+            values: { ...financeReturn, status },
+            requireSuccessFlash: true,
         });
     }
 
@@ -228,19 +257,33 @@ export default function FinanceAccount(props: Props) {
         if (!proof.review_url) return;
 
         const title = decision === 'approve' ? 'Valider le justificatif' : 'Refuser le justificatif';
+        const reasons = props.paymentProofReviewReasons?.[decision] ?? {};
         setSpec({
             title,
             description: `${props.selected.name} · ${proof.kind_label} · ${money(proof.amount_cents, proof.currency)} · ${proof.reference}`,
             action: proof.review_url,
             submitLabel: title,
+            requireSuccessFlash: true,
             fields: [
                 {
-                    ...reason,
+                    name: 'reason_code',
                     label: decision === 'approve' ? 'Motif après vérification du versement reçu' : 'Motif du refus communiqué à l’étudiant',
+                    type: 'select',
+                    required: true,
+                    options: Object.entries(reasons).map(([value, label]) => ({ value, label })),
+                    clears: 'reason',
+                },
+                {
+                    ...reason,
+                    label: 'Précisez le motif',
+                    visibleFor: (values) => values.reason_code === 'other',
+                    minLength: 10,
+                    maxLength: 1000,
                     help: 'Entre 10 et 1 000 caractères.',
                 },
+                ...(decision === 'approve' ? [distinctReceiptField(proof.requires_distinct_receipt_verification)] : []),
             ],
-            values: { decision },
+            values: { ...financeReturn, decision },
         });
     }
 
@@ -274,7 +317,18 @@ export default function FinanceAccount(props: Props) {
                     }}
                 />
             )}
-            {allocating && <Allocation payment={allocating} obligations={props.obligations} close={() => setAllocating(null)} />}
+            {allocating && (
+                <Allocation
+                    payment={allocating}
+                    obligations={props.obligations}
+                    returnContext={financeReturn}
+                    close={() => setAllocating(null)}
+                    onSuccess={(message) => {
+                        setAllocating(null);
+                        setNotice(message);
+                    }}
+                />
+            )}
             <div className="student-portal academic-administration finance-workspace finance-account-workspace">
                 <Link
                     className="finance-focused-back"
@@ -374,11 +428,14 @@ export default function FinanceAccount(props: Props) {
                                 <p role="status">La couverture de la première tranche nécessite un réexamen administratif.</p>
                             )}
                         </div>
-                        {pendingEnrollment && !enrollment.first_installment?.activation?.automatic && enrollment.canConfirm && !enrollment.blocker && (
-                            <button type="button" className="portal-primary" onClick={confirmEnrollment}>
-                                <ClipboardCheck size={17} aria-hidden="true" /> Confirmer l’inscription
-                            </button>
-                        )}
+                        {pendingEnrollment &&
+                            !enrollment.first_installment?.activation?.automatic &&
+                            enrollment.canConfirm &&
+                            !enrollment.blocker && (
+                                <button type="button" className="portal-primary" onClick={confirmEnrollment}>
+                                    <ClipboardCheck size={17} aria-hidden="true" /> Confirmer l’inscription
+                                </button>
+                            )}
                     </section>
                 )}
                 <section
@@ -447,7 +504,11 @@ export default function FinanceAccount(props: Props) {
                                             <td>
                                                 <div className="finance-payment-actions">
                                                     {payment.can_confirm && (
-                                                        <button type="button" className="portal-primary" onClick={() => confirmPayment(payment)}>
+                                                        <button
+                                                            type="button"
+                                                            className="portal-primary"
+                                                            onClick={() => updatePaymentStatus(payment, 'confirmed')}
+                                                        >
                                                             Confirmer le versement
                                                         </button>
                                                     )}
@@ -475,15 +536,7 @@ export default function FinanceAccount(props: Props) {
                                                                 <button
                                                                     type="button"
                                                                     className="academic-link-button"
-                                                                    onClick={() =>
-                                                                        show(
-                                                                            'Annuler l’écriture comptable',
-                                                                            route('dashboard.admin.student-academic.payments.status', payment.id),
-                                                                            [reason],
-                                                                            { status: 'cancelled' },
-                                                                            `${payment.reference} · ${money(payment.amount_cents, payment.currency)}`,
-                                                                        )
-                                                                    }
+                                                                    onClick={() => updatePaymentStatus(payment, 'cancelled')}
                                                                 >
                                                                     Annuler l’écriture
                                                                 </button>
@@ -703,7 +756,9 @@ function AccountPaymentProofs({
             </header>
             <ul className="finance-proof-list">
                 {proofs.map((proof) => {
-                    const awaitingConfirmation = proof.status === 'pending' && proof.payment_id !== null;
+                    const proofStatus = paymentProofStatus(proof);
+                    const accountingStatus = proofPaymentStatus(proof);
+                    const reviewNote = proof.decision_reason ?? proof.review_note;
 
                     return (
                         <li className="finance-proof-entry" id={`justificatif-${proof.id}`} key={proof.id}>
@@ -716,12 +771,18 @@ function AccountPaymentProofs({
                                 <p className="finance-proof-meta">
                                     Déposé le <time dateTime={proof.submitted_at}>{paymentDate.format(new Date(proof.submitted_at))}</time>
                                 </p>
-                                {proof.review_note && <p className="finance-proof-review-note">{proof.review_note}</p>}
+                                {reviewNote && <p className="finance-proof-review-note">{reviewNote}</p>}
+                                <PaymentProofHistory proof={proof} />
                             </div>
                             <div className="finance-proof-controls">
-                                <span className="finance-payment-status" data-status={proof.status}>
-                                    {awaitingConfirmation ? 'Versement à confirmer' : proofStatuses[proof.status]}
+                                <span className="finance-payment-status" data-status={proofStatus === 'accepted' ? 'confirmed' : proofStatus}>
+                                    {proofStatuses[proofStatus]}
                                 </span>
+                                {accountingStatus && (
+                                    <span className="finance-payment-status" data-status={accountingStatus}>
+                                        {proofPaymentLabel(proof, accountingStatus)}
+                                    </span>
+                                )}
                                 <div className="finance-proof-actions">
                                     {proof.download_url && (
                                         <a
@@ -752,7 +813,7 @@ function AccountPaymentProofs({
                                             </button>
                                         </>
                                     )}
-                                    {awaitingConfirmation &&
+                                    {accountingStatus === 'pending' &&
                                         (paymentsPageUrl ? (
                                             <Link className="finance-account-link" href={paymentsPageUrl}>
                                                 Voir les versements <ArrowRight size={15} aria-hidden="true" />
@@ -772,8 +833,21 @@ function AccountPaymentProofs({
     );
 }
 
-function Allocation({ payment, obligations, close }: { payment: Payment; obligations: Props['obligations']; close: () => void }) {
+function Allocation({
+    payment,
+    obligations,
+    returnContext,
+    close,
+    onSuccess,
+}: {
+    payment: Payment;
+    obligations: Props['obligations'];
+    returnContext: Record<string, string | number | boolean | null>;
+    close: () => void;
+    onSuccess: (message: string) => void;
+}) {
     const form = useForm({ amounts: Object.fromEntries(obligations.map((o) => [String(o.id), ''])), reason: '' });
+    const [responseError, setResponseError] = useState<string | null>(null);
     return (
         <AdminModal
             title="Affecter le versement confirmé"
@@ -789,13 +863,26 @@ function Allocation({ payment, obligations, close }: { payment: Payment; obligat
                 className="portal-form"
                 onSubmit={(event) => {
                     event.preventDefault();
+                    if (form.processing) return;
+                    setResponseError(null);
                     form.transform((data) => ({
+                        ...returnContext,
                         reason: data.reason,
                         allocations: Object.entries(data.amounts)
                             .filter(([, amount]) => amount !== '')
                             .map(([id, amount]) => ({ obligation_id: Number(id), amount })),
                     }));
-                    form.post(route('dashboard.admin.finance.allocate', payment.id), { onSuccess: close, preserveScroll: true });
+                    form.post(route('dashboard.admin.finance.allocate', payment.id), {
+                        preserveScroll: true,
+                        onSuccess: (page) => {
+                            const message = (page.props.flash as { success?: string } | undefined)?.success;
+                            if (message) {
+                                onSuccess(message);
+                            } else {
+                                setResponseError('L’affectation n’a pas été confirmée. Consultez le compte avant de réessayer.');
+                            }
+                        },
+                    });
                 }}
             >
                 {obligations.map((o) => (
@@ -812,6 +899,7 @@ function Allocation({ payment, obligations, close }: { payment: Payment; obligat
                     Justification
                     <textarea required minLength={10} value={form.data.reason} onChange={(e) => form.setData('reason', e.target.value)} />
                 </label>
+                {responseError && <p role="alert">{responseError}</p>}
             </form>
         </AdminModal>
     );

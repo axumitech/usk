@@ -57,6 +57,13 @@ try {
         Mail::fake();
         $decision = $first > 0 ? EnrollmentStatus::VALIDATED : EnrollmentStatus::REJECTED;
         $result = app(RecordEnrollmentDecision::class)->execute(abs((int) $first), (int) $second, $decision, 'Décision de concurrence locale')->status->value;
+    } elseif ($mode === 'payment-record') {
+        $entry = AcademicEnrollment::findOrFail($first);
+        $payment = app(StudentFinanceService::class)->record($entry, User::findOrFail($second), [
+            'amount' => '30.00', 'method' => 'bank_transfer', 'reference' => 'RACE-RECORD',
+            'operation_id' => 'b8be8f36-4ed2-443e-a79f-3426e53008aa',
+        ]);
+        $result = $payment->id;
     } elseif ($mode === 'payment') {
         $payment = StudentPayment::findOrFail($first);
         app(StudentFinanceService::class)->transition($payment, User::findOrFail($second), 'confirmed', 'Concurrent test confirmation');

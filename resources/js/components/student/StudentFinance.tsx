@@ -1,4 +1,5 @@
 import Pagination from '@/components/admin/Pagination';
+import PaymentProofHistory, { paymentProofStatus, proofPaymentLabel, proofPaymentStatus } from '@/components/student/PaymentProofHistory';
 import { formatDate } from '@/lib/studentEnrollment';
 import { defaultUploadLimits, documentAccept, proofUploadError, proofUploadHelp } from '@/lib/uploadLimits';
 import { Link, useForm } from '@inertiajs/react';
@@ -58,9 +59,9 @@ const paymentStates: Record<string, [string, string]> = {
     cancelled: ['Annulé', 'danger'],
     refunded: ['Remboursé', 'neutral'],
 };
-const proofStates: Record<StudentPaymentProofs['submissions'][number]['status'], [string, string]> = {
+const proofStates: Record<ReturnType<typeof paymentProofStatus>, [string, string]> = {
     pending: ['En vérification', 'warning'],
-    confirmed: ['Confirmé', 'success'],
+    accepted: ['Accepté', 'success'],
     rejected: ['Refusé', 'danger'],
 };
 const methods: Record<string, string> = {
@@ -624,8 +625,10 @@ function PaymentProofs({ proofs, currency }: { proofs: StudentPaymentProofs; cur
                     <h3>Derniers justificatifs envoyés</h3>
                     <ul className="sf-list">
                         {proofs.submissions.map((submission) => {
-                            const state = proofStates[submission.status];
-                            const Icon = submission.status === 'confirmed' ? Check : submission.status === 'rejected' ? CircleAlert : Clock3;
+                            const proofStatus = paymentProofStatus(submission);
+                            const accountingStatus = proofPaymentStatus(submission);
+                            const state = proofStates[proofStatus];
+                            const Icon = proofStatus === 'accepted' ? Check : proofStatus === 'rejected' ? CircleAlert : Clock3;
                             return (
                                 <li key={submission.id} className="sf-line">
                                     <span className="sf-line-icon" data-tone={state[1]}>
@@ -637,11 +640,17 @@ function PaymentProofs({ proofs, currency }: { proofs: StudentPaymentProofs; cur
                                             Réf. {submission.reference} · {methods[submission.method] ?? submission.method}
                                         </small>
                                         <small>Envoyé le {formatDate(submission.submitted_at)}</small>
-                                        {submission.review_note && <small>Note du service financier · {submission.review_note}</small>}
+                                        {submission.review_note && proofStatus === 'rejected' && (
+                                            <small>Motif du refus · {submission.review_note}</small>
+                                        )}
+                                        <PaymentProofHistory proof={submission} />
                                     </div>
                                     <div className="sf-line-value">
                                         <strong>{money(submission.amount_cents, submission.currency)}</strong>
                                         <Status state={state} />
+                                        {accountingStatus && (
+                                            <Status state={[proofPaymentLabel(submission, accountingStatus), paymentStates[accountingStatus][1]]} />
+                                        )}
                                         {submission.download_url && (
                                             <a href={submission.download_url} aria-label={`Télécharger le justificatif ${submission.reference}`}>
                                                 <Download size={15} aria-hidden="true" /> Justificatif

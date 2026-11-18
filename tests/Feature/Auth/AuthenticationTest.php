@@ -50,11 +50,51 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/app/login', [
-            'email' => $user->email,
-            'password' => 'wrong-password',
-        ]);
+        $this->get('/app/login')->assertOk()->assertHeader('Referrer-Policy', 'no-referrer');
 
+        foreach ([$user->email, 'inconnu@example.test'] as $email) {
+            // A public page opened in another tab becomes the session's previous URL.
+            $this->get('/')->assertOk();
+            $this->post('/app/login', ['email' => $email, 'password' => 'wrong-password'], [
+                'X-Inertia' => 'true',
+                'X-Requested-With' => 'XMLHttpRequest',
+            ])->assertRedirectToRoute('login.show')
+                ->assertSessionHasErrors(['email' => 'Identifiants invalides']);
+
+            $this->get('/app/login')->assertInertia(fn (Assert $page) => $page
+                ->component('dashboard/auth/Login')
+                ->where('errors.email', 'Identifiants invalides'));
+        }
+
+        $this->assertGuest();
+    }
+
+    public function test_login_validation_keeps_the_login_screen_and_preserves_json_errors(): void
+    {
+        $this->get('/')->assertOk();
+        $input = ['email' => 'adresse-invalide', 'password' => ''];
+        $errors = [
+            'email' => 'Saisissez une adresse email valide.',
+            'password' => 'Saisissez votre mot de passe.',
+        ];
+
+        $this->post('/app/login', $input)->assertRedirectToRoute('login.show')->assertSessionHasErrors($errors);
+        $this->postJson('/app/login', $input)->assertUnprocessable()->assertJsonValidationErrors($errors);
+    }
+
+    public function test_throttled_login_keeps_the_login_screen(): void
+    {
+        $user = User::factory()->create();
+        $this->get('/')->assertOk();
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post('/app/login', ['email' => $user->email, 'password' => 'wrong-password'])
+                ->assertRedirectToRoute('login.show')->assertSessionHasErrors(['email' => 'Identifiants invalides']);
+        }
+
+        $this->post('/app/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertRedirectToRoute('login.show')->assertSessionHasErrors('email');
+        $this->assertStringStartsWith('Trop de tentatives.', session()->get('errors')->first('email'));
         $this->assertGuest();
     }
 

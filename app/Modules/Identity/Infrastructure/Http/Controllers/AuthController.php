@@ -11,21 +11,43 @@ use App\Modules\Identity\Domain\Exceptions\UserNotFoundException;
 use App\Modules\Identity\Domain\Nationality;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AuthController extends Controller
 {
     public function register(Request $request, RegisterUser $useCase)
     {
-        $validated = $request->validate([
-            'last_name' => 'required|string|max:255',
-            'first_name' => 'required|string|max:255',
-            'post_name' => 'nullable|string|max:255',
-            'gender' => 'required|in:male,female,other',
-            'nationality_code' => Nationality::rules(),
-            'email' => 'required|email|unique:users',
-            'password' => 'required|min:6|confirmed',
-        ], Nationality::messages());
+        try {
+            $validated = $request->validate([
+                'last_name' => 'required|string|max:255',
+                'first_name' => 'required|string|max:255',
+                'post_name' => 'nullable|string|max:255',
+                'gender' => 'required|in:male,female,other',
+                'nationality_code' => Nationality::rules(),
+                'email' => 'required|email|unique:users',
+                'password' => 'required|string|min:6|confirmed',
+            ], [
+                ...Nationality::messages(),
+                'required' => 'Renseignez le champ « :attribute ».',
+                'string' => 'Le champ « :attribute » doit contenir du texte.',
+                'max' => 'Le champ « :attribute » ne peut pas dépasser :max caractères.',
+                'gender.in' => 'Sélectionnez une valeur dans la liste.',
+                'email.email' => 'Saisissez une adresse email valide.',
+                'email.unique' => 'Cette adresse email ne peut pas être utilisée.',
+                'password.min' => 'Le mot de passe doit contenir au moins :min caractères.',
+                'password.confirmed' => 'Les mots de passe ne correspondent pas.',
+            ], [
+                'last_name' => 'nom',
+                'first_name' => 'prénom',
+                'post_name' => 'post-nom',
+                'gender' => 'genre',
+                'email' => 'adresse email',
+                'password' => 'mot de passe',
+            ]);
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo(route('register.show'));
+        }
 
         $user = $useCase->execute(
             $validated['last_name'],
@@ -45,12 +67,17 @@ class AuthController extends Controller
 
     public function login(Request $request, LoginUser $useCase)
     {
-        $validated = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
         try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'password' => 'required|string',
+            ], [
+                'email.required' => 'Saisissez votre adresse email.',
+                'email.email' => 'Saisissez une adresse email valide.',
+                'password.required' => 'Saisissez votre mot de passe.',
+                'password.string' => 'Saisissez un mot de passe valide.',
+            ]);
+
             $userId = $useCase->execute($validated['email'], $validated['password']);
             Auth::loginUsingId($userId);
             $request->session()->regenerate();
@@ -58,12 +85,14 @@ class AuthController extends Controller
             Inertia::flash('dashboardArrival', true);
 
             return redirect()->intended(route('dashboard.index'));
+        } catch (ValidationException $exception) {
+            throw $exception->redirectTo(route('login.show'));
         } catch (TooManyLoginAttemptsException $e) {
-            return back()->withErrors([
+            return to_route('login.show')->withErrors([
                 'email' => $e->getMessage(),
             ]);
-        } catch (UserNotFoundException|InvalidCredentialsException $e) {
-            return back()->withErrors(['email' => 'Identifiants invalides']);
+        } catch (UserNotFoundException|InvalidCredentialsException) {
+            return to_route('login.show')->withErrors(['email' => 'Identifiants invalides']);
         }
     }
 
