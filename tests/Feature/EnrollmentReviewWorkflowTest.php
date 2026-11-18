@@ -110,6 +110,57 @@ class EnrollmentReviewWorkflowTest extends TestCase
         $this->actingAs($admin)->post($url.'/validate')->assertSessionHasErrors('decision');
     }
 
+    public function test_predefined_document_reasons_are_saved_notified_and_restored_without_duplicate_reviews(): void
+    {
+        [$admin, $student, , $entry, $doc, $url] = $this->fixture();
+        $review = $url.'/documents/'.$doc->uuid.'/review';
+        $this->actingAs($admin)->post($url.'/start-analysis')->assertSessionHasNoErrors();
+        $this->post($review, ['verdict' => 'accepted', 'reason_codes' => []])->assertSessionHasNoErrors();
+        $this->assertTrue($doc->fresh()->verified);
+        $this->assertNull($doc->fresh()->comment);
+
+        $this->post($review, ['verdict' => 'rejected', 'reason_codes' => ['expired']])->assertSessionHasNoErrors();
+        $this->assertSame('Document expiré', $doc->fresh()->comment);
+        $this->assertSame(['expired'], $entry->events()->where('event', 'document_reviewed')->latest('id')->firstOrFail()->payload['reason_codes']);
+        $reason = 'Document illisible ; Informations incohérentes ; Autre motif : Le nom doit correspondre au diplôme.';
+        $this->post($review, ['verdict' => 'correction_requested', 'reason_codes' => ['other', 'inconsistent', 'unreadable'], 'reason' => 'Le nom doit correspondre au diplôme.'])
+            ->assertSessionHasNoErrors();
+        $this->post($review, ['verdict' => 'correction_requested', 'reason_codes' => ['unreadable', 'other', 'inconsistent'], 'reason' => 'Le nom doit correspondre au diplôme.'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($reason, $doc->fresh()->comment);
+        $this->assertSame(3, $entry->events()->where('event', 'document_reviewed')->count());
+        $last = $entry->events()->where('event', 'document_reviewed')->latest('id')->firstOrFail();
+        $this->assertSame($admin->id, $last->actor_id);
+        $this->assertSame(['unreadable', 'inconsistent', 'other'], $last->payload['reason_codes']);
+        $this->assertSame($reason, $last->payload['reason']);
+        $notices = $student->notifications()->where('type', \App\Notifications\EnrollmentDocumentReviewed::class)->get();
+        $this->assertCount(3, $notices);
+        $this->assertSame($reason, $notices->sole(fn ($notice) => $notice->data['verdict'] === 'correction_requested')->data['comment']);
+        $this->get($url)->assertInertia(fn ($page) => $page->where('documentReviewReasons.expired', 'Document expiré')
+            ->where('enrollment.documents.0.review_reason_codes', ['unreadable', 'inconsistent', 'other'])
+            ->where('enrollment.documents.0.review_reason_detail', 'Le nom doit correspondre au diplôme.'));
+    }
+
+    public function test_invalid_structured_reasons_are_refused_without_touching_a_legacy_review(): void
+    {
+        [$admin, , , $entry, $doc, $url] = $this->fixture();
+        $review = $url.'/documents/'.$doc->uuid.'/review';
+        $this->actingAs($admin)->post($url.'/start-analysis')->assertSessionHasNoErrors();
+        $this->post($review, ['verdict' => 'rejected', 'reason' => 'Ancienne motivation conservée.'])->assertSessionHasNoErrors();
+        foreach ([[], ['unknown'], ['expired', 'expired']] as $codes) {
+            $this->post($review, ['verdict' => 'rejected', 'reason_codes' => $codes])->assertSessionHasErrors('reason_codes');
+        }
+        $this->post($review, ['verdict' => 'accepted', 'reason_codes' => ['expired']])->assertSessionHasErrors('reason_codes');
+        $this->post($review, ['verdict' => 'rejected', 'reason_codes' => ['other'], 'reason' => '  '])->assertSessionHasErrors('reason');
+        $this->post($review, ['verdict' => 'rejected', 'reason_codes' => ['expired'], 'reason' => 'Une précision inutile'])->assertSessionHasErrors('reason');
+
+        $this->assertSame(1, $entry->events()->where('event', 'document_reviewed')->count());
+        $this->assertSame('Ancienne motivation conservée.', $doc->fresh()->comment);
+        $this->get($url)->assertInertia(fn ($page) => $page->where('enrollment.documents.0.review_reason_codes', [])
+            ->where('enrollment.documents.0.review_comment', 'Ancienne motivation conservée.'));
+    }
+
     public function test_new_actions_are_admin_only_and_document_binding_is_enforced(): void
     {
         [$admin, $student, , $entry, $doc, $url] = $this->fixture();

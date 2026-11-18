@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Enrollment;
 use App\Models\Student\StudentProfile;
 use App\Models\User;
+use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use App\Notifications\FinancialOperationNotice;
+use App\Notifications\StudentRequestAnswered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role;
@@ -63,6 +65,43 @@ final class StudentNotificationsTest extends TestCase
         $this->assertSame(1, $other->unreadNotifications()->count());
         $this->get($unread)->assertInertia(fn (Assert $page) => $page
             ->where('notifications.unread_count', 0)->has('notifications.items.data', 0));
+    }
+
+    public function test_exception_answer_notification_opens_only_the_recipients_request_in_its_own_enrollment(): void
+    {
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $ticket = $entry->serviceRequests()->create(['category' => 'academic', 'procedure' => StudentServiceCatalog::ENROLLMENT_EXCEPTION,
+            'subject' => 'Demander une dérogation', 'body' => 'Examinez ma situation exceptionnelle.']);
+        $student->notify(new StudentRequestAnswered($entry->id, $ticket->id));
+        $notice = $student->notifications()->sole();
+        $context = ['level_id' => $entry->level_id, 'academic_year_id' => $entry->academic_year_id];
+        $other = User::factory()->create();
+        $other->assignRole('student');
+        $profile = StudentProfile::create(['user_id' => $other->id, 'student_status' => 'active']);
+        $application = Enrollment::create($context + ['student_id' => $other->id, 'status' => 'validated']);
+        $otherEntry = $profile->enrollments()->create($context + ['application_id' => $application->id,
+            'enrollment_status' => 'confirmed', 'currency' => 'USD']);
+        $otherTicket = $otherEntry->serviceRequests()->create(['category' => 'academic', 'procedure' => StudentServiceCatalog::ENROLLMENT_EXCEPTION,
+            'subject' => 'Demander une dérogation', 'body' => 'Une autre situation à examiner.']);
+
+        $this->actingAs($other)->post(route('dashboard.notifications.open', $notice->id))->assertNotFound();
+        $this->actingAs($student)->get(route('dashboard.student.notifications.index', ['academic' => $entry->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('notifications.items.data.0.kind', 'student_request')
+                ->where('notifications.items.data.0.status', 'request_answered'));
+        $this->post(route('dashboard.notifications.open', $notice->id))->assertStatus(303)->assertRedirect(route('dashboard.student.index', [
+            'section' => 'requests', 'academic' => $entry->id, 'request' => $ticket->id,
+        ]));
+        $this->assertNotNull($notice->fresh()->read_at);
+
+        // Even a notification attributed to this recipient cannot point outside their enrollment or request.
+        foreach ([[$otherEntry->id, $otherTicket->id], [$entry->id, $otherTicket->id]] as [$academic, $request]) {
+            $student->notify(new StudentRequestAnswered($academic, $request));
+            $invalid = $student->notifications()->whereNull('read_at')->sole();
+            $this->post(route('dashboard.notifications.open', $invalid->id))->assertNotFound();
+            $this->assertNull($invalid->fresh()->read_at);
+            $invalid->markAsRead();
+        }
     }
 
     public function test_student_profile_without_an_enrollment_can_open_an_empty_inbox(): void

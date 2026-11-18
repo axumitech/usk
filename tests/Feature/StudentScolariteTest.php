@@ -8,6 +8,7 @@ use App\Models\Student\ServiceRequest;
 use App\Models\Student\StudentProfile;
 use App\Models\User;
 use App\Modules\Student\Application\Services\StudentAppointmentBooking;
+use App\Modules\Student\Application\Services\StudentServiceCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +30,7 @@ final class StudentScolariteTest extends TestCase
             ->component('dashboard/student/Portal')
             ->has('scolarite.categories', 5)
             ->has('scolarite.categories.0.procedures', 6)
-            ->has('scolarite.categories.1.procedures', 8)
+            ->has('scolarite.categories.1.procedures', 9)
             ->has('scolarite.categories.2.procedures', 4)
             ->has('scolarite.categories.3.procedures', 7)
             ->has('scolarite.categories.4.procedures', 4)
@@ -128,6 +129,43 @@ final class StudentScolariteTest extends TestCase
         $this->post($url, ['procedure' => 'attendance-certificate', 'body' => 'Je souhaite une attestation de fréquentation.'])->assertForbidden();
         $this->post($url, ['procedure' => 'general-support', 'body' => 'Je souhaite parler du suivi de mon dossier.'])->assertStatus(303)->assertSessionHasNoErrors();
         $this->assertDatabaseHas('student_service_requests', ['procedure' => 'general-support', 'category' => 'identity']);
+    }
+
+    public function test_exception_request_only_records_and_orients_the_existing_enrollment_without_activating_it(): void
+    {
+        Storage::fake('local');
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $entry->update(['enrollment_status' => 'pending_confirmation']);
+        $procedure = StudentServiceCatalog::ENROLLMENT_EXCEPTION;
+        $form = $this->portal('services', $entry->id, ['procedure' => $procedure]);
+        $submit = route('dashboard.student.requests', ['academic' => $entry->id]);
+        $this->actingAs($student)->get($form)->assertInertia(fn (Assert $page) => $page
+            ->where('scolarite.active_procedure', $procedure)
+            ->where('scolarite.categories.1.procedures.8.label', 'Demander une dérogation')
+            ->where('scolarite.categories.1.procedures.8.notice', StudentServiceCatalog::EXCEPTION_NOTICE));
+        $this->post($submit, ['procedure' => $procedure])->assertSessionHasErrors('body');
+        $this->assertDatabaseCount('student_service_requests', 0);
+
+        $payload = ['procedure' => $procedure, 'body' => 'Je souhaite faire examiner ma situation exceptionnelle.', 'operation_key' => (string) Str::uuid()];
+        $pdf = "%PDF-1.4\nJustification de test\n%%EOF\n";
+        $this->post($submit, $payload + ['file' => UploadedFile::fake()->createWithContent('justification.pdf', $pdf)])
+            ->assertStatus(303)->assertSessionHasNoErrors();
+        $ticket = ServiceRequest::sole();
+        $this->post($submit, $payload + ['file' => UploadedFile::fake()->createWithContent('justification.pdf', $pdf)])
+            ->assertStatus(303)->assertSessionHasNoErrors();
+        $this->get($this->portal('requests', $entry->id, ['request' => $ticket->id]))->assertInertia(fn (Assert $page) => $page
+            ->where('scolarite.selected_request.procedure_notice', StudentServiceCatalog::EXCEPTION_NOTICE)
+            ->where('scolarite.selected_request.status', 'open')->where('scolarite.selected_request.attachment.name', 'justification.pdf'));
+        Storage::disk('local')->assertExists($ticket->request_attachment_path);
+        $this->assertDatabaseCount('student_service_requests', 1);
+        $this->assertSame('pending_confirmation', $entry->fresh()->enrollment_status);
+        $this->assertSame('active', $student->studentProfile->fresh()->student_status);
+        $this->assertSame('validated', $entry->application->fresh()->status->value);
+        $this->assertDatabaseCount('student_payments', 0);
+        $this->assertDatabaseCount('student_financial_adjustments', 0);
+        $this->assertDatabaseCount('academic_enrollment_changes', 0);
+        $this->assertSame(0, $student->notifications()->count());
     }
 
     private function portal(string $section, int $academic, array $query = []): string

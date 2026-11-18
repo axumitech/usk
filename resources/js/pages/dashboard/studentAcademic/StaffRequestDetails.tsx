@@ -7,6 +7,7 @@ export type StaffRequest = {
     category: string;
     category_label: string;
     procedure_label: string | null;
+    procedure_notice?: string | null;
     service: string | null;
     subject: string;
     body: string;

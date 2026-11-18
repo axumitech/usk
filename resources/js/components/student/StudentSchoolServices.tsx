@@ -40,6 +40,7 @@ type Procedure = {
     id: string;
     label: string;
     description: string;
+    notice?: string | null;
     service: string;
     mode: 'link' | 'request';
     href?: string | null;
@@ -56,6 +57,7 @@ type SchoolTicket = {
     category_label?: string;
     service?: string | null;
     procedure: string | null;
+    procedure_notice?: string | null;
     subject: string;
     body: string | null;
     status: string;
@@ -398,6 +400,7 @@ function ProcedureForm({
 
     return (
         <form className="school-services-form" onSubmit={submit} aria-label={procedure.label}>
+            {procedure.notice && <p className="school-services-note">{procedure.notice}</p>}
             {appointment && (
                 <AppointmentPicker
                     slots={slots}
@@ -590,6 +593,7 @@ function TicketDetail({ ticket }: { ticket: SchoolTicket }) {
                     </p>
                     {ticket.service && <p className="school-services-category-intro">Service concerné · {ticket.service}</p>}
                 </header>
+                {ticket.procedure_notice && <p className="school-services-note">{ticket.procedure_notice}</p>}
                 {reservation && (
                     <section className="school-services-appointment" data-status="pending" aria-labelledby="school-ticket-reservation">
                         <Clock3 size={21} aria-hidden="true" />

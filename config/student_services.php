@@ -29,6 +29,7 @@ return [
             'study-resumption' => ['Reprise des études', 'Précisez la dernière année suivie et la période à laquelle vous souhaitez reprendre.'],
             'grade-correction' => ['Correction de notes', 'Indiquez le cours, l’évaluation et la note à vérifier.'],
             'academic-appeal' => ['Recours académique', 'Ouvrez le résultat officiel concerné pour déposer un recours selon les délais de publication.'],
+            'enrollment-exception' => ['Demander une dérogation', 'Expliquez la situation exceptionnelle liée à votre inscription et joignez un justificatif si nécessaire. Le service examinera et orientera votre demande.'],
         ],
     ],
     'finance' => [
