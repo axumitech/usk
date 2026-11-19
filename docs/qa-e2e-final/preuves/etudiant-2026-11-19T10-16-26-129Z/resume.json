@@ -1,0 +1,227 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    }
+  },
+  "rows": [
+    {
+      "section": "overview",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Bonjour, Étudiant",
+        "Raccourcis",
+        "Réinscription · Licence 2 — Médecine — Recette",
+        "Prochains événements"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "overview.png"
+    },
+    {
+      "section": "profile",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Mon profil"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "profile.png"
+    },
+    {
+      "section": "academics",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Réinscription · Licence 2 — Médecine — Recette",
+        "Programme de formation",
+        "Mon parcours académique",
+        "Mes cours"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "academics.png"
+    },
+    {
+      "section": "courses",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Mes cours",
+        "Période annuelle fictive",
+        "Enseignements annuels fictifs L2",
+        "Applications de Médecine L2 — Recette"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "courses.png"
+    },
+    {
+      "section": "schedule",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Emploi du temps"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "schedule.png"
+    },
+    {
+      "section": "materials",
+      "status": "VALIDÉ",
+      "headings": [
+        "Supports de cours"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "materials.png"
+    },
+    {
+      "section": "assignments",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Devoirs et travaux",
+        "Devoir actuel fictif — med"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "assignments.png"
+    },
+    {
+      "section": "evaluations",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Évaluations"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "evaluations.png"
+    },
+    {
+      "section": "results",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Mes résultats",
+        "Résultats pas encore disponibles",
+        "Cours en cours d’évaluation",
+        "Cours évalués"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "results.png"
+    },
+    {
+      "section": "annual-fees",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Frais de l’année",
+        "Reste à payer",
+        "Bilan de l’année",
+        "Première tranche des frais académiques"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "annual-fees.png"
+    },
+    {
+      "section": "transactions",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Historique des paiements",
+        "Versements enregistrés"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "transactions.png"
+    },
+    {
+      "section": "documents",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Mes documents",
+        "Mes fichiers"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "documents.png"
+    },
+    {
+      "section": "requests",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Mes demandes"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "requests.png"
+    },
+    {
+      "section": "services",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Scolarité",
+        "Choisir une démarche"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "services.png"
+    },
+    {
+      "section": "announcements",
+      "status": "VALIDÉ",
+      "headings": [
+        "Annonces"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "announcements.png"
+    },
+    {
+      "section": "notifications",
+      "status": "VALIDÉ",
+      "headings": [
+        "Notifications",
+        "Votre situation administrative a été mise à jour",
+        "Bienvenue dans votre espace étudiant",
+        "Votre situation administrative a été mise à jour"
+      ],
+      "purpose": "Consultation",
+      "http": 200,
+      "proof": "notifications.png"
+    },
+    {
+      "section": "card",
+      "status": "VALIDÉ",
+      "entry": 6,
+      "headings": [
+        "Étudiant 1 Médecine Recette",
+        "Carte étudiante NFC",
+        "Mes documents officiels",
+        "Préparer ma carte étudiante"
+      ],
+      "purpose": "Ouvrir la carte puis la gestion de la photo",
+      "http": 200,
+      "proof": "card.png"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ namespace App\Modules\Teaching\Infrastructure\Http\Controllers;
 
 use App\Models\Professor;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use App\Support\DocumentUploadLimit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,12 @@ final class ProfessorProfileController
 
     public function photo(Request $request, Professor $professor)
     {
-        abort_unless($request->user()->hasRole('admin') || (int) $professor->user_id === $request->user()->id, 403);
+        $actor = $request->user();
+        if ((int) $professor->user_id !== $actor->id) {
+            $areas = $actor->delegatedAreas();
+            abort_unless($actor->hasRole('admin') && ($areas === null || in_array('professors', $areas, true)), 403);
+            abort_unless(TeachingScope::professors($actor)->whereKey($professor->id)->exists(), 404);
+        }
         $disk = $professor->portraitDisk();
         abort_unless($disk && Storage::disk($disk)->exists($professor->photo), 404);
         $mime = Storage::disk($disk)->mimeType($professor->photo);

@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\EnsureAcademicStaffScope;
+use App\Http\Middleware\EnsureUniversityDelegation;
+use App\Http\Controllers\DelegationWorkspaceController;
+use App\Http\Controllers\PlatformController;
 use App\Modules\AcademicYear\Infrastructure\Http\Controllers\AcademicCalendarController;
 use App\Modules\AcademicYear\Infrastructure\Http\Controllers\AcademicYearController;
 use App\Modules\AdmissionCondition\Infrastructure\Http\Controllers\AdmissionConditionController;
@@ -141,13 +144,21 @@ Route::prefix('invitation-enseignant')->name('professor-invitation.')->middlewar
         Route::post('/{professor}/{token}', 'activate')->whereNumber('professor')->where('token', '[A-Za-z0-9]{64}')->name('activate');
     });
 
-Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])->group(function () use ($learningRoutes, $assessmentRoutes) {
+Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified', \App\Http\Middleware\RestrictPlatformWorkspace::class])->group(function () use ($learningRoutes, $assessmentRoutes) {
+    Route::prefix('platform')->name('platform.')->middleware(['role:super-admin', 'can:view platform'])->controller(PlatformController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::put('/institution', 'institution')->middleware('can:configure platform institution')->name('institution');
+        Route::post('/administrators', 'delegate')->middleware(['can:delegate institutional administration', 'throttle:5,1'])->name('delegate');
+        Route::post('/permission-cache', 'refresh')->middleware(['can:maintain permission cache', 'throttle:5,1'])->name('refresh');
+    });
+    Route::get('delegation', [DelegationWorkspaceController::class, 'index'])->middleware('role:rector|department-head|promotion-representative')->name('delegation');
+    Route::post('delegation/promotion', [DelegationWorkspaceController::class, 'publish'])->middleware(['role:promotion-representative', 'can:communicate with own promotion', 'throttle:3,1'])->name('delegation.publish');
     Route::get('/professor-photo/{professor}', [ProfessorProfileController::class, 'photo'])->name('professor-photo');
     Route::get('/teacher/profile', [ProfessorProfileController::class, 'show'])->middleware('role:professor')->name('teaching.profile');
     Route::post('/teacher/profile/photo', [ProfessorProfileController::class, 'update'])->middleware(['role:professor', 'throttle:10,1'])->name('teaching.profile.photo');
     Route::prefix('teacher/assessments')->name('teaching.assessments.')->middleware(['role:professor', RequireProfessorPhoto::class])
         ->controller(AssessmentController::class)->group($assessmentRoutes);
-    Route::prefix('admin/progression')->name('admin.progression.')->middleware('role:admin')
+    Route::prefix('admin/progression')->name('admin.progression.')->middleware(EnsureUniversityDelegation::class)
         ->controller(ProgressionController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/enrollments/{academic}/cases', 'propose')->name('propose');
@@ -155,7 +166,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             Route::post('/cases/{case}/revision', 'revise')->name('revise');
             Route::post('/decisions/{progression}/retakes', 'retake')->name('retake');
         });
-    Route::prefix('admin/official-documents')->name('admin.official-documents.')->middleware('role:admin')
+    Route::prefix('admin/official-documents')->name('admin.official-documents.')->middleware(EnsureUniversityDelegation::class)
         ->controller(OfficialDocumentController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/types', 'type')->name('type');
@@ -171,7 +182,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             Route::get('/documents/{document}/download', 'download')->name('download');
             Route::post('/results/{archive}/revocation', 'revokeResult')->name('revoke-result');
         });
-    Route::prefix('admin/academic-results')->name('admin.results.')->middleware('role:admin')
+    Route::prefix('admin/academic-results')->name('admin.results.')->middleware(EnsureUniversityDelegation::class)
         ->controller(ResultsController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/versions/{version}/rules', 'storeRule')->name('store-rule');
@@ -185,11 +196,11 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             Route::post('/appeals/{appeal}', 'review')->name('review');
             Route::get('/appeals/{appeal}/file', 'appealFile')->name('appeal-file');
         });
-    Route::prefix('admin/assessments')->name('admin.assessments.')->middleware(['role:admin', 'can:publish academic content'])
+    Route::prefix('admin/assessments')->name('admin.assessments.')->middleware([EnsureUniversityDelegation::class, 'can:publish academic content'])
         ->controller(AssessmentController::class)->group($assessmentRoutes);
     Route::prefix('teacher/resources')->name('teaching.learning.')->middleware(['role:professor', RequireProfessorPhoto::class])
         ->controller(LearningContentController::class)->group($learningRoutes);
-    Route::prefix('admin/teaching/resources')->name('admin.learning.')->middleware(['role:admin', 'can:publish academic content'])
+    Route::prefix('admin/teaching/resources')->name('admin.learning.')->middleware([EnsureUniversityDelegation::class, 'can:publish academic content'])
         ->controller(LearningContentController::class)->group($learningRoutes);
 
     Route::get('/', DashboardEntryController::class)
@@ -209,7 +220,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
             ->middleware('throttle:180,1,attendance-nfc')->name('attendance.nfc');
     });
 
-    Route::prefix('admin')->name('admin.')->middleware(['role:admin'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware(EnsureUniversityDelegation::class)->group(function () {
         Route::prefix('teaching')->name('teaching.')->controller(TeachingController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->middleware('can:publish academic content')->name('store');
@@ -383,7 +394,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
         Route::put('/course-catalog/{course}', [CourseCatalogController::class, 'update'])->name('course-catalog.update');
         Route::post('/course-catalog/{course}/status', [CourseCatalogController::class, 'status'])->name('course-catalog.status');
 
-        Route::prefix('/levels')->name('levels.')->group(function () {
+        Route::prefix('/levels')->name('levels.')->middleware(\App\Http\Middleware\AuthorizeLevelManagement::class)->group(function () {
             Route::get('/', [LevelController::class, 'index'])->name('index');
             Route::get('/{id}', [LevelController::class, 'show'])->whereNumber('id')->name('show');
             Route::post('/', [LevelController::class, 'store'])->name('store');
@@ -497,7 +508,7 @@ Route::prefix('dashboard')->name('dashboard.')->middleware(['auth', 'verified'])
     Route::get('/enrollment/requirements', RequirementsController::class)->name('enrollment.requirements');
 
     // Routes Admin
-    Route::middleware(['role:admin', 'can:manage academic access'])->prefix('admin/enrollments')->name('admin.enrollments.')->group(function () {
+    Route::middleware([EnsureUniversityDelegation::class, 'can:manage academic access'])->prefix('admin/enrollments')->name('admin.enrollments.')->group(function () {
         Route::get('/', [EnrollmentManagementController::class, 'index'])->name('index');
         Route::get('/overview', [EnrollmentManagementController::class, 'overview'])->name('overview');
         Route::get('/documents/{uuid}/preview', [EnrollmentManagementController::class, 'preview'])->name('documents.preview');

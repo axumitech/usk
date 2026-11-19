@@ -32,7 +32,7 @@ const Dashboard = ({
     const [dismissedActionFlash, setDismissedActionFlash] = useState<object | null>(null);
     const { props, component, flash, url } = usePage<{
         auth: {
-            user: { roles?: ComponentProps<typeof Sidebar>['userRole']; permissions?: string[]; first_name?: string; last_name?: string } | null;
+            user: { roles?: ComponentProps<typeof Sidebar>['userRole']; administration?: boolean; permissions?: string[]; first_name?: string; last_name?: string } | null;
         };
         section?: string;
         profile_view?: 'overview' | 'personal' | 'photo' | 'settings' | null;
@@ -79,7 +79,7 @@ const Dashboard = ({
         (isStudentProfile || isStudentDocuments || isStudentPathway) && studentApp
             ? studentApp.options.find((option) => option.id === studentApp.academic_id)
             : undefined;
-    const administration = roles.includes('admin') || roles.includes('super admin');
+    const administration = user?.administration ?? roles.includes('admin');
     const teaching = roles.includes('professor') && (url.startsWith('/app/dashboard/teacher') || (!administration && !props.studentPortalActive));
     const teacherApp = !authPage && roles.includes('professor') && /^\/app\/dashboard\/teacher(?:[/?#]|$)/.test(url);
     const tone =
@@ -272,6 +272,7 @@ const Dashboard = ({
                                 roles.some((role) => role === 'user' || role === 'candidate' || role === 'student'))
                         }
                         studentPortal={Boolean(props.studentPortalActive)}
+                        rectorSpace={component === 'dashboard/delegation/Index' && roles.includes('rector')}
                         administration={administration}
                         teaching={teaching}
                         teachingProfileActive={Boolean(props.teachingProfileActive)}

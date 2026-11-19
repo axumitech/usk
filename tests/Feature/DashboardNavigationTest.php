@@ -41,7 +41,9 @@ final class DashboardNavigationTest extends TestCase
     public function test_teacher_destinations_open_inertia_pages_and_deny_other_roles(): void
     {
         $teacher = User::factory()->create();
-        $teacher->assignRole(Role::findOrCreate('professor', 'web'));
+        $professorRole = Role::findByName('professor', 'web');
+        $teacher->assignRole($professorRole);
+        $this->assertTrue($teacher->can('manage courses'));
         $candidate = User::factory()->create();
         $candidate->assignRole(Role::findOrCreate('candidate', 'web'));
         $destinations = [
@@ -56,7 +58,8 @@ final class DashboardNavigationTest extends TestCase
         $this->get(route('dashboard.teaching.learning.index'))->assertForbidden();
         Professor::create(['first_name' => 'Odile', 'last_name' => 'Kasa', 'email' => $teacher->email, 'is_active' => true])
             ->forceFill(['user_id' => $teacher->id, 'photo' => 'professors/test-portrait.png'])->save();
-        $this->get(route('dashboard.teaching.assessments.index'))->assertForbidden();
+        $professorRole->revokePermissionTo('manage courses');
+        $this->actingAs($teacher->refresh())->get(route('dashboard.teaching.assessments.index'))->assertForbidden();
         $teacher->givePermissionTo(Permission::findOrCreate('manage courses', 'web'));
         foreach ($destinations as $route => $component) {
             $this->actingAs($teacher)->get(route($route))

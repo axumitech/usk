@@ -1,0 +1,81 @@
+{
+  "version": {
+    "port": 8072,
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    }
+  },
+  "rows": [
+    {
+      "id": "JUR-01",
+      "status": "VALIDÉ",
+      "action": "Consulter la décision ordinaire avant le rattrapage",
+      "obtained": "EC acquis 11/20, EC à reprendre 8/20. Les 10 crédits de l’UE attendent sa validation.",
+      "proof": "JUR-01.png"
+    },
+    {
+      "id": "JUR-02",
+      "status": "VALIDÉ",
+      "action": "Créer et publier la nouvelle épreuve de la session rattrapage",
+      "obtained": "Épreuve de rattrapage de Droit privé — QA",
+      "proof": "JUR-02.png"
+    },
+    {
+      "id": "JUR-03",
+      "status": "VALIDÉ",
+      "action": "Déposer la copie depuis l’espace de l’étudiant concerné",
+      "obtained": "Copie fictive reçue dans l’intervalle ouvert le 23 juin à 09 h.",
+      "proof": "JUR-03.png"
+    },
+    {
+      "id": "JUR-04",
+      "status": "VALIDÉ",
+      "action": "Clôturer l’épreuve et finaliser la nouvelle note",
+      "obtained": "15/20 pour l’EC initialement à 8/20.",
+      "proof": "JUR-04.png"
+    },
+    {
+      "id": "JUR-05",
+      "status": "VALIDÉ",
+      "action": "Valider la correction et transmettre la note au calcul des résultats",
+      "obtained": "Une transmission validée de 15/20.",
+      "proof": "JUR-05.png"
+    },
+    {
+      "id": "JUR-06",
+      "status": "VALIDÉ",
+      "action": "Approuver le règlement spécial rattaché à la session ordinaire",
+      "obtained": "Remplacer uniquement la note de l’EC non acquis.",
+      "proof": "JUR-06.png"
+    },
+    {
+      "id": "JUR-07",
+      "status": "VALIDÉ",
+      "action": "Délibérer avec les deux membres présents et enregistrer la réussite",
+      "obtained": "11/20 ordinaire conservé, 15/20 au rattrapage, moyenne de 13/20, dix crédits.",
+      "proof": "JUR-07.png"
+    },
+    {
+      "id": "JUR-08",
+      "status": "VALIDÉ",
+      "action": "Publier la décision finale du jury de rattrapage",
+      "obtained": "Publication confirmée dans le jury et en base.",
+      "proof": "JUR-08.png"
+    },
+    {
+      "id": "JUR-09",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le résultat définitif de seconde session comme étudiant",
+      "obtained": "Référence distincte et résultat ordinaire conservé.",
+      "proof": "JUR-09.png"
+    }
+  ]
+}

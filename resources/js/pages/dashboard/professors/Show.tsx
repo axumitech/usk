@@ -12,20 +12,33 @@ import '../../../../css/dashboard/teaching.css';
 import AcademicForm, { type FormSpec } from '../studentAcademic/AcademicForm';
 
 export default function ProfessorShow() {
-    const { professor, professors, assignments, catalog, years, canAssign, canLinkAccount, linkedAccount, invitationPending, flash, errors } =
-        usePage<{
-            professor: Professor;
-            professors: Professor[];
-            assignments: Assignment[];
-            catalog: TeachingCourse[];
-            years: Year[];
-            canAssign: boolean;
-            canLinkAccount?: boolean;
-            linkedAccount?: string | null;
-            invitationPending?: boolean;
-            errors?: { invitation?: string };
-            flash?: { success?: string };
-        }>().props;
+    const {
+        professor,
+        professors,
+        assignments,
+        catalog,
+        years,
+        canAssign,
+        canManageProfiles,
+        canLinkAccount,
+        linkedAccount,
+        invitationPending,
+        flash,
+        errors,
+    } = usePage<{
+        professor: Professor;
+        professors: Professor[];
+        assignments: Assignment[];
+        catalog: TeachingCourse[];
+        years: Year[];
+        canAssign: boolean;
+        canManageProfiles: boolean;
+        canLinkAccount?: boolean;
+        linkedAccount?: string | null;
+        invitationPending?: boolean;
+        errors?: { invitation?: string };
+        flash?: { success?: string };
+    }>().props;
     const [linking, setLinking] = useState<FormSpec | null>(null);
     const [editing, setEditing] = useState(false);
     const [assigning, setAssigning] = useState(false);
@@ -51,9 +64,11 @@ export default function ProfessorShow() {
                             </div>
                         </div>
                     </div>
-                    <button type="button" className="professor-action" onClick={() => setEditing(true)}>
-                        <Pencil size={16} aria-hidden="true" /> Modifier la fiche
-                    </button>
+                    {canManageProfiles && (
+                        <button type="button" className="professor-action" onClick={() => setEditing(true)}>
+                            <Pencil size={16} aria-hidden="true" /> Modifier la fiche
+                        </button>
+                    )}
                 </header>
                 {flash?.success && (
                     <p role="status" className="teaching-feedback">
@@ -165,7 +180,9 @@ export default function ProfessorShow() {
                             </button>
                         )}
                     </header>
-                    {!professor.is_active && <p className="teaching-help">Réactivez cet enseignant pour lui attribuer un nouveau cours.</p>}
+                    {!professor.is_active && canManageProfiles && (
+                        <p className="teaching-help">Réactivez cet enseignant pour lui attribuer un nouveau cours.</p>
+                    )}
                     {assignments.length ? (
                         <div className="teaching-assignment-list">
                             {assignments.map((item) => (
@@ -214,7 +231,7 @@ export default function ProfessorShow() {
                     )}
                 </section>
             </div>
-            {editing && <ProfessorForm professor={professor} onClose={() => setEditing(false)} />}
+            {canManageProfiles && editing && <ProfessorForm professor={professor} onClose={() => setEditing(false)} />}
             {assigning && (
                 <AssignmentForm
                     courses={catalog}

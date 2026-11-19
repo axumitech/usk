@@ -15,7 +15,7 @@ import {
 type Destination = { href: string; anyPermission?: string[]; institutionWide?: boolean; native?: boolean };
 type Entry = [label: string, destination: Destination];
 type AdminGroup = { id: string; title: string; shortLabel: string; icon: LucideIcon; items: Entry[] };
-type AdminActor = { permissions?: string[]; hasAcademicFacultyScope?: boolean };
+type AdminActor = { permissions?: string[]; hasAcademicFacultyScope?: boolean; delegatedAreas?: string[] | null };
 
 const dashboard = '/app/dashboard';
 const admin = `${dashboard}/admin`;
@@ -167,12 +167,19 @@ export const adminNavigation: AdminGroup[] = [
 
 export function visibleAdminNavigation(actor?: AdminActor | null): AdminGroup[] {
     const permissions = new Set(actor?.permissions);
+    const permitsArea = (href: string) => {
+        if (!actor?.delegatedAreas || href === dashboard) return true;
+        const path = href.split('?')[0].slice(admin.length + 1);
+        const area = path.startsWith('teaching/resources') ? 'learning' : path.split('/')[0];
+        return actor.delegatedAreas.includes(area === 'academic-results' ? 'results' : area);
+    };
 
     return adminNavigation
         .map((group) => ({
             ...group,
             items: group.items.filter(
                 ([, item]) =>
+                    permitsArea(item.href) &&
                     (!item.institutionWide || !actor?.hasAcademicFacultyScope) &&
                     (!item.anyPermission?.length || item.anyPermission.some((permission) => permissions.has(permission))),
             ),

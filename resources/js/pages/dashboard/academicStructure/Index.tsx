@@ -10,6 +10,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import '../../../../css/dashboard/academic-structure.css';
 import CurriculumEditor from './CurriculumEditor';
 import ReferenceEditor from './ReferenceEditor';
+import CreatePromotionGroup from './CreatePromotionGroup';
 import { AnnualDrafts, GenerateSchedule, NewVersion, ScheduleReport, Transition } from './VersionDialogs';
 import { messages, statusLabels, type AnnualFinance, type Props, type ReferenceKind, type Row, type Student, type Version } from './types';
 
@@ -170,6 +171,7 @@ export default function AcademicStructure() {
     const tabPanel = usePanelFade<HTMLDivElement>(tab);
     const programHeading = useRef<HTMLHeadingElement>(null);
     const [editor, setEditor] = useState<{ kind: ReferenceKind; record?: Partial<Row> } | null>(null);
+    const [groupPromotion, setGroupPromotion] = useState<Row | null>(null);
     const [generatingSchedule, setGeneratingSchedule] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [creating, setCreating] = useState<{ clone?: Version } | null>(null);
@@ -222,6 +224,7 @@ export default function AcademicStructure() {
                                 const year = context.years.find((entry) => entry.id === row.academic_year_id);
                                 const level = context.levels.find((entry) => entry.id === row.level_id);
                                 const details = [level?.title, year?.title].filter(Boolean).join(' · ');
+                                const groups = kind === 'promotion' ? (context.groups ?? []).filter((group) => group.academic_promotion_id === row.id) : [];
 
                                 return (
                                     <tr key={row.id}>
@@ -229,6 +232,7 @@ export default function AcademicStructure() {
                                         <td>
                                             {row.name}
                                             {details && <small>{details}</small>}
+                                            {groups.length > 0 && <small>Groupes · {groups.map((group) => group.name).join(', ')}</small>}
                                         </td>
                                         <td>
                                             <span className="as-badge">{row.is_active ? 'Actif' : 'Inactif'}</span>
@@ -238,7 +242,10 @@ export default function AcademicStructure() {
                                                 <div className="as-actions">
                                                     <button onClick={() => open(kind, row)}>Modifier</button>
                                                     {kind === 'promotion' && (
-                                                        <button onClick={() => open('group-promotion', row)}>Associer un groupe</button>
+                                                        <>
+                                                            {row.is_active && year?.status !== 'closed' && <button onClick={() => setGroupPromotion(row)}>Créer un groupe</button>}
+                                                            <button onClick={() => open('group-promotion', row)}>Associer un groupe</button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
@@ -896,6 +903,8 @@ export default function AcademicStructure() {
                         <Pagination value={context.unmapped} />
                     </details>
                 )}
+                {groupPromotion && <CreatePromotionGroup promotion={groupPromotion} level={context.levels.find((item) => item.id === groupPromotion.level_id)?.title}
+                    onClose={() => setGroupPromotion(null)} />}
                 {editor && (
                     <ReferenceEditor
                         key={`${editor.kind}:${editor.record?.id ?? 'new'}`}

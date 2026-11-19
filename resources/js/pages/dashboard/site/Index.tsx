@@ -146,17 +146,23 @@ export default function SiteSettingsPage() {
                                 </h2>
                                 <div className="space-y-4">
                                     <div>
-                                        <label htmlFor="siteName" className="block text-sm font-medium text-gray-500">Nom du site</label>
+                                        <label htmlFor="siteName" className="block text-sm font-medium text-gray-500">
+                                            Nom du site{isEditing && ' (obligatoire)'}
+                                        </label>
                                         {isEditing ? (
                                             <>
                                                 <input 
                                                     type="text" 
-                                                    id="siteName" 
+                                                    id="siteName"
+                                                    required
+                                                    maxLength={255}
+                                                    aria-invalid={errors.siteName ? true : undefined}
+                                                    aria-describedby={errors.siteName ? 'siteName-error' : undefined}
                                                     value={formData.siteName} 
                                                     onChange={e => setFormData({ ...formData, siteName: e.target.value })} 
                                                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" 
                                                 />
-                                                {errors.siteName && <p className="text-red-500 text-xs mt-1">{errors.siteName}</p>}
+                                                {errors.siteName && <p id="siteName-error" role="alert" className="text-red-500 text-xs mt-1">{errors.siteName}</p>}
                                             </>
                                         ) : (
                                             <p className="mt-1 text-lg font-semibold text-gray-900">{formData.siteName || 'Non défini'}</p>

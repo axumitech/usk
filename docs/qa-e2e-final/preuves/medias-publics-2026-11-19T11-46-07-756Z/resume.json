@@ -1,0 +1,139 @@
+{
+  "version": {
+    "port": 8073,
+    "revision": "a46a95e9ff77187515779a10ae56048e18026589",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CHKSllJp.js",
+      "manifest_sha256": "0cb6587cdb0bcfca863c081fc1c80812e61075798c81740a02c3a1e70dc75102",
+      "entry_sha256": "2f043e8a11df4eb59e28572c93099135d7c0dad912d0455a306c12c6a84c9194",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    }
+  },
+  "rows": [
+    {
+      "id": "IMG-01",
+      "status": "VALIDÉ",
+      "action": "Téléverser les deux PNG et relire leurs références après sauvegarde",
+      "obtained": [
+        {
+          "id": "logo",
+          "reference": "site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png"
+        },
+        {
+          "id": "favicon",
+          "reference": "site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png"
+        }
+      ],
+      "proof": "IMG-01.png"
+    },
+    {
+      "id": "IMG-02",
+      "status": "VALIDÉ",
+      "action": "Charger les deux images publiques sans session et vérifier chaque image effectivement affichée",
+      "obtained": [
+        {
+          "id": "logo",
+          "reference": "site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+          "visible": true,
+          "path": "/storage/site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+          "http": 200,
+          "mime": "image/png",
+          "bytes": 39839,
+          "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829",
+          "decoded": true,
+          "width": 192,
+          "height": 192
+        },
+        {
+          "id": "favicon",
+          "reference": "site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+          "visible": true,
+          "path": "/storage/site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+          "http": 200,
+          "mime": "image/png",
+          "bytes": 36047,
+          "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423",
+          "decoded": true,
+          "width": 180,
+          "height": 180
+        }
+      ],
+      "proof": "IMG-02.png"
+    },
+    {
+      "id": "IMG-03",
+      "status": "VALIDÉ",
+      "action": "Enregistrer un changement de texte sans fichier et vérifier les deux références",
+      "obtained": {
+        "slogan": "Université fictive de recette — édition textuelle",
+        "medias": [
+          {
+            "id": "logo",
+            "reference": "site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+            "visible": true,
+            "path": "/storage/site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+            "http": 200,
+            "mime": "image/png",
+            "bytes": 39839,
+            "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829",
+            "decoded": true,
+            "width": 192,
+            "height": 192
+          },
+          {
+            "id": "favicon",
+            "reference": "site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+            "visible": true,
+            "path": "/storage/site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+            "http": 200,
+            "mime": "image/png",
+            "bytes": 36047,
+            "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423",
+            "decoded": true,
+            "width": 180,
+            "height": 180
+          }
+        ]
+      },
+      "proof": "IMG-03.png"
+    },
+    {
+      "id": "IMG-04",
+      "status": "VALIDÉ",
+      "action": "Relire les deux fichiers et leurs dimensions après l’édition textuelle",
+      "obtained": [
+        {
+          "id": "logo",
+          "reference": "site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+          "visible": true,
+          "path": "/storage/site/R8QulCu8cm4AKeXWVcmiDVoV8wz3WlVy9TgEXrkf.png",
+          "http": 200,
+          "mime": "image/png",
+          "bytes": 39839,
+          "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829",
+          "decoded": true,
+          "width": 192,
+          "height": 192
+        },
+        {
+          "id": "favicon",
+          "reference": "site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+          "visible": true,
+          "path": "/storage/site/qt7e3oY9yt9LVaqthw88E8VVFiWtwlVpAGTAdMtw.png",
+          "http": 200,
+          "mime": "image/png",
+          "bytes": 36047,
+          "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423",
+          "decoded": true,
+          "width": 180,
+          "height": 180
+        }
+      ],
+      "proof": "IMG-04.png"
+    }
+  ]
+}

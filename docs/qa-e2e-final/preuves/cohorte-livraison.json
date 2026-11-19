@@ -1,0 +1,33 @@
+{
+  "faculties": 5,
+  "historical_students_by_department": {
+    "ADM": 20,
+    "DPR": 20,
+    "DPU": 20,
+    "EPI": 20,
+    "REL": 20,
+    "SBM": 20,
+    "SCL": 20,
+    "SCO": 20,
+    "SOC": 20,
+    "THE": 20
+  },
+  "published_results": 200,
+  "archives": {
+    "cartes_delivrees": 10,
+    "attestations_emises": 10,
+    "demandes_documentaires_en_attente": 20,
+    "absences_justifiees": 40,
+    "recours_instruits": 20
+  },
+  "enrollments_current": 170,
+  "renewals": {
+    "advance": 120,
+    "repeat": 40
+  },
+  "active_promotion_mandates": 10,
+  "foreign_key_violations": 0,
+  "revision_preparation": "570e71b818203ab51078e7fe47ca845be9996305",
+  "profil": "usk_qa_e2e-livraison",
+  "second_appel_simulate": "Bilan identique sur a46a95e après une seconde exécution."
+}

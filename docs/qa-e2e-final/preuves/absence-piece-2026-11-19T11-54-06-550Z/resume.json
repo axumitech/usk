@@ -1,0 +1,103 @@
+{
+  "version": {
+    "port": 8070,
+    "revision": "a46a95e9ff77187515779a10ae56048e18026589",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CHKSllJp.js",
+      "manifest_sha256": "0cb6587cdb0bcfca863c081fc1c80812e61075798c81740a02c3a1e70dc75102",
+      "entry_sha256": "2f043e8a11df4eb59e28572c93099135d7c0dad912d0455a306c12c6a84c9194",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    }
+  },
+  "rows": [
+    {
+      "id": "ABS-01",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le relevé initial de l’étudiant",
+      "obtained": {
+        "id": 11,
+        "status": "absent",
+        "session": 1,
+        "entry": 11,
+        "email": "etudiant.dpu.11@usk.test",
+        "student": 61,
+        "cours": "Fondements de Droit public — L1",
+        "date": "2026-05-12T08:00:00.000000Z"
+      },
+      "proof": "ABS-01.png"
+    },
+    {
+      "id": "ABS-02",
+      "status": "VALIDÉ",
+      "action": "Déposer la justification et relire son état soumis",
+      "obtained": {
+        "absence": 11,
+        "demande": 42,
+        "etat": "submitted"
+      },
+      "proof": "ABS-02.png"
+    },
+    {
+      "id": "ABS-03",
+      "status": "VALIDÉ",
+      "action": "Examiner la demande et motiver l’acceptation",
+      "obtained": {
+        "demande": 42,
+        "agent": "admin@usk.test",
+        "decision": "Justification acceptée après vérification du motif déclaré pour la séance du 12 mai 2026."
+      },
+      "proof": "ABS-03.png"
+    },
+    {
+      "id": "ABS-04",
+      "status": "VALIDÉ",
+      "action": "Relire la décision et son motif dans le même espace étudiant",
+      "obtained": {
+        "absence": 11,
+        "demande": 42,
+        "inscription": 11,
+        "etat": "accepted",
+        "motif": "Justification acceptée après vérification du motif déclaré pour la séance du 12 mai 2026.",
+        "revision": 2,
+        "audit": [
+          {
+            "action": "absence_justification_submitted",
+            "actor_id": 61
+          },
+          {
+            "action": "absence_justification_reviewed",
+            "actor_id": 1
+          }
+        ]
+      },
+      "proof": "ABS-04.png"
+    },
+    {
+      "id": "ABS-05",
+      "status": "VALIDÉ",
+      "action": "Télécharger la pièce privée depuis la deuxième ligne étudiante",
+      "obtained": {
+        "ligne": 2,
+        "demande": 42,
+        "route": "/app/dashboard/student/absences/42/file",
+        "octets": 3589,
+        "sha256": "0e0cde600ec2ba370c594a5a449f7d629c0592f62a7b5aae960b58f5c72d5d70"
+      },
+      "proof": "ABS-05.png"
+    },
+    {
+      "id": "ABS-06",
+      "status": "VALIDÉ",
+      "action": "Vérifier la protection de la pièce depuis un autre compte étudiant",
+      "obtained": {
+        "demande": 42,
+        "http": 404
+      },
+      "proof": "ABS-06.png"
+    }
+  ]
+}

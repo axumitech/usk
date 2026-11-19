@@ -36,6 +36,7 @@ final class StudentNotifications
         StudentAppointmentNotice::class => 'student_request',
         StudentRequestAnswered::class => 'student_request',
         TeacherAnnouncementNotice::class => 'announcement',
+        \App\Notifications\PromotionMessage::class => 'announcement',
     ];
 
     public function forAdmissionsStaff(User $user): MorphMany
@@ -43,9 +44,11 @@ final class StudentNotifications
         $query = $user->notifications()->whereIn('type', [EnrollmentDocumentReplacement::class, AcademicScheduleNotice::class]);
         if ($user->academicFaculties()->exists()) {
             $enrollmentId = $this->dataField($query, 'enrollment_id');
-            $visible = AcademicStaffScope::apply(Enrollment::query(), $user)->selectRaw('CAST(enrollments.id AS VARCHAR)');
+            $driver = $query->getRelated()->getConnection()->getDriverName();
+            $textType = in_array($driver, ['mysql', 'mariadb'], true) ? 'CHAR' : 'VARCHAR';
+            $visible = AcademicStaffScope::apply(Enrollment::query(), $user)->selectRaw("CAST(enrollments.id AS $textType)");
             $query->where(fn ($notice) => $notice->where('type', AcademicScheduleNotice::class)
-                ->orWhereIn(DB::raw("CAST($enrollmentId AS VARCHAR)"), $visible));
+                ->orWhereIn(DB::raw("CAST($enrollmentId AS $textType)"), $visible));
         }
 
         return $query;
@@ -119,7 +122,7 @@ final class StudentNotifications
             'reference' => $notice->data['reference'] ?? 'Inscription académique',
             'filename' => $notice->data['filename'] ?? '',
             'kind' => self::KINDS[$notice->type],
-            'title' => $notice->type === TeacherAnnouncementNotice::class ? ($notice->data['title'] ?? null) : null,
+            'title' => self::KINDS[$notice->type] === 'announcement' ? ($notice->data['title'] ?? null) : null,
             'status' => $notice->data['status'] ?? null,
             'version' => $notice->data['version'] ?? null,
             'verdict' => $notice->data['verdict'] ?? null,

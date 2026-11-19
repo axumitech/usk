@@ -37,10 +37,10 @@ final class HistoricalAcademicFixtures
     public function prepare(array $users, array $catalog, array $entries): array
     {
         $admin = $users['admin'];
-        $publisher = $users['superadmin'];
         $works = $rules = $runs = $results = [];
 
         foreach (['med', 'droit'] as $faculty) {
+            $publisher = $users['doyen.'.$faculty];
             $students = array_filter($entries, fn ($entry, $key) => isset(self::SCORES[$key])
                 && (int) $entry->level->faculty_id === (int) $catalog['faculties'][$faculty]->id, ARRAY_FILTER_USE_BOTH);
             $sources = [];
@@ -53,7 +53,7 @@ final class HistoricalAcademicFixtures
             }
 
             [$rules[$faculty], $runs[$faculty]] = Carbon::withTestNow(Carbon::parse('2026-06-20 10:00', 'Africa/Kinshasa'),
-                fn () => $this->deliberation($admin, $publisher, $catalog, $faculty, $sources));
+                fn () => $this->deliberation($admin, $publisher, $catalog, $faculty, $sources, secretary: $users['vicedoyen.'.$faculty]));
             foreach ($students as $key => $entry) {
                 $results[$key] = $runs[$faculty]->results()->where('academic_enrollment_id', $entry->id)->sole();
             }
@@ -113,7 +113,7 @@ final class HistoricalAcademicFixtures
         return $target->fresh();
     }
 
-    private function work(AcademicOffering $offer, User $teacher, User $admin, array $entries, int $index): array
+    public function work(AcademicOffering $offer, User $teacher, User $admin, array $entries, int $index, array $scores = self::SCORES): array
     {
         $workflow = app(AssessmentWorkflow::class);
         $corrections = app(AssessmentCorrections::class);
@@ -146,7 +146,7 @@ final class HistoricalAcademicFixtures
                 });
             }
 
-            Carbon::withTestNow(Carbon::parse('2026-05-08 10:00', 'Africa/Kinshasa'), function () use ($entries, $resource, $teacher, $admin, $workflow, $corrections, $index) {
+            Carbon::withTestNow(Carbon::parse('2026-05-08 10:00', 'Africa/Kinshasa'), function () use ($entries, $resource, $teacher, $admin, $workflow, $corrections, $index, $scores) {
                 if ($resource->assessment()->sole()->state === 'published') {
                     $workflow->lifecycle($resource, $teacher, ['action' => 'close',
                         'revision' => $resource->assessment()->sole()->revision, 'reason' => self::REASON]);
@@ -158,7 +158,7 @@ final class HistoricalAcademicFixtures
                             throw new LogicException('La copie fictive doit avoir été déposée avant la correction.');
                         }
                         $corrections->save($resource, $teacher, $record, [
-                            'revision' => $record->revision, 'participation' => 'submitted', 'points' => self::SCORES[$key][$index],
+                            'revision' => $record->revision, 'participation' => 'submitted', 'points' => $scores[$key][$index],
                             'feedback' => 'Correction fictive : résultat expliqué et pistes de travail pour la démonstration.', 'reason' => self::REASON,
                         ], null);
                         $corrections->record($resource, $teacher, $record->fresh(), ['action' => 'finalize',
@@ -187,23 +187,24 @@ final class HistoricalAcademicFixtures
             'group_work' => false, 'feedback_policy' => 'validated', 'body' => 'Sujet exclusivement fictif de recette.', 'reason' => self::REASON];
     }
 
-    private function deliberation(User $admin, User $publisher, array $catalog, string $faculty, array $sources): array
+    public function deliberation(User $admin, User $publisher, array $catalog, string $faculty, array $sources, string $levelKey = 'L1', array $decisions = [], ?bool $publish = null, ?User $secretary = null): array
     {
+        $secretary ??= $publisher;
         $version = $catalog['versions']['past'][$faculty];
-        $code = 'RECETTEV2-'.strtoupper($faculty).'-2526';
+        $code = 'RECETTEV2-'.strtoupper($faculty).'-2526'.($levelKey === 'L1' ? '' : '-'.$levelKey);
         $rules = app(ResultRules::class);
         $rule = AcademicResultRule::where('curriculum_version_id', $version->id)->where('code', $code)->first()
             ?? $rules->create($version, $admin, [
-                'level_id' => $catalog['levels'][$faculty]['L1']->id, 'code' => $code, 'session_code' => 'ordinaire',
+                'level_id' => $catalog['levels'][$faculty][$levelKey]->id, 'code' => $code, 'session_code' => 'ordinaire',
                 'effective_on' => '2025-10-01', 'reference' => self::REASON,
                 'configuration' => [
                     'scale' => 2000, 'precision' => 2, 'rounding' => 'half_up', 'weighting' => 'uniform',
                     'ec_pass' => 1000, 'ue_pass' => 1000, 'compensation' => 'none', 'credit_label' => 'crédits fictifs',
                     'allow_equivalence' => false, 'appeal_days' => 7, 'quorum' => 2, 'items' => $sources,
                     'decisions' => [
-                        'pass_demo' => ['label' => 'Réussite L1 — décision fictive', 'permits_incomplete' => false,
+                        'pass_demo' => ['label' => 'Réussite '.$levelKey.' — décision fictive', 'permits_incomplete' => false,
                             'permits_eliminatory' => false, 'progression' => 'next', 'minimum_credits' => 1000],
-                        'repeat_demo' => ['label' => 'Échec L1 / redoublement — décision fictive', 'permits_incomplete' => false,
+                        'repeat_demo' => ['label' => 'Échec '.$levelKey.' / redoublement — décision fictive', 'permits_incomplete' => false,
                             'permits_eliminatory' => false, 'progression' => 'same', 'retake' => 'whole_year'],
                         'resit_demo' => ['label' => 'Rattrapage requis — décision fictive', 'permits_incomplete' => false,
                             'permits_eliminatory' => false, 'progression' => 'none'],
@@ -216,15 +217,15 @@ final class HistoricalAcademicFixtures
         $deliberations = app(Deliberations::class);
         $run = AcademicDeliberation::where('academic_result_rule_id', $rule->id)->latest('edition')->first()
             ?? $deliberations->prepare($rule->fresh(), $admin, ['meeting_at' => '2026-06-20T09:00',
-                'chair' => $admin->id, 'secretary' => $publisher->id, 'members' => [$admin->id, $publisher->id], 'reason' => self::REASON]);
+                'chair' => $admin->id, 'secretary' => $secretary->id, 'members' => [$admin->id, $secretary->id], 'reason' => self::REASON]);
         if ($run->refresh()->state === 'prepared') {
             $deliberations->transition($run, $admin, ['action' => 'open', 'revision' => $run->revision,
-                'attendance' => [$admin->id, $publisher->id], 'reason' => self::REASON]);
+                'attendance' => [$admin->id, $secretary->id], 'reason' => self::REASON]);
         }
         if ($run->fresh()->state === 'open') {
             foreach ($run->results()->with('enrollment.profile.user')->get() as $result) {
                 $local = strstr($result->enrollment->profile->user->email, '@', true);
-                $decision = match ($local) {
+                $decision = $decisions[$local] ?? match ($local) {
                     'etudiant.med', 'etudiant.droit' => 'pass_demo',
                     'etudiant.med2' => 'repeat_demo',
                     'etudiant.med3', 'etudiant.droit2' => 'resit_demo',
@@ -237,7 +238,7 @@ final class HistoricalAcademicFixtures
             }
             $deliberations->transition($run, $admin, ['action' => 'approve', 'revision' => $run->fresh()->revision, 'reason' => self::REASON]);
         }
-        if ($faculty === 'med' && $run->fresh()->state === 'approved') {
+        if (($publish ?? ($faculty === 'med')) && $run->fresh()->state === 'approved') {
             $deliberations->transition($run, $publisher, ['action' => 'publish', 'revision' => $run->fresh()->revision,
                 'reason' => self::REASON, 'notify' => false]);
         }

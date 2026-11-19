@@ -1,0 +1,164 @@
+{
+  "reference_phpunit": [
+    "Time: 03:39.426, Memory: 152.00 MB",
+    "OK (617 tests, 163346 assertions)"
+  ],
+  "reference_frontend": [
+    "ℹ tests 186",
+    "ℹ pass 186",
+    "ℹ fail 0"
+  ],
+  "postgres_reference": [
+    "Time: 08:38.983, Memory: 108.00 MB",
+    "OK (238 tests, 5663 assertions)",
+    "Time: 01:39.296, Memory: 58.00 MB",
+    "OK (11 tests, 81 assertions)"
+  ],
+  "mysql_correctifs": [
+    "Time: 03:25.223, Memory: 94.00 MB",
+    "OK (94 tests, 2192 assertions)"
+  ],
+  "roles": [
+    "Time: 00:32.254, Memory: 90.00 MB",
+    "OK (47 tests, 748 assertions)"
+  ],
+  "groupes": [
+    "Time: 00:52.938, Memory: 86.00 MB",
+    "OK (18 tests, 306 assertions)"
+  ],
+  "progression_groupes": [
+    "Time: 01:29.894, Memory: 88.00 MB",
+    "OK (34 tests, 612 assertions)"
+  ],
+  "phpunit_a36ed79": [
+    "Time: 12:38.279, Memory: 154.00 MB",
+    "OK (629 tests, 163526 assertions)"
+  ],
+  "frontend_a36ed79": [
+    "ℹ tests 188",
+    "ℹ pass 188",
+    "ℹ fail 0"
+  ],
+  "editions_3c9aa55": [
+    "Time: 00:25.144, Memory: 68.00 MB",
+    "OK (2 tests, 337 assertions)"
+  ],
+  "compiler_a36ed79": {
+    "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+    "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+    "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+  },
+  "compiler_7bbfba8": {
+    "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72"
+  },
+  "compiler_2e9c69d": {
+    "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8"
+  },
+  "npm_audit": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "composer_audit": {
+    "advisories": [],
+    "abandoned": []
+  },
+  "phpunit_e425": [
+    "Time: 10:07.603, Memory: 156.00 MB",
+    "OK (641 tests, 163900 assertions)"
+  ],
+  "mysql_a46": [
+    "Time: 08:35.984, Memory: 96.00 MB",
+    "OK (109 tests, 2669 assertions)"
+  ],
+  "postgres_habilitations": [
+    "Time: 01:18.296, Memory: 84.00 MB",
+    "OK (8 tests, 146 assertions)"
+  ],
+  "mysql_habilitations": [
+    "Time: 05:34.996, Memory: 82.00 MB",
+    "OK (8 tests, 146 assertions)"
+  ],
+  "annuaire_enseignants": [
+    "Time: 01:15.155, Memory: 88.00 MB",
+    "OK (11 tests, 340 assertions)"
+  ],
+  "medias_site": [
+    "Time: 00:33.257, Memory: 56.00 MB",
+    "OK (3 tests, 36 assertions)"
+  ],
+  "sqlite_habilitations": [
+    "Time: 00:30.084, Memory: 82.00 MB",
+    "OK (8 tests, 146 assertions)"
+  ],
+  "postgres_a46": [
+    "Time: 18:36.278, Memory: 110.00 MB",
+    "OK (256 tests, 6258 assertions)",
+    "Time: 01:30.273, Memory: 58.00 MB",
+    "OK (11 tests, 81 assertions)"
+  ],
+  "phpunit_etape": [
+    "Time: 18:01.016, Memory: 154.00 MB",
+    "OK (631 tests, 163585 assertions)"
+  ],
+  "absences_etudiantes": [
+    "Time: 00:28.946, Memory: 90.00 MB",
+    "OK (3 tests, 170 assertions)"
+  ],
+  "build_a46": {
+    "port": 8075,
+    "revision": "a46a95e9ff77187515779a10ae56048e18026589",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CHKSllJp.js",
+      "manifest_sha256": "0cb6587cdb0bcfca863c081fc1c80812e61075798c81740a02c3a1e70dc75102",
+      "entry_sha256": "2f043e8a11df4eb59e28572c93099135d7c0dad912d0455a306c12c6a84c9194",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    }
+  },
+  "trois_temoins_de_revocation": {
+    "avant": "641 tests, 163824 assertions, 3 échecs lors des attentes de perte du droit manage courses",
+    "raison": "Le droit était conservé par le rôle professor malgré le retrait du droit direct. Les trois tests exercent maintenant une révocation effective.",
+    "apres": "suite PHPUnit complète sur e425fe8"
+  },
+  "frontend_a46": [
+    "ℹ tests 188",
+    "ℹ pass 188",
+    "ℹ fail 0"
+  ],
+  "typescript_a46": "npm run types / tsc --noEmit, code de sortie 0",
+  "eslint_a46": "npm run lint:check / eslint . --max-warnings=0, code de sortie 0",
+  "build_livre": {
+    "port": 8075,
+    "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-9x_qvXot.js",
+      "manifest_sha256": "dc077e944c9b76b4590ae9823b60ee093e492fba5c8abfcc94de2292d2549b7e",
+      "entry_sha256": "9c43e7a7e46d0a4e50d748f7c5ac2ff3319a5fa3a237e4a29c1e072e90f8c157",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    }
+  },
+  "hot_serveur_present": false,
+  "frontend_08fa60f": [
+    "ℹ tests 188",
+    "ℹ pass 188",
+    "ℹ fail 0"
+  ],
+  "typescript_08fa60f": "npm run types, code de sortie 0",
+  "eslint_livraison": "npm run lint:check, code de sortie 0, pilotes de recette inclus",
+  "syntaxe_powershell": "Les scripts PowerShell de docs/qa-e2e-final sont analysés sans erreur. Les lanceurs servir.ps1 et rejouer.ps1 ont été exercés sur 08fa60f."
+}

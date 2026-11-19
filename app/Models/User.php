@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Student\StudentProfile;
 use App\Modules\Blog\Infrastructure\Persistence\Eloquent\Models\PostModel;
 use App\Modules\Identity\Domain\Nationality;
+use App\Support\UniversityRoles;
 use Illuminate\Auth\MustVerifyEmail; // le trait ajoute hasVerifiedEmail(), markEmailAsVerified()...
 use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Builder;
@@ -16,21 +17,65 @@ class User extends Authenticatable implements MustVerifyEmailContract
 {
     use HasRoles, \Illuminate\Database\Eloquent\Factories\HasFactory, MustVerifyEmail, Notifiable {
         hasRole as private hasAssignedRole;
+        hasPermissionTo as private hasAssignedPermission;
+        getAllPermissions as private allAssignedPermissions;
     }
-
-    public const ADMIN_ROLES = ['admin', 'super admin'];
 
     public function hasRole($roles, ?string $guard = null): bool
     {
-        // Both roles enter administration. Permissions and faculty assignments still apply.
-        return $this->hasAssignedRole($roles, $guard)
-            || ($roles === 'admin' && $this->hasAssignedRole('super admin', $guard));
+        // Existing assignments remain available for audit. A mixed platform account operates only as platform staff.
+        $this->loadMissing('roles');
+        if ($this->roles->count() > 1 && $this->hasAssignedRole('super-admin', $guard)) {
+            $platform = clone $this;
+            $platform->setRelation('roles', $this->roles->where('name', 'super-admin')->values());
+
+            return $platform->hasAssignedRole($roles, $guard);
+        }
+        if ($roles !== 'admin') {
+            return $this->hasAssignedRole($roles, $guard);
+        }
+
+        return $this->hasAssignedRole('admin', $guard) || $this->hasAssignedRole('academic-secretary', $guard)
+            || ($this->hasAssignedRole(UniversityRoles::FACULTY_STAFF, $guard)
+                && $this->academicFaculties()->exists());
+    }
+
+    public function hasPermissionTo($permission, $guardName = null): bool
+    {
+        if ($this->hasAssignedRole('super-admin') && ! in_array($this->filterPermission($permission, $guardName)->name, UniversityRoles::GRANTS['super-admin'], true)) {
+            return false;
+        }
+
+        return $this->hasAssignedPermission($permission, $guardName);
+    }
+
+    public function getAllPermissions(): \Illuminate\Support\Collection
+    {
+        $permissions = $this->allAssignedPermissions();
+
+        return $this->hasAssignedRole('super-admin')
+            ? $permissions->whereIn('name', UniversityRoles::GRANTS['super-admin'])->values()
+            : $permissions;
     }
 
     public function scopeAdministrators(Builder $query): Builder
     {
-        return $query->whereHas('roles', fn ($roles) => $roles
-            ->where('guard_name', $this->getDefaultGuardName())->whereIn('name', self::ADMIN_ROLES));
+        $guard = $this->getDefaultGuardName();
+
+        return $query->whereDoesntHave('roles', fn ($roles) => $roles->where('guard_name', $guard)->where('name', 'super-admin'))
+            ->where(fn ($actors) => $actors->whereHas('roles', fn ($roles) => $roles->where('guard_name', $guard)->whereIn('name', ['admin', 'academic-secretary']))
+                ->orWhere(fn ($facultyStaff) => $facultyStaff->whereHas('academicFaculties')
+                    ->whereHas('roles', fn ($roles) => $roles->where('guard_name', $guard)->whereIn('name', UniversityRoles::FACULTY_STAFF))));
+    }
+
+    public function delegatedAreas(): ?array
+    {
+        $names = $this->getRoleNames();
+        if ($names->contains('admin')) {
+            return null;
+        }
+
+        return $names->flatMap(fn ($name) => \App\Support\UniversityRoles::ADMIN_AREAS[$name] ?? [])->unique()->values()->all();
     }
 
     /**

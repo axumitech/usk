@@ -210,7 +210,16 @@ class AcademicTeachingTest extends TestCase
         $this->post($admin.'/rules/'.$rule->id.'/approval', ['reason' => self::REASON])->assertForbidden();
         $approval = $admin.'/rules/'.$rule->id.'/approval';
         $ruleWorkspace = $admin.'?rule='.$rule->id;
+        $dean = User::factory()->create();
+        $dean->assignRole('dean');
+        $dean->academicFaculties()->attach($entry->level->faculty_id);
+        $this->actingAs($dean)->get($ruleWorkspace)->assertInertia(fn (Assert $page) => $page
+            ->where('rule.can_approve', true)->where('permissions.assessments', false));
+        $this->get('/app/dashboard/admin/assessments')->assertForbidden();
         $this->actingAs($publisher)->from('/app/dashboard')->post($approval, [])->assertRedirect($ruleWorkspace)->assertSessionHasErrors('reason');
+        $this->get($ruleWorkspace)->assertInertia(fn (Assert $page) => $page
+            ->where('rule.can_approve', true)->where('permissions.assessments', true)
+            ->where('years.0.id', $version->academic_year_id)->where('years.0.title', $version->academicYear->title));
         $this->from('/app/dashboard')->post($approval, ['reason' => self::REASON])->assertStatus(303)->assertRedirect($ruleWorkspace)
             ->assertInertiaFlash('dashboardAction', 'Règlement de résultats approuvé.');
         $this->actingAs($manager)->post($admin.'/rules/'.$rule->id.'/deliberations', $juryForm)->assertStatus(303)->assertSessionHasNoErrors();
@@ -245,11 +254,17 @@ class AcademicTeachingTest extends TestCase
         $move('publish', ['revision' => 1, 'notify' => true])->assertStatus(303);
         $this->assertDatabaseCount('notifications', 1);
         $this->get($admin.'?run='.$run->id.'&result='.$result->id)->assertInertia(fn (Assert $page) => $page
-            ->component('dashboard/results/Administration')->where('run.state', 'published')->where('result.annual', '12.80'));
+            ->component('dashboard/results/Administration')->where('run.state', 'published')->where('run.publisher', $publisher->full_name)
+            ->where('rule.can_approve', false)->where('result.annual', '12.80'));
+        $this->get($admin.'?year='.$entry->academic_year_id.'&state=published')->assertInertia(fn (Assert $page) => $page
+            ->has('versions.data', 1)->has('rules.data', 1)->has('runs.data', 1)->where('runs.data.0.id', $run->id));
+        $this->get($admin.'?year=999999')->assertInertia(fn (Assert $page) => $page
+            ->has('versions.data', 0)->has('rules.data', 0)->has('runs.data', 0));
         $foreign = User::factory()->create();
         $foreign->assignRole('admin')->givePermissionTo('publish official results');
         $foreign->academicFaculties()->attach(DB::table('faculties')->insertGetId(['name' => 'Faculté externe', 'code' => 'EXT']));
         $this->actingAs($foreign)->get($admin.'/certified/'.$result->id)->assertForbidden();
+        $this->get($admin)->assertInertia(fn (Assert $page) => $page->has('years', 0)->has('runs.data', 0));
         $this->get($admin.'?run='.$run->id)->assertNotFound();
         $this->actingAs($publisher);
         $this->get($admin.'/certified/'.$result->id)->assertOk()->assertJsonPath('snapshot.annual', '12.80')
@@ -334,6 +349,11 @@ class AcademicTeachingTest extends TestCase
             'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
         $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page
             ->where('official_results.selected.annual', '13.20')->has('official_results.items.data', 2));
+        $this->get($resultsReturn)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected.reference', $result->reference)
+            ->where('official_results.selected.annual', '12.80')
+            ->where('official_results.selected.unmapped_period_keys.0', 'P1')
+            ->where('official_results.semesters.0.reference', null));
         $this->invalid(fn () => $progressions->start($progression, $student->studentProfile), 'progression');
         $progressions->decide($entry, $manager, $destination + ['academic_official_result_id' => $revised->id]);
         $this->assertSame($revised->id, $progression->fresh()->academic_official_result_id);
@@ -442,6 +462,10 @@ class AcademicTeachingTest extends TestCase
             ->where('course_credits.planned', 900)->where('course_credits.earned', 500)->where('course_credits.remaining', 0));
         $this->get($studentUrl.'&semester=2')->assertInertia(fn (Assert $page) => $page
             ->where('official_results.selected_semester', 2)->where('official_results.selected', null));
+        $this->get($studentUrl.'&official='.$result->reference)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected.reference', $result->reference)
+            ->where('official_results.semesters.0.reference', $result->reference)
+            ->where('official_results.selected_semester', 1));
         $this->get('/app/dashboard/student/results/official/'.$result->reference.'/transcript?academic='.$entry->id)->assertNotFound();
     }
 
@@ -765,9 +789,16 @@ class AcademicTeachingTest extends TestCase
         $helper->givePermissionTo(['manage courses', 'manage students']);
         $assistant = $this->teacher();
         $this->assign($a, $admin, $assistant, 'assistant');
-        $this->actingAs($admin)->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertForbidden();
-        $admin->givePermissionTo(Permission::findOrCreate('manage users', 'web'));
-        $this->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertStatus(303);
+        $viceDean = User::factory()->create();
+        $viceDean->assignRole('vice-dean');
+        $viceDean->academicFaculties()->attach($entry->level->faculty_id);
+        $profileUrl = '/app/dashboard/admin/professors/'.$a->professor_id;
+        $linkRequest = ['email' => $lead->email, 'reason' => self::REASON];
+        $this->actingAs($viceDean)->get($profileUrl)->assertOk()->assertInertia(fn (Assert $page) => $page->where('canLinkAccount', false));
+        $this->post($profileUrl.'/account', $linkRequest)->assertForbidden();
+        $this->assertNull($a->professor->fresh()->user_id);
+        $this->actingAs($admin)->post($profileUrl.'/account', $linkRequest)->assertStatus(303);
+        $this->assertEquals($lead->id, $a->professor->fresh()->user_id);
         $this->post('/app/dashboard/admin/professors/'.$assistant->id.'/account', ['email' => $helper->email, 'reason' => self::REASON])->assertStatus(303);
         Professor::whereKey([$a->professor_id, $assistant->id])->update(['photo' => 'professors/test-portrait.png']);
         $this->actingAs($lead)->get('/app/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Teacher')

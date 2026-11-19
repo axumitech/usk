@@ -1,0 +1,83 @@
+{
+  "version": {
+    "port": 8068,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "AF-01",
+      "status": "VALIDÉ",
+      "action": "Relire la candidature admise, son inscription et la tranche facturée",
+      "obtained": {
+        "admission": 12,
+        "uuid": "e9a38050-83b9-4169-9e73-e44c35b8b62b",
+        "decision": "validated",
+        "inscription": 13,
+        "email": "candidat.med@usk.test",
+        "niveau": "MED-L1",
+        "annee": "2026-2027",
+        "statut_initial_observe": "pending_confirmation",
+        "tranche": 14,
+        "bareme": 5,
+        "devise": "USD",
+        "tranche_nette_centimes": 10000,
+        "seuil_pourcent": 30,
+        "seuil_centimes": 3000,
+        "reprise": false
+      },
+      "proof": "AF-01.png"
+    },
+    {
+      "id": "AF-02",
+      "status": "VALIDÉ",
+      "action": "Saisir le versement exact du seuil et vérifier que la saisie reste en attente",
+      "obtained": {
+        "inscription": 13,
+        "paiement": 14,
+        "reference": "QA-ADM12-INS13-SEUIL",
+        "montant_centimes": 3000,
+        "statut": "pending"
+      },
+      "proof": "AF-02.png"
+    },
+    {
+      "id": "AF-03",
+      "status": "VALIDÉ",
+      "action": "Confirmer le paiement et constater l’activation automatique de la même inscription",
+      "obtained": {
+        "inscription": 13,
+        "reference": "QA-ADM12-INS13-SEUIL",
+        "paiement": 14,
+        "valide_centimes": 3000,
+        "solde_centimes": 7000,
+        "statut": "confirmed"
+      },
+      "proof": "AF-03.png"
+    },
+    {
+      "id": "AF-04",
+      "status": "VALIDÉ",
+      "action": "Rouvrir le portail de la candidate devenue étudiante et relire référence et solde",
+      "obtained": {
+        "candidature": 12,
+        "inscription": 13,
+        "reference_candidature": "USK-000012",
+        "matricule": "RECMED0006",
+        "reference_versement": "QA-ADM12-INS13-SEUIL",
+        "solde_centimes": 7000,
+        "devise": "USD"
+      },
+      "proof": "AF-04.png"
+    }
+  ]
+}

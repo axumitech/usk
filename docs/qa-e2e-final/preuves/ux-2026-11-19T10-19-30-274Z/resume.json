@@ -1,0 +1,102 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    }
+  },
+  "rows": [
+    {
+      "id": "UX-01a",
+      "status": "VALIDÉ",
+      "action": "Relire la description complète hors du formulaire",
+      "obtained": {
+        "faculty": 2,
+        "characters": 1000,
+        "database": "SQLite"
+      },
+      "proof": "UX-01a.png"
+    },
+    {
+      "id": "UX-01",
+      "status": "VALIDÉ",
+      "action": "Enregistrer 1 000 caractères dans la description d’une faculté et relire la valeur",
+      "obtained": {
+        "faculty": 2,
+        "characters": 1000,
+        "restoredCharacters": 0
+      },
+      "proof": "UX-01.png"
+    },
+    {
+      "id": "UX-02",
+      "action": "Modifier un niveau depuis son onglet Enseignants et conserver ce contexte",
+      "status": "BLOQUÉ",
+      "detail": "Cannot read properties of undefined (reading 'id')",
+      "proof": "UX-02-blocage.png"
+    },
+    {
+      "id": "UX-03",
+      "status": "VALIDÉ",
+      "action": "Utiliser les onglets et la modale au clavier",
+      "obtained": {
+        "keys": [
+          "End",
+          "ArrowLeft",
+          "Enter",
+          "Tab × 18",
+          "Escape"
+        ]
+      },
+      "proof": "UX-03.png"
+    },
+    {
+      "id": "UX-04-light",
+      "status": "VALIDÉ",
+      "action": "Examiner le formulaire en thème Clair sur mobile",
+      "obtained": {
+        "theme": "light",
+        "contrast": 5.958,
+        "bounds": {
+          "width": 390,
+          "height": 844,
+          "bodyWidth": 390,
+          "modalLeft": 14,
+          "modalRight": 376,
+          "modalTop": 12,
+          "modalBottom": 832,
+          "saveVisible": true
+        }
+      },
+      "proof": "UX-04-light.png"
+    },
+    {
+      "id": "UX-04-dark",
+      "status": "VALIDÉ",
+      "action": "Examiner le formulaire en thème Sombre sur mobile",
+      "obtained": {
+        "theme": "dark",
+        "contrast": 11.065,
+        "bounds": {
+          "width": 390,
+          "height": 844,
+          "bodyWidth": 390,
+          "modalLeft": 14,
+          "modalRight": 376,
+          "modalTop": 12,
+          "modalBottom": 832,
+          "saveVisible": true
+        }
+      },
+      "proof": "UX-04-dark.png"
+    }
+  ]
+}

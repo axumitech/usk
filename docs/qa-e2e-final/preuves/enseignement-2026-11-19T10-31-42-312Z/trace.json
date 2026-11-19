@@ -1,0 +1,240 @@
+{
+  "events": [
+    {
+      "method": "POST",
+      "status": 302,
+      "url": "/app/login",
+      "location": "http://127.0.0.1:8068/app/dashboard"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "method": "POST",
+      "status": 303,
+      "url": "/app/dashboard/teacher/resources/16/publication",
+      "location": "http://127.0.0.1:8068/app/dashboard/teacher/resources?offering=13&resource=16"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "component": "dashboard/teaching/Learning",
+      "offering": 13,
+      "selected": {
+        "id": 16,
+        "academic_offering_id": 13,
+        "revision": 3,
+        "is_published": false,
+        "archived_at": null
+      },
+      "flashSuccess": true,
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher",
+      "location": null
+    },
+    {
+      "method": "POST",
+      "status": 303,
+      "url": "/app/dashboard/teacher/resources/16/publication",
+      "location": "http://127.0.0.1:8068/app/dashboard/teacher/resources?offering=13&resource=16"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "component": "dashboard/teaching/Learning",
+      "offering": 13,
+      "selected": {
+        "id": 16,
+        "academic_offering_id": 13,
+        "revision": 4,
+        "is_published": true,
+        "archived_at": null
+      },
+      "flashSuccess": true,
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/resources?offering=13&resource=16",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13",
+      "location": null
+    },
+    {
+      "method": "POST",
+      "status": 303,
+      "url": "/app/dashboard/teacher/assessments/offerings/13",
+      "location": "http://127.0.0.1:8068/app/dashboard/teacher/assessments?offering=13&resource=17"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "location": null
+    },
+    {
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "component": "dashboard/teaching/Assessments",
+      "offering": 13,
+      "selected": {
+        "id": 12,
+        "revision": 1,
+        "state": "draft"
+      },
+      "flashSuccess": true,
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher",
+      "location": null
+    },
+    {
+      "method": "POST",
+      "status": 303,
+      "url": "/app/dashboard/teacher/assessments/17/lifecycle",
+      "location": "http://127.0.0.1:8068/app/dashboard/teacher/assessments?offering=13&resource=17"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "location": null
+    },
+    {
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "component": "dashboard/teaching/Assessments",
+      "offering": 13,
+      "selected": {
+        "id": 12,
+        "revision": 2,
+        "state": "published"
+      },
+      "flashSuccess": true,
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "location": null
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "location": null
+    }
+  ],
+  "checks": [
+    {
+      "name": "Support publié",
+      "status": 303,
+      "url": "http://127.0.0.1:8068/app/dashboard/teacher/resources?offering=13&resource=16",
+      "proof": "C:\\Users\\hp\\.codex\\visualizations\\2026\\11\\19\\01a1f2fb-9422-7232-8692-d77c2c332973\\usk\\docs\\qa-e2e-final\\preuves\\enseignement-2026-11-19T10-31-42-312Z\\01-support-publie.png"
+    },
+    {
+      "name": "Évaluation publiée",
+      "status": 303,
+      "url": "http://127.0.0.1:8068/app/dashboard/teacher/assessments?offering=13&resource=17",
+      "proof": "C:\\Users\\hp\\.codex\\visualizations\\2026\\11\\19\\01a1f2fb-9422-7232-8692-d77c2c332973\\usk\\docs\\qa-e2e-final\\preuves\\enseignement-2026-11-19T10-31-42-312Z\\02-evaluation-publiee.png"
+    }
+  ],
+  "version": {
+    "port": 8068,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "version": {
+    "port": 8070,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "CAR-02",
+      "status": "VALIDÉ",
+      "action": "Relire la photo approuvée et les conditions de délivrance",
+      "obtained": "Le portrait et les conditions financières et académiques sont validés.",
+      "proof": "CAR-02.png"
+    },
+    {
+      "id": "CAR-03a",
+      "status": "VALIDÉ",
+      "action": "Ouvrir l’aperçu provisoire de la carte avant son émission",
+      "obtained": {
+        "demande": 62,
+        "octets": 25260,
+        "sha256": "7a4c6c7d626adbf2567253351886aac960addae8a0a3f7aea298b51f40b0eb7d"
+      },
+      "proof": "CAR-03a.png"
+    },
+    {
+      "id": "CAR-03",
+      "status": "VALIDÉ",
+      "action": "Contrôler puis approuver la demande officielle de carte",
+      "obtained": "Demande 62 approuvée par le signataire après contrôle de la scolarité.",
+      "proof": "CAR-03.png"
+    },
+    {
+      "id": "CAR-04",
+      "status": "VALIDÉ",
+      "action": "Télécharger la carte officielle et enregistrer son impression logicielle",
+      "obtained": "CAR-2026-00000022 · PDF 28394 octets · SHA-256 6016d2f7e7a06deed4d1a31eec7ac1f8496e98121ce165815b32d610ede1d59f · impression 2026-11-19T11:17:37.000000Z",
+      "proof": "CAR-04.png"
+    },
+    {
+      "id": "CAR-05",
+      "status": "VALIDÉ",
+      "action": "Consigner la remise logicielle de la carte",
+      "obtained": "CAR-2026-00000022 · impression 2026-11-19T11:17:37.000000Z · remise 2026-11-19T11:18:06.000000Z",
+      "proof": "CAR-05.png"
+    },
+    {
+      "id": "CAR-06",
+      "status": "VALIDÉ",
+      "action": "Demander une deuxième émission initiale après remise",
+      "obtained": "Le serveur refuse la seconde carte et propose une procédure de remplacement.",
+      "proof": "CAR-06.png"
+    }
+  ]
+}

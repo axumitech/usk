@@ -382,8 +382,10 @@ class AcademicStructureTest extends TestCase
         $this->assertSame('draft', $national->status);
         $this->assertSame('draft', $foreign->status);
         $this->assertSame('USD', $national->currency);
-        $this->assertSame(['amount_cents' => 12550, 'due_at' => '2026-12-01'], $national->schedule[0]);
-        $this->assertSame(['amount_cents' => 0, 'due_at' => '2027-03-01'], $foreign->schedule[1]);
+        $this->assertSame(12550, $national->schedule[0]['amount_cents']);
+        $this->assertSame('2026-12-01', $national->schedule[0]['due_at']);
+        $this->assertSame(0, $foreign->schedule[1]['amount_cents']);
+        $this->assertSame('2027-03-01', $foreign->schedule[1]['due_at']);
         $this->assertSame(0, $entry->obligations()->count());
 
         $entry->level->detail->update(['price_national_first' => '155.00']);
@@ -749,7 +751,8 @@ class AcademicStructureTest extends TestCase
 
         $archivedDuringSelection = false;
         DB::listen(function (QueryExecuted $query) use ($admin, $otherVersion, &$archivedDuringSelection) {
-            if ($archivedDuringSelection || ! str_starts_with($query->sql, 'select * from "curriculum_versions" where "status" =')) {
+            $sql = str_replace(['"', '`'], '', $query->sql);
+            if ($archivedDuringSelection || ! str_starts_with($sql, 'select * from curriculum_versions where status =')) {
                 return;
             }
             $archivedDuringSelection = true;

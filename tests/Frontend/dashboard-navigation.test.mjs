@@ -170,9 +170,9 @@ test('Le mobile masque un panneau fermé et conserve le lien actif dans le panne
     assert.match(linkTag(opened, '/app/dashboard/admin/finance'), /aria-current="page"/);
 });
 
-test('Les rôles super admin et admin utilisent les mêmes permissions déléguées', () => {
+test('Le super-admin plateforme ne reçoit pas la navigation institutionnelle', () => {
     const user = actor([], true);
-    const markup = sidebar('super admin', null, { props: propsFor(user) });
+    const markup = sidebar('super-admin', null, { props: propsFor(user) });
     assert.equal(linkTag(markup, '/app/dashboard/admin/finance'), undefined);
     assert.equal(linkTag(markup, '/app/dashboard/admin/schedule/resources'), undefined);
 });

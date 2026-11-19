@@ -31,7 +31,7 @@ final class RecipeAccounts
         $adminRole->syncPermissions(['view dashboard']);
         $users = [
             'admin' => $this->account('admin', 'Administration', 'Institution', 'admin'),
-            'superadmin' => $this->account('superadmin', 'Super-administration', 'Institution', 'super admin'),
+            'superadmin' => $this->account('superadmin', 'Super-administration', 'Institution', 'super-admin'),
         ];
         $users['admin']->givePermissionTo($institutionalPermissions);
 

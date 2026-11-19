@@ -84,6 +84,7 @@ export default function StudentWelcome({
             {
                 preserveScroll: true,
                 preserveState: true,
+                replace: true,
                 onSuccess: () => setOpen(false),
                 onError: () => setError(true),
                 onFinish: () => setSaving(false),
@@ -170,6 +171,7 @@ export default function StudentWelcome({
                             aria-describedby="student-welcome-description"
                         >
                             <button
+                                type="button"
                                 ref={closeButton}
                                 className="student-welcome-close"
                                 aria-label="Fermer le guide de bienvenue"
@@ -220,12 +222,13 @@ export default function StudentWelcome({
                                 </div>
                                 <div className="student-welcome-actions">
                                     {step > 0 && (
-                                        <button className="student-welcome-back" disabled={saving} onClick={() => setStep(step - 1)}>
+                                        <button type="button" className="student-welcome-back" disabled={saving} onClick={() => setStep(step - 1)}>
                                             <ArrowLeft size={16} />
                                             Retour
                                         </button>
                                     )}
                                     <button
+                                        type="button"
                                         className="student-welcome-next"
                                         disabled={saving}
                                         onClick={() => (step === steps.length - 1 ? finish() : setStep(step + 1))}

@@ -1,0 +1,25 @@
+{
+  "simulation": {
+    "date": "2026-06-23",
+    "timezone": "Africa/Kinshasa",
+    "opening": "09:00",
+    "jury": "09:10"
+  },
+  "captured_at_utc": "2026-11-19T11:05:05.251Z",
+  "ordinary": {
+    "reference": "e9d357b0-2f40-4aa9-9082-68ccc96c1ee4",
+    "decision": "resit_demo",
+    "acquired": 11,
+    "failed": 8,
+    "credits": 0
+  },
+  "resit": {
+    "reference": "d9334b87-bcba-4229-8fbd-82612f434960",
+    "decision": "pass_qa",
+    "carried_grade": 11,
+    "new_grade": 15,
+    "annual": "13.00",
+    "credits": 10,
+    "ordinary_reference": "e9d357b0-2f40-4aa9-9082-68ccc96c1ee4"
+  }
+}

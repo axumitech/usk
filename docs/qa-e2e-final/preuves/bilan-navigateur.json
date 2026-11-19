@@ -1,0 +1,1790 @@
+{
+  "unite": "Dernier verdict enregistré de chaque contrôle nommé. Les destinations du menu sont des consultations HTTP dans Chrome. Les contrôles prévus mais jamais atteints figurent dans les fiches.",
+  "totaux": {
+    "VALIDÉ": 320
+  },
+  "par_parcours": {
+    "absence": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 4
+      }
+    },
+    "absence-piece": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 6
+      }
+    },
+    "admission-finance": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 4
+      }
+    },
+    "annuaire-enseignants": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 6
+      }
+    },
+    "cartes": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 7
+      }
+    },
+    "documents": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 5
+      }
+    },
+    "enseignement": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 3
+      }
+    },
+    "etudiant": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 17
+      }
+    },
+    "evaluation": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 7
+      }
+    },
+    "finances": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 9
+      }
+    },
+    "groupes": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 1
+      }
+    },
+    "jury": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 9
+      }
+    },
+    "maquette": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 4
+      }
+    },
+    "maquettes-facultaires": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 3
+      }
+    },
+    "medias-publics": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 5
+      }
+    },
+    "modules": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 7
+      }
+    },
+    "navigation": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 48
+      }
+    },
+    "nfc": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 3
+      }
+    },
+    "plan-cours": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 4
+      }
+    },
+    "portails": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 28
+      }
+    },
+    "progression": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 8
+      }
+    },
+    "pwa": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 1
+      }
+    },
+    "rattachement": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 3
+      }
+    },
+    "recours": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 7
+      }
+    },
+    "resultats": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 3
+      }
+    },
+    "roles": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 14
+      }
+    },
+    "session": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 2
+      }
+    },
+    "solde": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 7
+      }
+    },
+    "structure": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 87
+      }
+    },
+    "ux": {
+      "verdict": "VALIDÉ",
+      "controles": {
+        "VALIDÉ": 8
+      }
+    }
+  },
+  "controles": {
+    "ABS-01": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-2026-11-19T11-35-35-959Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ABS-02": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-2026-11-19T11-35-35-959Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ABS-03": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-2026-11-19T11-35-35-959Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ABS-04": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-2026-11-19T11-47-00-526Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ACAD-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-17-48-378Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ACAD-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-17-48-378Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ACAD-03": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-17-48-378Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ACAD-04": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-17-48-378Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "AF-01": {
+      "statut": "VALIDÉ",
+      "preuve": "admission-finance-2026-11-19T11-23-11-245Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "AF-02": {
+      "statut": "VALIDÉ",
+      "preuve": "admission-finance-2026-11-19T11-23-11-245Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "AF-03": {
+      "statut": "VALIDÉ",
+      "preuve": "admission-finance-2026-11-19T11-23-11-245Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "AF-04": {
+      "statut": "VALIDÉ",
+      "preuve": "admission-finance-2026-11-19T11-23-11-245Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ANN-01": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ANN-02": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ANN-03": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ANN-04": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ANN-05": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "ANN-06": {
+      "statut": "VALIDÉ",
+      "preuve": "annuaire-enseignants-2026-11-19T11-48-29-385Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "AUTH-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "AUTH-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-01": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T10-33-39-313Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-02": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-03": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-03a": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-04": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-05": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "CAR-06": {
+      "statut": "VALIDÉ",
+      "preuve": "cartes-2026-11-19T11-15-11-906Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "DOC-01": {
+      "statut": "VALIDÉ",
+      "preuve": "documents-2026-11-19T11-11-19-652Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "DOC-02": {
+      "statut": "VALIDÉ",
+      "preuve": "documents-2026-11-19T11-11-19-652Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "DOC-03": {
+      "statut": "VALIDÉ",
+      "preuve": "documents-2026-11-19T11-11-19-652Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "DOC-04": {
+      "statut": "VALIDÉ",
+      "preuve": "documents-2026-11-19T11-11-19-652Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "DOC-05": {
+      "statut": "VALIDÉ",
+      "preuve": "documents-2026-11-19T11-11-19-652Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "EMAIL-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-33-40-771Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EMAIL-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-33-40-771Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EMAIL-03": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-33-40-771Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "ENS Support publié": {
+      "statut": "VALIDÉ",
+      "preuve": "enseignement-2026-11-19T10-31-42-312Z/trace.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ENS parcours complet": {
+      "statut": "VALIDÉ",
+      "preuve": "enseignement-2026-11-19T10-31-42-312Z/trace.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ENS Évaluation publiée": {
+      "statut": "VALIDÉ",
+      "preuve": "enseignement-2026-11-19T10-31-42-312Z/trace.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "EVA-01": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-02": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-03": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-04": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-05": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-06": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "EVA-07": {
+      "statut": "VALIDÉ",
+      "preuve": "evaluation-2026-11-19T10-41-13-419Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "F01-reponse-perdue-et-rejeu": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F02-montant-invalide": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F03-confirmer-29": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F04-depot-preuve": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F05-refus-preuve": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F06-depot-corrige": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F07-valider-preuve-et-30": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F08-annuler-paiement-sans-refuser-preuve": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "F09-piece-identique-nouvelle-reference": {
+      "statut": "VALIDÉ",
+      "preuve": "finances-2026-11-19T10-13-38-708Z/matrice.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "FAC-DOYEN": {
+      "statut": "VALIDÉ",
+      "preuve": "maquettes-facultaires-2026-11-19T12-11-19-258Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "FAC-INSTITUTION": {
+      "statut": "VALIDÉ",
+      "preuve": "maquettes-facultaires-2026-11-19T12-11-19-258Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "FAC-VICE-DOYEN": {
+      "statut": "VALIDÉ",
+      "preuve": "maquettes-facultaires-2026-11-19T12-11-19-258Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "GROUPES": {
+      "statut": "VALIDÉ",
+      "preuve": "groupes-2026-11-19T10-55-49-655Z/matrice.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "IMG-01": {
+      "statut": "VALIDÉ",
+      "preuve": "medias-publics-2026-11-19T12-10-29-818Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "IMG-02": {
+      "statut": "VALIDÉ",
+      "preuve": "medias-publics-2026-11-19T12-10-29-818Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "IMG-03": {
+      "statut": "VALIDÉ",
+      "preuve": "medias-publics-2026-11-19T12-10-29-818Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "IMG-04": {
+      "statut": "VALIDÉ",
+      "preuve": "medias-publics-2026-11-19T12-10-29-818Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "IMG-05": {
+      "statut": "VALIDÉ",
+      "preuve": "medias-publics-2026-11-19T12-10-29-818Z/resume.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "JUR-01": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-02": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-03": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-04": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-05": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-06": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-07": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-08": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "JUR-09": {
+      "statut": "VALIDÉ",
+      "preuve": "jury-2026-11-19T10-58-09-849Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MAQ-DPU-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "maquette-2026-11-19T11-12-37-678Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "MAQ-DPU-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "maquette-2026-11-19T11-12-37-678Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "MAQ-DPU-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "maquette-2026-11-19T11-12-37-678Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "MAQ-publiee": {
+      "statut": "VALIDÉ",
+      "preuve": "maquette-2026-11-19T11-12-37-678Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "MENU /app/dashboard": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-results": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-structure?tab=curriculum": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-structure?tab=institution": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-structure?tab=programs": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-years": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-years/calendar": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/academic-years/semesters": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/assessments": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/assessments/handoff": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/card-issuance/delivery": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/card-issuance/nfc": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/card-issuance/printing": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/card-requests": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/card-templates": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/course-catalog": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/enrollments": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/enrollments/campaigns": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/enrollments/overview": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/enrollments?queue=decisions": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/enrollments?queue=new": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/faculties": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/finance": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/finance/confirmations": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/finance/payment-proofs": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/finance/tariffs": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/levels": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/official-documents": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/posts": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/professors": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/progression": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/schedule": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/schedule/absences": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/schedule/reports": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/schedule/resources": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/seo": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/site": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic/administration": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic/administration/closure": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic/renewals": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic/requests/agenda": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic?tab=requests": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic?tab=rules": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic?tab=students": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic?tab=students&history=1": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/student-academic?tab=teaching": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/teaching": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MENU /app/dashboard/admin/teaching/resources": {
+      "statut": "VALIDÉ",
+      "preuve": "navigation-2026-11-19T10-24-18-430Z/navigation.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "MOD-01": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-02": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-03": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-04": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-05": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-06": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "MOD-07": {
+      "statut": "VALIDÉ",
+      "preuve": "modules-2026-11-19T10-37-47-099Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "NFC-01": {
+      "statut": "VALIDÉ",
+      "preuve": "nfc-2026-11-19T11-24-56-022Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "NFC-02": {
+      "statut": "VALIDÉ",
+      "preuve": "nfc-2026-11-19T11-24-56-022Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "NFC-03": {
+      "statut": "VALIDÉ",
+      "preuve": "nfc-2026-11-19T11-24-56-022Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "PIÈCE ABS-01": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PIÈCE ABS-02": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PIÈCE ABS-03": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PIÈCE ABS-04": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PIÈCE ABS-05": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PIÈCE ABS-06": {
+      "statut": "VALIDÉ",
+      "preuve": "absence-piece-2026-11-19T11-54-06-550Z/resume.json",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    },
+    "PLAN-01": {
+      "statut": "VALIDÉ",
+      "preuve": "plan-cours-2026-11-19T11-20-45-363Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "PLAN-02": {
+      "statut": "VALIDÉ",
+      "preuve": "plan-cours-2026-11-19T11-20-45-363Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "PLAN-03": {
+      "statut": "VALIDÉ",
+      "preuve": "plan-cours-2026-11-19T11-20-45-363Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "PLAN-04": {
+      "statut": "VALIDÉ",
+      "preuve": "plan-cours-2026-11-19T11-20-45-363Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "PWA hors ligne": {
+      "statut": "VALIDÉ",
+      "preuve": "pwa-2026-11-19T12-11-05-139Z/trace.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RAT-01": {
+      "statut": "VALIDÉ",
+      "preuve": "rattachement-2026-11-19T11-33-59-719Z/resume.json",
+      "revision": "570e71b818203ab51078e7fe47ca845be9996305"
+    },
+    "RAT-02": {
+      "statut": "VALIDÉ",
+      "preuve": "rattachement-2026-11-19T11-33-59-719Z/resume.json",
+      "revision": "570e71b818203ab51078e7fe47ca845be9996305"
+    },
+    "RAT-03": {
+      "statut": "VALIDÉ",
+      "preuve": "rattachement-2026-11-19T11-33-59-719Z/resume.json",
+      "revision": "570e71b818203ab51078e7fe47ca845be9996305"
+    },
+    "REC-01": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-02": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-03": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-04": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-05": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-06": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "REC-07": {
+      "statut": "VALIDÉ",
+      "preuve": "recours-2026-11-19T12-04-21-305Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "RES-01": {
+      "statut": "VALIDÉ",
+      "preuve": "resultats-2026-11-19T10-11-39-112Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "RES-02": {
+      "statut": "VALIDÉ",
+      "preuve": "resultats-2026-11-19T10-11-39-112Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "RES-03": {
+      "statut": "VALIDÉ",
+      "preuve": "resultats-2026-11-19T10-23-43-183Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "RÔLE admissions": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE appariteur": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE candidat": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE chef-promotion": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE comptabilite": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE departement": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE doyen": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE etudiant": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE institution": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE plateforme": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE professeur": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE rectorat": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE secretariat": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "RÔLE vice-doyen": {
+      "statut": "VALIDÉ",
+      "preuve": "roles-2026-11-19T12-11-52-363Z/matrice.json",
+      "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+    },
+    "S02-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-03": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-04": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-05": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-06": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S02-07": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-03": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-04": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-05": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-06": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-07": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-08": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-MAIL-01": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-MAIL-02": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-MAIL-03": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "S03-MAIL-04": {
+      "statut": "VALIDÉ",
+      "preuve": "portails-2026-11-19T10-24-30-780Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SEC-CSRF": {
+      "statut": "VALIDÉ",
+      "preuve": "session-2026-11-19T10-56-43-150Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SEC-SESSION": {
+      "statut": "VALIDÉ",
+      "preuve": "session-2026-11-19T10-56-43-150Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-01": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T10-49-59-518Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-02": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T10-49-59-518Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-03": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T10-49-59-518Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-04": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T11-18-26-969Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-05": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T11-18-26-969Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-06": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T11-18-26-969Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "SOL-07": {
+      "statut": "VALIDÉ",
+      "preuve": "solde-2026-11-19T11-18-26-969Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE 2025-2026 semestre 1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE 2025-2026 semestre 2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE 2026-2027 semestre 1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE 2026-2027 semestre 2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Année 2025-2026": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Année 2026-2027": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Création faculté Droit": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Création faculté Médecine humaine": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Création faculté Santé publique": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Création faculté Sciences sociales, politiques et administratives": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Création faculté Théologie": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Cycle Doctorat": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Cycle Formation médicale témoin": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Cycle Licence": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Cycle Master": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Administration publique": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Droit privé": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Droit public": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Santé communautaire": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Sciences biomédicales": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Sciences cliniques": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Sciences des religions": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Sociologie": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Épidémiologie": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Département Études théologiques": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Maquette QA-ADM": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-DPR": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Maquette QA-DPU": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Maquette QA-EPI": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-REL": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-SBM": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-SCL": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Maquette QA-SCO": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-SOC": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Maquette QA-THE": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau ADM-M1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau ADM-M2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau DPR-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau DPR-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau DPR-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau DPU-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau DPU-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau DPU-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-26-13-435Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau EPI-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau EPI-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau EPI-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau REL-D1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau REL-D2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau REL-D3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau SBM-MED1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SBM-MED2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SBM-MED3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SCL-MED1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SCL-MED2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SCL-MED3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Niveau SCO-M2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau SOC-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau SOC-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau SOC-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau THE-L1": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau THE-L2": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Niveau THE-L3": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-ADM": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-DPR": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Programme QA-DPU": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Programme QA-EPI": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-REL": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-SBM": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Programme QA-SCO": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-SOC": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Programme QA-THE": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-ADM": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-DPR": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Promotion QA-DPU": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-35-12-927Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Promotion QA-EPI": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T10-57-21-512Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-REL": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-SCL": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-47-15-740Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Promotion QA-SCO": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-SOC": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Promotion QA-THE": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Rattachement Droit": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Rattachement Médecine humaine": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Rattachement Santé publique": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Rattachement Sciences sociales, politiques et administratives": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE Rattachement Théologie": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "STRUCTURE parcours complet": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T11-05-15-038Z/structure.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "STRUCTURE Établissement": {
+      "statut": "VALIDÉ",
+      "preuve": "structure-2026-11-19T09-17-59-538Z/structure.json",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    },
+    "UX-01": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-01a": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-02": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-02a": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-03": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-03a": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-04-dark": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "UX-04-light": {
+      "statut": "VALIDÉ",
+      "preuve": "ux-2026-11-19T10-35-37-490Z/resume.json",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    },
+    "passage-01": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "passage-02": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "passage-03": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "passage-04": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "redoublement-01": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "redoublement-02": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "redoublement-03": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "redoublement-04": {
+      "statut": "VALIDÉ",
+      "preuve": "progression-2026-11-19T10-37-19-042Z/resume.json",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    },
+    "ÉTUDIANT academics": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT announcements": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT annual-fees": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT assignments": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT card": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT courses": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT documents": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT evaluations": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT materials": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT notifications": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT overview": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT profile": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT requests": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT results": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT schedule": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT services": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    },
+    "ÉTUDIANT transactions": {
+      "statut": "VALIDÉ",
+      "preuve": "etudiant-2026-11-19T10-16-26-129Z/resume.json",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    }
+  }
+}

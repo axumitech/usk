@@ -1,0 +1,14 @@
+{
+  "port": 8075,
+  "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd",
+  "branch": "",
+  "tracked_changes": false,
+  "opcache_cli": false,
+  "assets": {
+    "mode": "build",
+    "entry": "assets/app-9x_qvXot.js",
+    "manifest_sha256": "dc077e944c9b76b4590ae9823b60ee093e492fba5c8abfcc94de2292d2549b7e",
+    "entry_sha256": "9c43e7a7e46d0a4e50d748f7c5ac2ff3319a5fa3a237e4a29c1e072e90f8c157",
+    "revision": "08fa60fbc55a5c67afe2b43a5df3357e21f855cd"
+  }
+}

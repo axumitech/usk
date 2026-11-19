@@ -1,0 +1,135 @@
+{
+  "date_utc": "2026-11-19 10:05:51Z",
+  "application_commit": "a36ed79dd7f9c26c548c9fbf415775b123b267c6",
+  "modifications_metier": [],
+  "script_sha256": "0f6e169d140ecf4a2e4e89f0c304c662c55d7e6402ae0082b4528b8cf893a2f1",
+  "mesures": {
+    "profils": 5000,
+    "paiements": 2506,
+    "echauffements_par_mesure": 1,
+    "moteur": "SQLite local, noyau HTTP Laravel, requêtes séquentielles",
+    "annuaire": [
+      {
+        "lignes_affichees": 1,
+        "temps_ms": {
+          "n": 10,
+          "median": 123.35,
+          "p95": 146.96,
+          "min": 84.08,
+          "max": 146.96
+        },
+        "requetes_sql": {
+          "n": 10,
+          "median": 42,
+          "p95": 42,
+          "min": 42,
+          "max": 42
+        },
+        "formes_repetees_max": {
+          "faculties-9a5d34ec": 6,
+          "faculties-6d662023": 2,
+          "courses-86d966eb": 2,
+          "academic_departments-5088c96d": 2,
+          "notifications-23e4c49e": 2
+        }
+      },
+      {
+        "lignes_affichees": 10,
+        "temps_ms": {
+          "n": 10,
+          "median": 78.55,
+          "p95": 125.36,
+          "min": 63.88,
+          "max": 125.36
+        },
+        "requetes_sql": {
+          "n": 10,
+          "median": 42,
+          "p95": 42,
+          "min": 42,
+          "max": 42
+        },
+        "formes_repetees_max": {
+          "faculties-9a5d34ec": 6,
+          "faculties-6d662023": 2,
+          "courses-86d966eb": 2,
+          "academic_departments-5088c96d": 2,
+          "notifications-23e4c49e": 2
+        }
+      },
+      {
+        "lignes_affichees": 15,
+        "temps_ms": {
+          "n": 10,
+          "median": 74.42,
+          "p95": 87.27,
+          "min": 67.72,
+          "max": 87.27
+        },
+        "requetes_sql": {
+          "n": 10,
+          "median": 42,
+          "p95": 42,
+          "min": 42,
+          "max": 42
+        },
+        "formes_repetees_max": {
+          "faculties-9a5d34ec": 6,
+          "faculties-6d662023": 2,
+          "courses-86d966eb": 2,
+          "academic_departments-5088c96d": 2,
+          "notifications-23e4c49e": 2
+        }
+      }
+    ],
+    "generation_bulletin_pdf": {
+      "temps_ms": {
+        "n": 10,
+        "median": 720.98,
+        "p95": 1015.29,
+        "min": 363.75,
+        "max": 1015.29
+      },
+      "requetes_sql": {
+        "n": 10,
+        "median": 24,
+        "p95": 24,
+        "min": 24,
+        "max": 24
+      },
+      "octets_min": 26590,
+      "octets_max": 26804,
+      "empreintes_conformes": 10
+    },
+    "file": {
+      "transport": "database",
+      "canal": "notification applicative",
+      "travaux": 11,
+      "notifies": 11,
+      "restants": 0,
+      "echecs": 0,
+      "envoi_ms": {
+        "n": 10,
+        "median": 9.81,
+        "p95": 25.53,
+        "min": 5,
+        "max": 25.53
+      },
+      "worker_total_ms": 1457.62,
+      "traitement_ms": {
+        "n": 10,
+        "median": 35.29,
+        "p95": 58.66,
+        "min": 25.53,
+        "max": 58.66
+      },
+      "requetes_sql": {
+        "n": 10,
+        "median": 6,
+        "p95": 6,
+        "min": 6,
+        "max": 6
+      }
+    }
+  }
+}

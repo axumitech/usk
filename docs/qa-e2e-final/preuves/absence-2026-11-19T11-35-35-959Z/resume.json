@@ -1,0 +1,61 @@
+{
+  "version": {
+    "port": 8070,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "ABS-01",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le relevé initial de l’étudiant",
+      "obtained": {
+        "id": 6,
+        "status": "absent",
+        "session": 1,
+        "entry": 6,
+        "email": "etudiant.dpu.06@usk.test",
+        "student": 56,
+        "cours": "Fondements de Droit public — L1",
+        "date": "2026-05-12T08:00:00.000000Z"
+      },
+      "proof": "ABS-01.png"
+    },
+    {
+      "id": "ABS-02",
+      "status": "VALIDÉ",
+      "action": "Déposer la justification et relire son état soumis",
+      "obtained": {
+        "absence": 6,
+        "demande": 41,
+        "etat": "submitted"
+      },
+      "proof": "ABS-02.png"
+    },
+    {
+      "id": "ABS-03",
+      "status": "VALIDÉ",
+      "action": "Examiner la demande et motiver l’acceptation",
+      "obtained": {
+        "demande": 41,
+        "agent": "admin@usk.test",
+        "decision": "Justification acceptée après vérification du motif déclaré pour la séance du 12 mai 2026."
+      },
+      "proof": "ABS-03.png"
+    },
+    {
+      "id": "absence",
+      "status": "BLOQUÉ",
+      "detail": "locator.waitFor: Error: strict mode violation: locator('main.student-portal > section.portal-panel').nth(1).getByText('Acceptée') resolved to 2 elements:"
+    }
+  ]
+}

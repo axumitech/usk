@@ -1,0 +1,57 @@
+{
+  "profil": "usk_qa_e2e-livraison",
+  "date": "2026-11-19",
+  "moteur": "SQLite en lecture seule (mode=ro et PRAGMA query_only), empreinte de profil vérifiée",
+  "cycle": "LIC",
+  "source": "L2, année 2025-2026 clôturée",
+  "destination": "L3, année 2026-2027 ouverte",
+  "verifications": [
+    "Deux inscriptions distinctes pour la même personne",
+    "Même programme sur les maquettes source et cible, avec des niveaux consécutifs",
+    "Niveau, année et maquette de la nouvelle inscription conformes à la décision de progression",
+    "Résultat officiel de la source avec décision pass_demo, jury publié et publication datée",
+    "Progression advance comportant une inscription cible"
+  ],
+  "par_departement": {
+    "DPR": {
+      "de": "DPR-L2",
+      "vers": "DPR-L3",
+      "inscriptions_cibles": 5,
+      "confirmed": 3,
+      "pending_confirmation": 2
+    },
+    "DPU": {
+      "de": "DPU-L2",
+      "vers": "DPU-L3",
+      "inscriptions_cibles": 5,
+      "confirmed": 3,
+      "pending_confirmation": 2
+    },
+    "EPI": {
+      "de": "EPI-L2",
+      "vers": "EPI-L3",
+      "inscriptions_cibles": 5,
+      "confirmed": 3,
+      "pending_confirmation": 2
+    },
+    "SOC": {
+      "de": "SOC-L2",
+      "vers": "SOC-L3",
+      "inscriptions_cibles": 5,
+      "confirmed": 3,
+      "pending_confirmation": 2
+    },
+    "THE": {
+      "de": "THE-L2",
+      "vers": "THE-L3",
+      "inscriptions_cibles": 5,
+      "confirmed": 3,
+      "pending_confirmation": 2
+    }
+  },
+  "total": {
+    "inscriptions_cibles": 25,
+    "confirmed": 15,
+    "pending_confirmation": 10
+  }
+}

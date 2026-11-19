@@ -1,0 +1,80 @@
+{
+  "version": {
+    "port": 8073,
+    "revision": "570e71b818203ab51078e7fe47ca845be9996305",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "570e71b818203ab51078e7fe47ca845be9996305"
+    }
+  },
+  "rows": [
+    {
+      "id": "RAT-01",
+      "status": "VALIDÉ",
+      "action": "Essayer une promotion de même faculté, même niveau et même année mais d’un autre programme",
+      "obtained": {
+        "groupe": 4,
+        "offre": 7,
+        "programme_tente": 2,
+        "message": "Une offre de ce groupe relève déjà de la maquette d’un autre programme.",
+        "etat_avant_et_apres": {
+          "promotion": null,
+          "niveau": 1,
+          "faculte": 1,
+          "annee": 1,
+          "programme_maquette": 1,
+          "maquette": 1,
+          "inscriptions": 0,
+          "audits": 0
+        },
+        "commit_serveur": "570e71b818203ab51078e7fe47ca845be9996305",
+        "sha256_service": "1fb0e5ab7dad4008d98726dedd46289b6e164aff9f11e3600d3bfe430183eeb7"
+      },
+      "proof": "RAT-01.png"
+    },
+    {
+      "id": "RAT-02",
+      "status": "VALIDÉ",
+      "action": "Rattacher le même groupe à la promotion du programme de son offre",
+      "obtained": {
+        "groupe": 4,
+        "etat": {
+          "promotion": 1,
+          "niveau": 1,
+          "faculte": 1,
+          "annee": 1,
+          "programme_maquette": 1,
+          "maquette": 1,
+          "inscriptions": 0,
+          "audits": 1
+        }
+      },
+      "proof": "RAT-02.png"
+    },
+    {
+      "id": "RAT-03",
+      "status": "VALIDÉ",
+      "action": "Rattacher le groupe historique dont l’offre ne comporte aucune maquette",
+      "obtained": {
+        "groupe": 5,
+        "etat": {
+          "promotion": 4,
+          "niveau": 1,
+          "faculte": 1,
+          "annee": 1,
+          "programme_maquette": null,
+          "maquette": null,
+          "inscriptions": 0,
+          "audits": 1
+        }
+      },
+      "proof": "RAT-03.png"
+    }
+  ]
+}

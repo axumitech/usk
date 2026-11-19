@@ -17,6 +17,7 @@ type Props = {
     catalog: TeachingCourse[];
     years: Year[];
     canAssign: boolean;
+    canManageProfiles: boolean;
     canInvite: boolean;
     flash?: { success?: string };
 };
@@ -37,15 +38,17 @@ export default function ProfessorsIndex() {
             <div className="teaching-page professor-directory">
                 <header className="professor-heading">
                     <h1>Enseignants</h1>
-                    <button
-                        className="admin-primary"
-                        onClick={() => {
-                            setEditing(null);
-                            setFormOpen(true);
-                        }}
-                    >
-                        <Plus size={17} /> Ajouter un enseignant
-                    </button>
+                    {props.canManageProfiles && (
+                        <button
+                            className="admin-primary"
+                            onClick={() => {
+                                setEditing(null);
+                                setFormOpen(true);
+                            }}
+                        >
+                            <Plus size={17} /> Ajouter un enseignant
+                        </button>
+                    )}
                 </header>
                 <div className="teaching-stats">
                     <div>
@@ -122,15 +125,17 @@ export default function ProfessorsIndex() {
                                     Voir le profil <ArrowUpRight size={16} aria-hidden="true" />
                                 </Link>
                                 <footer>
-                                    <button
-                                        className="admin-secondary"
-                                        onClick={() => {
-                                            setEditing(professor);
-                                            setFormOpen(true);
-                                        }}
-                                    >
-                                        <Pencil size={15} /> Modifier
-                                    </button>
+                                    {props.canManageProfiles && (
+                                        <button
+                                            className="admin-secondary"
+                                            onClick={() => {
+                                                setEditing(professor);
+                                                setFormOpen(true);
+                                            }}
+                                        >
+                                            <Pencil size={15} /> Modifier
+                                        </button>
+                                    )}
                                     {props.canAssign && professor.is_active && (
                                         <button className="admin-secondary" onClick={() => setAssigning(professor)}>
                                             <Plus size={15} /> Affecter un cours
@@ -144,12 +149,14 @@ export default function ProfessorsIndex() {
                     <div className="teaching-empty" data-dashboard-panel="q status page">
                         <Users size={36} />
                         <h2>Aucun enseignant trouvé.</h2>
-                        <p>Ajoutez un enseignant ou ajustez votre recherche.</p>
+                        <p>{props.canManageProfiles ? 'Ajoutez un enseignant ou ajustez votre recherche.' : 'Ajustez votre recherche.'}</p>
                     </div>
                 )}
                 <Pagination value={props.professors} />
             </div>
-            {formOpen && <ProfessorForm canInvite={props.canInvite} professor={editing ?? undefined} onClose={() => setFormOpen(false)} />}
+            {props.canManageProfiles && formOpen && (
+                <ProfessorForm canInvite={props.canInvite} professor={editing ?? undefined} onClose={() => setFormOpen(false)} />
+            )}
             {assigning && (
                 <AssignmentForm
                     courses={props.catalog}

@@ -1,0 +1,62 @@
+{
+  "startedAt": "2026-11-19T09:25:04.065Z",
+  "med": {
+    "context": {
+      "year": {
+        "value": "2",
+        "label": "2026-2027"
+      },
+      "faculty": {
+        "value": "1",
+        "label": "Faculté de Médecine — Recette"
+      },
+      "program": {
+        "value": "1",
+        "label": "RV2-MED-LIC · Licence en Médecine — Recette"
+      },
+      "level": {
+        "value": "1",
+        "label": "Licence 1 — Médecine — Recette"
+      }
+    },
+    "name": "Candidat Médecine — RECETTE USK",
+    "uuid": "deffa5b0-7f37-4b22-9db0-179a31132552",
+    "documents": [
+      {
+        "input": "document-diplome_ou_titre_equivalent_fictif",
+        "filename": "qa-med-1.pdf"
+      }
+    ],
+    "id": 12,
+    "preview": "http://127.0.0.1:8064/app/dashboard/admin/enrollments/documents/3c74339a-06a8-4e82-bd38-e8dc4301b63f/preview"
+  },
+  "droit": {
+    "context": {
+      "year": {
+        "value": "2",
+        "label": "2026-2027"
+      },
+      "faculty": {
+        "value": "2",
+        "label": "Faculté de Droit — Recette"
+      },
+      "program": {
+        "value": "2",
+        "label": "RV2-DR-LIC · Licence en Droit — Recette"
+      },
+      "level": {
+        "value": "3",
+        "label": "Licence 1 — Droit — Recette"
+      }
+    },
+    "uuid": "13e1fd79-f293-437e-8320-7c423756129f",
+    "documents": [
+      {
+        "input": "document-diplome_ou_titre_equivalent_fictif",
+        "filename": "qa-droit-1.png"
+      }
+    ],
+    "id": 13
+  },
+  "mails": []
+}

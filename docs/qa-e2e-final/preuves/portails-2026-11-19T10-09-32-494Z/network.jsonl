@@ -1,0 +1,13 @@
+{"at":"2026-11-19T10:09:46.763Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/app/login","navigation":true}
+{"at":"2026-11-19T10:09:47.246Z","case":null,"event":"url","request":"http://127.0.0.1:8066/app/login"}
+{"at":"2026-11-19T10:09:47.656Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/app-DD8Vb1Ww.css","navigation":false}
+{"at":"2026-11-19T10:09:47.732Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/Dashboard-Df-Eps8M.css","navigation":false}
+{"at":"2026-11-19T10:09:47.872Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/PageContent-Cx2mWhV9.css","navigation":false}
+{"at":"2026-11-19T10:09:47.904Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/Login-BiNnerTT.css","navigation":false}
+{"at":"2026-11-19T10:09:48.020Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/app-BPCWFe7Y.js","navigation":false}
+{"at":"2026-11-19T10:09:48.283Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/Login-Dzga34al.js","navigation":false}
+{"at":"2026-11-19T10:09:48.290Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/Dashboard-6bgQpq6B.js","navigation":false}
+{"at":"2026-11-19T10:09:48.292Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/sweetAlert-BT_SC03W.js","navigation":false}
+{"at":"2026-11-19T10:09:48.294Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/eye-off-Cp-KsQj6.js","navigation":false}
+{"at":"2026-11-19T10:09:48.296Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/eye-XyR9V0yB.js","navigation":false}
+{"at":"2026-11-19T10:09:48.297Z","case":null,"event":"response","method":"GET","status":200,"request":"http://127.0.0.1:8066/build/assets/shield-check-Bc1sSgq9.js","navigation":false}
