@@ -96,4 +96,3 @@ final class UniversityCatalog
         return $fixtures->annual($catalog, $phase, $admin);
     }
 }
-

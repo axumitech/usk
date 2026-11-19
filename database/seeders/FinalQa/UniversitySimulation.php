@@ -194,4 +194,3 @@ final class UniversitySimulation
             'active_promotion_mandates' => $mandates, 'foreign_key_violations' => 0];
     }
 }
-

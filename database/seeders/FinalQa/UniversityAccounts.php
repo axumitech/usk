@@ -51,4 +51,3 @@ final class UniversityAccounts
         return $this->create(sprintf('etudiant.%s.%02d', $key, $position + 1), $names[$position], $lastName, 'user', $position % 2 === 0 ? 'male' : 'female');
     }
 }
-

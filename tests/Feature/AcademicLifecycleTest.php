@@ -10,6 +10,7 @@ use App\Models\AcademicStructure\CurriculumVersion;
 use App\Models\AcademicStructure\University;
 use App\Models\AcademicYear;
 use App\Models\Courses;
+use App\Models\Enrollment;
 use App\Models\Level;
 use App\Models\Student\AcademicDeliberation;
 use App\Models\Student\AcademicEnrollment;
@@ -77,6 +78,90 @@ final class AcademicLifecycleTest extends TestCase
     public static function renewalCohorts(): array
     {
         return ['cohorte du programme' => [true], 'cohorte historique d’un autre programme' => [false]];
+    }
+
+    public function test_a_terminal_licence_requires_certified_completion_and_new_master_admission(): void
+    {
+        [$student, $terminal, $program, $manager, $approver] = $this->context();
+        $faculty = $terminal->level->faculty_id;
+        $terminal->level->update(['code' => 'L3', 'title' => 'Licence 3']);
+        $l1 = Level::create(['faculty_id' => $faculty, 'code' => 'L1', 'title' => 'Licence 1']);
+        $l2 = Level::create(['faculty_id' => $faculty, 'code' => 'L2', 'title' => 'Licence 2']);
+        $program->levels()->detach();
+        foreach ([$l1, $l2, $terminal->level] as $index => $level) {
+            $program->levels()->attach($level->id, ['position' => $index + 1]);
+        }
+        $terminalVersion = $this->version($terminal, $program, $terminal->academicYear, 'LICENCE-L3');
+        $terminal->forceFill(['curriculum_version_id' => $terminalVersion->id])->save();
+        foreach ([2024 => $l1, 2025 => $l2] as $start => $level) {
+            $end = $start + 1;
+            $year = AcademicYear::create(['title' => "$start-$end", 'start_date' => "$start-10-01", 'end_date' => "$end-09-30", 'status' => 'closed']);
+            $old = $terminal->profile->enrollments()->create(['level_id' => $level->id, 'academic_year_id' => $year->id,
+                'application_id' => $terminal->application_id, 'enrollment_status' => 'completed', 'currency' => 'USD']);
+            $oldVersion = $this->version($old, $program, $year, 'LICENCE-'.$level->code);
+            $old->forceFill(['curriculum_version_id' => $oldVersion->id])->save();
+            $this->publishedResult($old, $oldVersion, $approver, ['progression' => 'next'], true);
+        }
+        $final = $this->publishedResult($terminal, $terminalVersion, $approver, [
+            'progression' => 'none', 'completion_credits' => 900, 'completion_alignment' => 'identical_units',
+        ], true);
+        $m1 = Level::create(['faculty_id' => $faculty, 'code' => 'M1', 'title' => 'Master 1']);
+        $year = $this->nextYear();
+        $this->actingAs($manager)->postJson(route('dashboard.admin.student-academic.progression', $terminal), [
+            'level_id' => $m1->id, 'academic_year_id' => $year->id, 'academic_official_result_id' => $final->id, 'reason' => self::REASON,
+        ])->assertUnprocessable()->assertJsonValidationErrors('level_id');
+        $propose = route(self::PREFIX.'propose', $terminal);
+        $approve = ['action' => 'approve', 'revision' => 1, 'reason' => self::REASON];
+        $this->post($propose, ['kind' => 'graduation', 'operation_key' => (string) Str::uuid(), 'reason' => self::REASON])->assertStatus(303);
+        $graduation = AcademicLifecycleCase::where('kind', 'graduation')->sole();
+        $this->actingAs($approver)->post(route(self::PREFIX.'decide', $graduation), $approve)->assertStatus(303);
+        $this->assertSame(900, $graduation->fresh()->context['completion']['credits']);
+        $application = Enrollment::create(['student_id' => $student->id, 'level_id' => $m1->id, 'academic_year_id' => $year->id, 'status' => 'submitted']);
+        $this->actingAs($manager)->post($propose, ['kind' => 'cycle', 'application_id' => $application->id,
+            'operation_key' => (string) Str::uuid(), 'reason' => self::REASON])->assertStatus(303);
+        $case = AcademicLifecycleCase::where('kind', 'cycle')->sole();
+        $review = route(self::PREFIX.'decide', $case);
+        $this->actingAs($approver)->postJson($review, $approve)->assertUnprocessable()->assertJsonValidationErrors('application_id');
+        $masterCycle = $program->cycle->replicate()->fill(['code' => 'MASTER', 'name' => 'Master']);
+        $masterCycle->save();
+        $master = $program->replicate()->fill(['code' => 'MASTER-P', 'name' => 'Programme de Master', 'academic_cycle_id' => $masterCycle->id]);
+        $master->save();
+        $master->levels()->attach($m1->id, ['position' => 1]);
+        $masterVersion = $this->version($terminal, $master->fresh(), $year, 'MASTER-M1');
+        $application->update(['status' => 'validated']);
+        $target = $terminal->profile->enrollments()->create(['level_id' => $m1->id, 'academic_year_id' => $year->id,
+            'application_id' => $application->id, 'enrollment_status' => 'pending_confirmation', 'currency' => 'USD']);
+        $target->forceFill(['curriculum_version_id' => $masterVersion->id])->save();
+        $this->post($review, $approve)->assertStatus(303);
+        $this->assertSame($target->id, $case->fresh()->target_enrollment_id);
+        $this->assertSame($final->id, $case->fresh()->academic_official_result_id);
+        $this->assertDatabaseCount('academic_progressions', 0);
+    }
+
+    public function test_only_the_later_published_resit_decision_can_enable_annual_renewal(): void
+    {
+        [$student, $entry, $program, $manager, $approver, $next] = $this->context(twoLevels: true);
+        $version = $this->version($entry, $program, $entry->academicYear, 'SOURCE');
+        $entry->forceFill(['curriculum_version_id' => $version->id])->save();
+        $ordinary = $this->publishedResult($entry, $version, $approver, ['progression' => 'none'], false);
+        $original = $ordinary->snapshot;
+        $year = $this->nextYear();
+        $destination = $this->version($entry, $program, $year, 'TARGET');
+        $url = route('dashboard.admin.student-academic.progression', $entry);
+        $data = ['level_id' => $next->id, 'academic_year_id' => $year->id, 'academic_official_result_id' => $ordinary->id,
+            'target_curriculum_version_id' => $destination->id, 'reason' => self::REASON];
+        $this->actingAs($manager)->postJson($url, $data)->assertUnprocessable()->assertJsonValidationErrors('level_id');
+        $this->assertDatabaseCount('academic_progressions', 0);
+        $resit = $this->publishedResult($entry, $version, $approver, ['progression' => 'next'], true, edition: 2,
+            session: 'rattrapage', ordinaryRule: $ordinary->run->academic_result_rule_id);
+        $this->postJson($url, $data)->assertUnprocessable()->assertJsonValidationErrors('level_id');
+        $this->post($url, array_replace($data, ['academic_official_result_id' => $resit->id]))->assertStatus(303);
+        $plan = AcademicProgression::sole();
+        $this->assertSame($resit->id, $plan->academic_official_result_id);
+        $this->actingAs($student)->post(route('dashboard.student.renewals.start', ['progression' => $plan, 'academic' => $entry->id]))->assertStatus(303);
+        $this->assertSame($next->id, $plan->fresh()->target->level_id);
+        $this->assertSame($original, $ordinary->fresh()->snapshot);
+        $this->assertDatabaseCount('academic_official_results', 2);
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('renewalCohorts')]
@@ -271,13 +356,14 @@ final class AcademicLifecycleTest extends TestCase
         return $version;
     }
 
-    private function publishedResult(AcademicEnrollment $entry, CurriculumVersion $version, User $actor, array $decision, bool $passed, int $edition = 1): AcademicOfficialResult
+    private function publishedResult(AcademicEnrollment $entry, CurriculumVersion $version, User $actor, array $decision, bool $passed, int $edition = 1,
+        string $session = 'P', ?int $ordinaryRule = null): AcademicOfficialResult
     {
         $unit = $version->units()->where('level_id', $entry->level_id)->sole();
         $item = $unit->items()->sole();
-        $rule = AcademicResultRule::create(['curriculum_version_id' => $version->id, 'level_id' => $entry->level_id, 'session_code' => 'P', 'code' => 'TEST-'.$edition,
+        $rule = AcademicResultRule::create(['curriculum_version_id' => $version->id, 'level_id' => $entry->level_id, 'session_code' => $session, 'code' => 'TEST-'.$edition,
             'effective_on' => $entry->academicYear->start_date, 'reference' => 'Règlement de test',
-            'configuration' => ['decisions' => ['test' => $decision]], 'author_id' => $actor->id, 'approved_at' => now()]);
+            'configuration' => ['decisions' => ['test' => $decision], 'base_rule_id' => $ordinaryRule], 'author_id' => $actor->id, 'approved_at' => now()]);
         $run = AcademicDeliberation::create(['academic_result_rule_id' => $rule->id, 'scope_key' => 'TEST:'.$entry->id, 'edition' => $edition,
             'state' => 'published', 'reference' => (string) Str::uuid(), 'context' => ['decisions' => ['test' => $decision]],
             'jury' => [], 'meeting_at' => now(), 'approved_at' => now(), 'published_at' => now()]);
