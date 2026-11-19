@@ -2,7 +2,9 @@
 
 L’administration habilitée valide un lot clôturé lorsque tous les dossiers attendus ont une correction finalisée ou déjà validée. Une absence, une non-remise ou une dispense peut être finalisée avec une note absente. La transaction verrouille la validation, conserve sa révision et crée une enveloppe immuable par participant nouvellement validé.
 
-Le flux JSON privé `GET /dashboard/admin/assessments/handoff?after=0` retourne au plus 100 enveloppes de la faculté autorisée, ordonnées par identifiant croissant. L’enveloppe contient `id` et `payload`. Le curseur `after` est le dernier identifiant traité. Les validations qui produisent ces identifiants sont sérialisées dans l’ordre de validation des transactions.
+Dans le menu de gestion, **Résultats pédagogiques transmis** ouvre le journal des corrections validées. Les transmissions les plus récentes apparaissent en premier. Chaque ligne indique le cours, la session, l’étudiant et la note à la date de validation. L’état **En vigueur** désigne la version validée courante. Une réouverture de correction fait passer l’ancienne transmission à l’état **Historique**. Le lien sur le titre de l’évaluation ouvre le dossier de correction.
+
+Pour lire le même journal depuis un client technique, envoyer `GET /app/dashboard/admin/assessments/handoff?after=0` avec l’en-tête `Accept: application/json`. Le flux privé retourne au plus 100 enveloppes du périmètre autorisé, ordonnées par identifiant croissant. L’enveloppe contient `id` et `payload`. Le curseur `after` est le dernier identifiant traité. Les validations qui produisent ces identifiants sont sérialisées dans l’ordre de validation des transactions.
 
 | Champ | Sémantique |
 | --- | --- |

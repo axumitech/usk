@@ -92,7 +92,7 @@ test('Les filtres locaux sont regroupés et les étapes distinctes restent acces
         'student-academic?tab=students&history=1', 'enrollments?queue=decisions', 'card-issuance/nfc', 'student-academic?tab=teaching']) {
         assert.ok(destinations.has(`${base}/${path}`), path);
     }
-    assert.equal(destinations.get(`${base}/assessments/handoff`).native, true);
+    assert.ok(!destinations.get(`${base}/assessments/handoff`).native);
 });
 
 test('Les délégations utilisent les permissions du compte et le périmètre de faculté', () => {

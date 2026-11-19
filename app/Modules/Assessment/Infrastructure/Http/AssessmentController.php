@@ -316,10 +316,32 @@ final class AssessmentController
         $scope = $this->access->scope($actor);
         $data = $request->validate(['after' => 'nullable|integer|min:0']);
 
-        return response()->json(AssessmentHandoff::where('id', '>', $data['after'] ?? 0)
-            ->whereHas('record.assessment.resource', fn ($query) => $query->whereIn('academic_offering_id', $scope->select('id')))
-            ->orderBy('id')->limit(100)->get(['id', 'payload']))
-            ->header('Cache-Control', 'private, no-store');
+        $transmissions = AssessmentHandoff::where('id', '>', $data['after'] ?? 0)
+            ->whereHas('record.assessment.resource', fn ($query) => $query->whereIn('academic_offering_id', $scope->select('id')));
+        if (! $request->header('X-Inertia') && $request->prefers(['application/json', 'text/html']) !== 'text/html') {
+            return response()->json($transmissions->orderBy('id')->limit(100)->get(['id', 'payload']))
+                ->header('Cache-Control', 'private, no-store');
+        }
+
+        $page = $transmissions->with(['record.enrollment:id,matricule', 'record.assessment.resource.offering.course:id,title'])
+            ->orderByDesc('id')->paginate(20)->withQueryString()->through(function (AssessmentHandoff $handoff) {
+                $record = $handoff->record;
+                $resource = $record->assessment->resource;
+                $snapshot = $handoff->payload;
+
+                return [
+                    'id' => $handoff->id, 'revision' => (int) $handoff->revision,
+                    'current' => $record->correction_state === 'validated' && (int) $record->revision === (int) $handoff->revision,
+                    'assessment' => $resource->title, 'course' => $resource->offering->course?->title,
+                    'student' => $record->enrollment->matricule ?? 'Inscription n° '.$record->academic_enrollment_id,
+                    'session' => $snapshot['session_code'] ?? null, 'participation' => $snapshot['participation'] ?? null,
+                    'points' => $snapshot['points_hundredths'] ?? null, 'maximum' => $snapshot['maximum_points_hundredths'] ?? null,
+                    'validated_at' => $snapshot['validated_at'] ?? $handoff->created_at?->toISOString(),
+                    'assessment_url' => route('dashboard.admin.assessments.index', ['resource' => $resource->id, 'record' => $record->id], false),
+                ];
+            });
+
+        return Inertia::render('dashboard/teaching/AssessmentHandoffs', ['transmissions' => $page]);
     }
 
     private function summary(AcademicAssessment $item): array
