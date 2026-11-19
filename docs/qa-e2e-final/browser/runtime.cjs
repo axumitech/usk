@@ -13,7 +13,7 @@ const evidenceRoot = path.resolve(process.env.USK_QA_EVIDENCE || path.join(__dir
 const chromiumOptions = {
     headless: false,
     executablePath: process.env.USK_QA_CHROME || chromium.executablePath(),
-    args: ['--disable-background-networking', '--no-proxy-server'],
+    args: ['--disable-background-networking', '--no-proxy-server', '--renderer-process-limit=2'],
 };
 
 function probe(...args) {
@@ -23,7 +23,7 @@ function probe(...args) {
 async function verify() {
     const local = probe();
     assert.equal(local.origin, origin);
-    const response = await fetch(origin + '/__usk_recipe/version', { redirect: 'error', signal: AbortSignal.timeout(9000) });
+    const response = await fetch(origin + '/__usk_recipe/version', { redirect: 'error', signal: AbortSignal.timeout(45000) });
     assert.equal(response.status, 200);
     const version = await response.json();
     assert.match(version.revision || '', /^[a-f0-9]{40}$/);

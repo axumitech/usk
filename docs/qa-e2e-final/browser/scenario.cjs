@@ -39,8 +39,18 @@ async function run(suite, perform) {
         await page.screenshot({ path: path.join(out, filename) });
         rows.push({ id, status: 'VALIDÉ', action, obtained, proof: filename });
     };
+    const check = async (page, id, action, inspect) => {
+        try {
+            await proof(page, id, action, await inspect());
+        } catch (error) {
+            const filename = id + '-blocage.png';
+            await page.screenshot({ path: path.join(out, filename) }).catch(() => {});
+            rows.push({ id, action, status: 'BLOQUÉ', detail: String(error.message).split('\n')[0], proof: filename });
+            process.exitCode = 1;
+        }
+    };
     try {
-        await perform({ login, visit, proof, out, origin });
+        await perform({ login, visit, proof, check, out, origin });
     } catch (e) {
         rows.push({ id: suite, status: 'BLOQUÉ', detail: String(e.message).split('\n')[0] });
         if (activePage) await activePage.screenshot({ path: path.join(out, 'blocage.png') }).catch(() => {});

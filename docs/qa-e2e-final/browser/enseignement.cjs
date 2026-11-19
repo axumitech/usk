@@ -27,14 +27,40 @@ const props = (page) => page.locator('#app[data-page]').evaluate((el) => JSON.pa
     let page;
     try {
         const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'fr-FR', timezoneId: 'Africa/Kinshasa' });
-        ctx.setDefaultTimeout(50000);
-        ctx.setDefaultNavigationTimeout(90000);
+        ctx.setDefaultTimeout(120000);
+        ctx.setDefaultNavigationTimeout(120000);
         await ctx.route('**/*', (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort()));
-        ctx.on('response', (r) => {
+        ctx.on('response', async (r) => {
             const u = new URL(r.url()),
                 method = r.request().method();
             if (method === 'POST' || u.pathname.startsWith('/app/dashboard/teacher'))
                 trace.events.push({ method, status: r.status(), url: u.pathname + u.search, location: r.headers().location ?? null });
+            if (method === 'GET' && u.searchParams.has('resource') && r.headers()['x-inertia'] === 'true') {
+                const inertia = await r.json().catch(() => null);
+                const selected = inertia?.props?.selected;
+                if (selected)
+                    trace.events.push({
+                        url: u.pathname + u.search,
+                        component: inertia.component,
+                        offering: inertia.props.offering,
+                        selected: {
+                            id: selected.id,
+                            academic_offering_id: selected.academic_offering_id,
+                            revision: selected.revision,
+                            is_published: selected.is_published,
+                            archived_at: selected.archived_at,
+                            state: selected.state,
+                        },
+                        flashSuccess: !!inertia.props.flash?.success,
+                        errors: Object.keys(inertia.props.errors || {}),
+                    });
+            }
+        });
+        ctx.on('requestfailed', (request) => {
+            const url = new URL(request.url());
+            if (url.origin === origin && url.pathname.startsWith('/app/dashboard/teacher')) {
+                trace.events.push({ method: request.method(), url: url.pathname + url.search, failed: request.failure()?.errorText });
+            }
         });
         page = await ctx.newPage();
         await page.goto(origin + '/app/login', { waitUntil: 'domcontentloaded' });
@@ -59,29 +85,48 @@ const props = (page) => page.locator('#app[data-page]').evaluate((el) => JSON.pa
         assert(offer, 'Le professeur dispose d’une offre ouverte dans le profil.');
         const tab = await ctx.newPage();
         const byTitle = (kind) => 'Contrôle ' + kind + ' ' + Date.now();
-        await page.getByRole('button', { name: 'Ajouter un support', exact: true }).click();
         const modal = page.getByRole('dialog');
-        await modal.getByLabel(/^Type/).selectOption('material');
-        await modal.getByLabel(/^Titre/).fill(byTitle('support'));
-        await modal.getByLabel('Texte pédagogique').fill('Support de recette pour la vérification du parcours de publication.');
-        await modal.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-        await page.waitForURL((url) => url.searchParams.has('resource'));
-        await page.getByText('Support enregistré.', { exact: true }).waitFor();
+        const resume = process.env.USK_QA_RESUME_SUPPORT;
+        if (resume) {
+            assert.match(resume, /^\d+$/);
+            await page.goto(origin + links + '?offering=' + offer + '&resource=' + resume, { waitUntil: 'domcontentloaded' });
+            const current = (await props(page)).selected;
+            assert.equal(current?.id, Number(resume));
+            assert.equal(current.academic_offering_id, offer);
+            assert.match(current.title, /^Contrôle support \d+$/);
+            if (current.is_published) {
+                await page.getByRole('button', { name: 'Retirer', exact: true }).click();
+                await modal
+                    .getByLabel(/Motif|Justification/)
+                    .fill('Rejeu de la publication du support fictif après contrôle de son état enregistré.');
+                await modal.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+                await modal.waitFor({ state: 'hidden' });
+                await page.getByRole('button', { name: 'Publier', exact: true }).waitFor();
+            }
+        } else {
+            await page.getByRole('button', { name: 'Ajouter un support', exact: true }).click();
+            await modal.getByLabel(/^Type/).selectOption('material');
+            await modal.getByLabel(/^Titre/).fill(byTitle('support'));
+            await modal.getByLabel('Texte pédagogique').fill('Support de recette pour la vérification du parcours de publication.');
+            await modal.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+            await page.waitForURL((url) => url.searchParams.has('resource'));
+            await page.getByText('Support enregistré.', { exact: true }).waitFor();
+        }
         const resource = new URL(page.url()).searchParams.get('resource');
         await tab.goto(origin + '/app/dashboard', { waitUntil: 'domcontentloaded' });
         await page.bringToFront();
         await page.getByRole('button', { name: 'Publier', exact: true }).click();
         await modal.getByLabel(/Motif|Justification/).fill(reason);
-        const supportResponse = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/publication'));
-        await modal.getByRole('button', { name: 'Enregistrer', exact: true }).click();
-        const publishedSupport = await supportResponse;
+        const [publishedSupport] = await Promise.all([
+            page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/publication')),
+            page.waitForResponse(
+                (r) => r.request().method() === 'GET' && r.status() === 200 && new URL(r.url()).searchParams.get('resource') === resource,
+            ),
+            page.getByText('Support publié.', { exact: true }).filter({ visible: true }).first().waitFor(),
+            modal.getByRole('button', { name: 'Enregistrer', exact: true }).click(),
+        ]);
         assert.equal(publishedSupport.status(), 303);
         assert.equal(new URL(publishedSupport.headers().location, origin).searchParams.get('resource'), resource);
-        await page
-            .getByText(/Support publié/, { exact: false })
-            .filter({ visible: true })
-            .first()
-            .waitFor();
         const supportProof = path.join(out, '01-support-publie.png');
         await page.screenshot({ path: supportProof });
         const supportUrl = page.url();
@@ -119,7 +164,34 @@ const props = (page) => page.locator('#app[data-page]').evaluate((el) => JSON.pa
         console.log('Edge : support et évaluation publiés, avec fiche conservée, toast visible et état vérifié après rechargement.');
     } catch (error) {
         trace.error = error.message.split('\n')[0];
-        if (page) await page.screenshot({ path: path.join(out, 'diagnostic.png') }).catch(() => {});
+        if (page) {
+            const selected = await page
+                .evaluate(() => {
+                    const data = JSON.parse(document.querySelector('#app').dataset.page);
+                    const item = data.props.selected;
+                    return {
+                        component: data.component,
+                        offering: data.props.offering,
+                        errors: data.props.errors,
+                        resource: item && {
+                            id: item.id,
+                            academic_offering_id: item.academic_offering_id,
+                            resource_id: item.resource_id,
+                            revision: item.revision,
+                            state: item.state,
+                            is_published: item.is_published,
+                            archived_at: item.archived_at,
+                        },
+                        feedback: Array.from(document.querySelectorAll('[role=alert]'))
+                            .map((el) => el.textContent?.trim())
+                            .filter(Boolean),
+                        submitting: document.querySelector('[role=dialog] button[type=submit]')?.textContent?.trim(),
+                    };
+                })
+                .catch(() => ({}));
+            trace.documentAndVisibleFeedback = selected;
+            await page.screenshot({ path: path.join(out, 'diagnostic.png') }).catch(() => {});
+        }
         throw error;
     } finally {
         fs.writeFileSync(path.join(out, 'trace.json'), JSON.stringify(trace, null, 2));

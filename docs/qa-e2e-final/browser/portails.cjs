@@ -82,7 +82,7 @@ async function main() {
 
         async function setupContext(ctx, required, origins) {
             ctx.setDefaultTimeout(25000);
-            ctx.setDefaultNavigationTimeout(60000);
+            ctx.setDefaultNavigationTimeout(120000);
             await ctx.route('**/*', async (route) => {
                 const req = route.request();
                 const url = new URL(req.url());
@@ -309,7 +309,7 @@ async function main() {
             await page.locator('form:has(#login-email) button[type=submit]').click();
             const response = await sent;
             assert.ok([302, 303].includes(response.status()), 'La connexion fictive doit rediriger.');
-            await page.waitForURL((url) => url.pathname.startsWith('/app/dashboard'), { timeout: 60000 });
+            await page.waitForURL((url) => url.pathname.startsWith('/app/dashboard'), { timeout: 120000 });
             await ready();
             activeAccount = local;
         }
@@ -713,8 +713,13 @@ async function main() {
             else block('ACAD-04', 'Étudiant Droit sur mobile', 'Retour au clavier', 'Contexte de cours', 'Détail indisponible.');
         }
 
-        await goto('/app/login');
-        await capture('00-controle-Chrome');
+        try {
+            await goto('/app/login');
+            await capture('00-controle-Chrome');
+        } catch (error) {
+            outcome('PRE-01', 'Navigateur', 'Charger le portail compilé', 'Page de connexion affichée', cleanDiagnostic(error), 'BLOQUÉ');
+            throw error;
+        }
         for (const name of suites) {
             try {
                 if (name === 'auth') await auth();

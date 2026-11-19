@@ -1,14 +1,21 @@
-/* global require, process */
+/* global require, process, __dirname */
 /* eslint @typescript-eslint/no-require-imports: "off" */
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const { chromium, chromiumOptions, origin, verify, runDirectory, probe } = require('./runtime.cjs');
+const { execFileSync } = require('node:child_process');
+const { chromium, chromiumOptions, origin, verify, runDirectory } = require('./runtime.cjs');
 
 async function main() {
     const version = await verify();
     const out = runDirectory('documents');
-    const database = probe('documents');
+    const profile = fs.realpathSync(process.env.USK_RECETTE_V2_ROOT);
+    assert.match(path.basename(profile), /^usk_qa_e2e-/);
+    const { password } = JSON.parse(fs.readFileSync(path.join(profile, 'final-qa.json'), 'utf8'));
+    assert.ok(typeof password === 'string' && password.length >= 16);
+    const fixture = JSON.parse(execFileSync(process.env.USK_QA_PHP || 'php', [path.join(__dirname, 'document-fixtures.php')], {
+        encoding: 'utf8', env: { ...process.env, USK_QA_FINAL_ROOT: profile },
+    }));
     const rows = [];
     const errors = new WeakMap();
     const browser = await chromium.launch(chromiumOptions);
@@ -23,7 +30,7 @@ async function main() {
     const login = async (page, email) => {
         await page.goto(origin + '/app/login');
         await page.locator('#login-email').fill(email);
-        await page.locator('#login-password').fill(process.env.USK_QA_PASSWORD || 'password');
+        await page.locator('#login-password').fill(password);
         await page.getByRole('button', { name: /se connecter/i }).click();
         await page.waitForURL('**/app/dashboard**');
     };
@@ -32,19 +39,6 @@ async function main() {
         await page.screenshot({ path: path.join(out, file) });
         return file;
     };
-    const fixture = { accounts: {}, students: {} };
-    for (const [key, email] of [
-        ['registrar_med', 'appariteur.med@usk.test'],
-        ['dean_med', 'doyen.med@usk.test'],
-    ]) {
-        fixture.accounts[key] = { email, id: database.accounts[email] };
-    }
-    for (const [key, email] of [
-        ['med', 'etudiant.med@usk.test'],
-        ['law', 'etudiant.droit@usk.test'],
-    ]) {
-        fixture.students[key] = { email, entry: database.entries[email] };
-    }
     try {
         const outcome = await require('../../recette-finale/scripts/results-documents.cjs').run({
             fixture,
@@ -86,7 +80,7 @@ async function main() {
             proofs: [await capture(owner, 'bibliotheque-etudiant')],
         });
     } finally {
-        fs.writeFileSync(path.join(out, 'resume.json'), JSON.stringify({ version, rows }, null, 2));
+        fs.writeFileSync(path.join(out, 'resume.json'), JSON.stringify({ version, fixture, rows }, null, 2));
         await browser.close();
     }
 }

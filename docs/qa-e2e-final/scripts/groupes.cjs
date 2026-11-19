@@ -39,10 +39,18 @@ async function main() {
         const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: promotion.code, exact: true }) });
         const form = page.locator('#promotion-group');
         for (const attempt of ['création', 'répétition']) {
+            if (attempt === 'répétition') await page.goto(programPage, { waitUntil: 'domcontentloaded' });
+            report.lastAction = attempt + ' — ouverture du formulaire';
             await row.getByRole('button', { name: 'Créer un groupe', exact: true }).click();
             await form.getByLabel('Nom du groupe').fill(label);
             await form.getByLabel(/Capacité maximale/).fill('24');
+            report.lastAction = attempt + ' — réponse à la soumission';
+            const submission = page.waitForResponse((response) =>
+                response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/promotions/' + promotion.id + '/groups'));
             await page.getByRole('button', { name: 'Créer le groupe', exact: true }).click();
+            const response = await submission;
+            assert.equal(response.status(), 303);
+            report.lastAction = attempt + ' — fermeture et relecture';
             await form.waitFor({ state: 'hidden' });
             assert.equal(new URL(page.url()).searchParams.get('program'), String(promotion.academic_program_id));
             await row.getByText(new RegExp(label)).waitFor();
@@ -58,6 +66,7 @@ async function main() {
             report.steps.push({ action: attempt, group: group.id, level: group.level_id, faculty: group.faculty_id, capacity: group.capacity });
         }
         await page.screenshot({ path: path.join(output, 'groupes-promotion.png') });
+        report.lastAction = 'association du groupe';
         await row.getByRole('button', { name: 'Associer un groupe', exact: true }).click();
         const picker = page.locator('#structure-reference').getByLabel('Groupe existant');
         const options = await picker.locator('option').evaluateAll((nodes) => nodes.filter((node) => node.value).map((node) => Number(node.value)));
@@ -72,15 +81,22 @@ async function main() {
         await page.locator('#structure-reference').getByLabel('Motif administratif').fill('Vérification de l’affectation existante en recette fictive.');
         await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
         await page.locator('#structure-reference').waitFor({ state: 'hidden' });
+        report.lastAction = 'consultation du niveau';
         await page.goto(admin + '/levels/' + promotion.level_id, { waitUntil: 'domcontentloaded' });
         await page.waitForURL('**/levels/details/' + promotion.level_id);
         await page.getByText(promotion.level, { exact: false }).first().waitFor();
         await page.screenshot({ path: path.join(output, 'niveau-du-groupe.png') });
         report.steps.push({ action: 'sélecteur limité au même niveau et à la même faculté', options: options.length, levelPage: new URL(page.url()).pathname });
         report.status = 'VALIDÉ';
+        delete report.lastAction;
     } catch (error) {
         report.status = 'ÉCHEC';
-        report.reason = String(error.message).split('\n')[0].replaceAll(profile.password, '[masqué]').slice(0, 240);
+        report.reason = String(error.message).replaceAll(profile.password, '[masqué]').slice(0, 700);
+        if (page && !new URL(page.url()).pathname.endsWith('/login')) {
+            await page.screenshot({ path: path.join(output, 'blocage.png') }).catch(() => {});
+            report.url = new URL(page.url()).pathname;
+            report.alerts = await page.getByRole('alert').allTextContents();
+        }
         process.exitCode = 1;
     } finally {
         await browser.close();
