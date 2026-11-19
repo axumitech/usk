@@ -57,7 +57,9 @@ Dans un terminal local où `$profilUsk` est défini, `(Get-Content -Raw (Join-Pa
 
 Le profil V2 des scripts navigateur possède son propre jeu de comptes. Sa préparation est décrite dans [le guide V2](../recette-manuelle-v2/README.md). Les preuves de la présente mission indiquent le profil et la révision utilisés.
 
-Le build livré est identifié par `08fa60fbc55a5c67afe2b43a5df3357e21f855cd`. Dans Chrome, l’entrée `assets/app-9x_qvXot.js` a l’empreinte SHA-256 `9c43e7a7e46d0a4e50d748f7c5ac2ff3319a5fa3a237e4a29c1e072e90f8c157`. La copie servie est propre, OPcache CLI est désactivé et le mode compilé est actif. Lors du premier passage sur la révision précédente, l’attente du contrôleur du Service Worker avait expiré. Le rejeu a contrôlé le script HTTP 200, le contenu du cache puis la vraie navigation hors connexion. Le cache contenait uniquement `/pwa/offline.html`. Le build livré a reproduit ces contrôles sur le port 8075. [Rejeu précédent](preuves/pwa-2026-11-19T12-00-21-174Z/trace.json) · [Preuve du build livré](preuves/pwa-2026-11-19T12-11-05-139Z/trace.json)
+Le build de la première présentation est identifié par `08fa60fbc55a5c67afe2b43a5df3357e21f855cd`. Dans Chrome, l’entrée `assets/app-9x_qvXot.js` a l’empreinte SHA-256 `9c43e7a7e46d0a4e50d748f7c5ac2ff3319a5fa3a237e4a29c1e072e90f8c157`. La copie servie est propre, OPcache CLI est désactivé et le mode compilé est actif. Lors du premier passage sur la révision précédente, l’attente du contrôleur du Service Worker avait expiré. Le rejeu a contrôlé le script HTTP 200, le contenu du cache puis la vraie navigation hors connexion. Le cache contenait uniquement `/pwa/offline.html`. Cette révision a reproduit ces contrôles sur le port 8075. [Rejeu précédent](preuves/pwa-2026-11-19T12-00-21-174Z/trace.json) · [Preuve du build livré](preuves/pwa-2026-11-19T12-11-05-139Z/trace.json)
+
+La présentation des écrans corrigés utilise le commit `58d975f63d11422eb86ed0e93d3ab578772edf59` et l’entrée `assets/app-B0GO58tW.js`. Le manifeste a pour SHA-256 `3963d4de73da10f560851c8947531d9d348c7170220786c06a48ba8083bbd260`. Le serveur et les médias utilisent le profil de présentation existant.
 
 ## Révisions et profils de la mission
 
@@ -70,7 +72,7 @@ Le build livré est identifié par `08fa60fbc55a5c67afe2b43a5df3357e21f855cd`. D
 | `usk_qa_e2e-structure`, port 8065 | Configuration manuelle démarrée avec un seul compte institutionnel. Les replays vérifient les lignes existantes avant de reprendre la saisie dans Chrome. |
 | `usk_qa_e2e-jury`, port 8072 | Témoin de seconde session. Son horloge métier propre au profil permet de franchir l’échéance de dépôt. Le navigateur conserve sa date réelle. |
 | `usk_qa_e2e-rattachement`, port 8073 | Deux programmes partagent une faculté et un niveau. L’opérateur vérifie les limites du rattachement et les médias téléversés par le site. |
-| `usk_qa_e2e-livraison`, port 8075 | Cohorte de présentation installée depuis zéro, avec 200 résultats historiques et 170 inscriptions courantes. |
+| `usk_qa_e2e-livraison`, port 8075 | Cohorte initiale de 200 résultats historiques et 170 inscriptions courantes. Après la recette manuelle de DR0043, 171 étudiants sont inscrits en 2026–2027 et 105 inscriptions sont confirmées. |
 
 Pour la démonstration livrée sur ce poste, ouvrir [la connexion locale](http://127.0.0.1:8075/app/login) et utiliser par exemple `rectorat@usk.test`. La racine du profil est `../usk_qa_e2e-livraison` depuis la copie de travail de la mission. Le fichier `final-qa.json` de ce dossier contient le mot de passe fictif commun aux comptes du profil. Consulter ce fichier localement. La commande `simulate` relit le contrôle de fin sur un profil déjà peuplé et préserve les parcours. Pour une réinstallation vierge, fournir un autre chemin absolu à `USK_QA_FINAL_ROOT`. Le répertoire `version-presentation`, voisin du profil, est le checkout utilisé par le serveur et son worker.
 

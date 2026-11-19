@@ -16,7 +16,9 @@ Les suites SQL se recoupent. La fiche technique indique la révision de chaque l
 
 ## Périmètre et données disponibles
 
-La démonstration est servie par un checkout propre du commit **`08fa60fbc55a5c67afe2b43a5df3357e21f855cd`**, en boucle locale sur le port 8075. Le navigateur a chargé `assets/app-9x_qvXot.js`. Le manifeste porte l’empreinte SHA-256 `dc077e944c9b76b4590ae9823b60ee093e492fba5c8abfcc94de2292d2549b7e`. Le navigateur et la sonde locale ont vérifié le code servi, son empreinte et le comportement hors connexion. [Ouvrir USK](http://127.0.0.1:8075/app/login) · [Version et vérification dans Chromium](preuves/pwa-2026-11-19T12-11-05-139Z/trace.json)
+Le contrôle complémentaire du guide, du sélecteur d’année, du rectorat, des jurys et des documents a réussi dans Chromium aux formats bureau et mobile. Les vérifications du correctif comptent 98 tests Laravel sur les écrans et les droits, 65 sur les finances et les résultats, ainsi que 188 tests frontend. TypeScript, ESLint et la compilation Vite sont passés. [Recette des interfaces](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/resume.json) · [Captures et parcours](11-ux-ui.md)
+
+La première présentation a été testée sur `08fa60f`, y compris la navigation hors connexion. Le port 8075 sert désormais la révision **`58d975f`**, avec le rapport rectoral annuel, le guide étudiant corrigé et les nouveaux écrans des jurys et des documents. Le profil conserve la validation manuelle de DR0043 et ses deux versements. [Ouvrir USK](http://127.0.0.1:8075/app/login) · [Contrôle hors connexion initial](preuves/pwa-2026-11-19T12-11-05-139Z/trace.json)
 
 La branche locale `fix/usk-qa-e2e-final` part de `develop` à `8cc1656`. Le périmètre couvre le site public, le portail candidat, la scolarité, les finances, la pédagogie et les résultats sur la stack Laravel, Inertia, React et Vite existante. Les scénarios distinguent les opérations réalisées dans Chromium visible des créations en masse par les services de l’application. [Environnement, versions, sauvegarde et lancement](00-environnement.md)
 

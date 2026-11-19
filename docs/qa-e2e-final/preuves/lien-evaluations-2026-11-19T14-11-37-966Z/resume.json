@@ -1,0 +1,29 @@
+{
+  "version": {
+    "port": 8075,
+    "revision": "58d975f63d11422eb86ed0e93d3ab578772edf59",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-B0GO58tW.js",
+      "manifest_sha256": "3963d4de73da10f560851c8947531d9d348c7170220786c06a48ba8083bbd260",
+      "entry_sha256": "3a554c3ba478b57359539eec248fc55d7d5c836cc9f9ae0e9565496803fd05ff",
+      "revision": "58d975f63d11422eb86ed0e93d3ab578772edf59"
+    }
+  },
+  "rows": [
+    {
+      "id": "EVALUATIONS",
+      "status": "VALIDÉ",
+      "action": "Ouvrir les évaluations avec le vice-doyen de Droit",
+      "obtained": {
+        "border": "solid",
+        "height": 44,
+        "background": "rgba(247, 251, 245, 0.09)"
+      },
+      "proof": "EVALUATIONS.png"
+    }
+  ]
+}

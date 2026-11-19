@@ -8,6 +8,14 @@
 
 **Comptes** Candidat, étudiant et administrateur institutionnel, selon le parcours
 
+## Corrections vérifiées le 19 novembre sur le port 8075
+
+Sur le build `58d975f`, Chromium a suivi le guide d’un étudiant qui l’ouvrait pour la première fois, puis rechargé la même inscription. À 390 pixels en thème sombre, le sélecteur affiche les deux années avec le parcours et la période active. Le clavier ouvre et ferme les choix. Le changement d’année ouvre l’inscription choisie. [Guide terminé](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/GUIDE.png) · [Années sur téléphone](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/ANNEES.png)
+
+Le recteur a consulté 171 étudiants et 105 inscriptions confirmées pour 2026–2027. Les versements confirmés du profil totalisent 7 342 USD. Le changement d’année charge le rapport 2025–2026 avec 200 étudiants ayant un résultat publié. La vue d’impression conserve l’année et les montants. [Rapport du rectorat](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/RECTORAT.png) · [Impression](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/RAPPORT.png)
+
+Le doyen de Droit a filtré les jurys par année puis ouvert une édition déjà publiée. La page présente les étapes de préparation, d’approbation et de publication. Le vice-doyen de Droit a suivi le lien « Évaluations et corrections pédagogiques ». Le catalogue documentaire ouvre les modèles du type choisi. Les filtres par famille, leur réinitialisation et le raccourci vers les demandes ont été rejoués. [Jurys](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/JURYS.png) · [Édition publiée](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/SESSION.png) · [Documents](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/DOCUMENTS.png) · [Neuf contrôles sur le build servi](preuves/interfaces-universitaires-2026-11-19T14-08-30-953Z/resume.json) · [Accès du vice-doyen](preuves/lien-evaluations-2026-11-19T14-11-37-966Z/EVALUATIONS.png)
+
 | Interaction | Résultat observé | Verdict |
 | --- | --- | --- |
 | Saisir des identifiants erronés avec un autre onglet ouvert | La réponse HTTP 302 conserve la page de connexion et associe l’erreur « Identifiants invalides » au champ. | ✅ |
