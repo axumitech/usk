@@ -21,7 +21,7 @@ async function run(suite, perform) {
         await page.goto(origin + '/app/login', { waitUntil: 'domcontentloaded' });
         await page.locator('#login-email').fill(email);
         await page.locator('#login-password').fill(password || process.env.USK_QA_PASSWORD || 'password');
-        await page.getByRole('button', { name: /se connecter/i }).click();
+        await page.locator('#login-password').press('Enter');
         await page.waitForURL('**/app/dashboard**');
         return page;
     };

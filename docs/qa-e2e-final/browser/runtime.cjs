@@ -2,6 +2,8 @@
 /* eslint @typescript-eslint/no-require-imports: "off" */
 const fs = require('node:fs');
 const path = require('node:path');
+const net = require('node:net');
+const { setTimeout: delay } = require('node:timers/promises');
 const { createHash } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const assert = require('node:assert/strict');
@@ -20,7 +22,29 @@ function probe(...args) {
     return JSON.parse(execFileSync(process.env.USK_QA_PHP || 'php', [path.join(__dirname, 'profile.php'), ...args], { cwd: repo, encoding: 'utf8' }));
 }
 
+// Deux navigateurs visibles se disputent le premier plan sur ce poste Windows.
+// Le système libère le canal même si le pilote est interrompu.
+let desktopLock;
+async function reserveDesktop() {
+    if (process.platform !== 'win32' || desktopLock) return;
+    const pipe = '//./pipe/usk-qa-' + createHash('sha256').update(repo.toLowerCase()).digest('hex').slice(0, 20);
+    const start = Date.now();
+    while (Date.now() - start < 45 * 60 * 1000) {
+        const server = net.createServer((socket) => socket.end());
+        try {
+            await new Promise((resolve, reject) => server.once('error', reject).listen(pipe, resolve));
+            desktopLock = server.unref();
+            return;
+        } catch (error) {
+            if (error.code !== 'EADDRINUSE' && error.code !== 'EACCES') throw error;
+            await delay(1500);
+        }
+    }
+    throw new Error('Une autre recette occupe encore le bureau après 45 minutes.');
+}
+
 async function verify() {
+    await reserveDesktop();
     const local = probe();
     assert.equal(local.origin, origin);
     const response = await fetch(origin + '/__usk_recipe/version', { redirect: 'error', signal: AbortSignal.timeout(45000) });
