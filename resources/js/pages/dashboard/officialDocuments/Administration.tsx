@@ -112,9 +112,9 @@ export default function Administration({
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Documents officiels" />
-            <main className="official-admin">
+            <article className="official-admin" aria-labelledby="official-documents-title">
                 <header className="official-heading">
-                    <h1>Documents officiels</h1>
+                    <h1 id="official-documents-title">Documents officiels</h1>
                     <nav aria-label="Rubriques des documents officiels">
                         <a href="#catalogue">
                             <BookOpen />
@@ -686,7 +686,7 @@ export default function Administration({
                         }}
                     />
                 )}
-            </main>
+            </article>
         </Dashboard>
     );
 }
