@@ -885,12 +885,17 @@ class StudentAcademicJourneyTest extends TestCase
     {
         [$admin, $student, $application, $academic] = $this->admitted();
         $url = '/app/dashboard/student?application='.$application->uuid.'&welcome=1';
+        $dashboard = '/app/dashboard/student?academic='.$academic->id;
+        $acknowledge = '/app/dashboard/student/welcome/acknowledge?academic='.$academic->id;
         $this->actingAs($student)->get($url)->assertOk()->assertInertia(fn (Assert $page) => $page->where('welcome_pending', true));
-        $this->from($url)->post('/app/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect($url);
+        // The private dashboard suppresses Referer, and the previous session URL may be public.
+        $this->withSession(['_previous.url' => url('/')])->post($acknowledge)->assertStatus(303)->assertRedirect($dashboard);
+        $this->get($dashboard)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/student/Portal')->where('academic.id', $academic->id)->where('welcome_pending', false));
         $seen = $student->fresh()->studentProfile->welcome_seen_at;
         $this->assertNotNull($seen);
         $this->travel(1)->day();
-        $this->post('/app/dashboard/student/welcome/acknowledge?academic='.$academic->id)->assertRedirect();
+        $this->from('/')->post($acknowledge)->assertStatus(303)->assertRedirect($dashboard);
         $this->assertTrue($seen->equalTo($student->fresh()->studentProfile->welcome_seen_at));
         $this->get($url)->assertInertia(fn (Assert $page) => $page->where('welcome_pending', false));
         $outsider = $this->user('welcome-outsider@example.test', 'student');

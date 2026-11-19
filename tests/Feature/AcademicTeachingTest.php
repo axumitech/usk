@@ -210,7 +210,16 @@ class AcademicTeachingTest extends TestCase
         $this->post($admin.'/rules/'.$rule->id.'/approval', ['reason' => self::REASON])->assertForbidden();
         $approval = $admin.'/rules/'.$rule->id.'/approval';
         $ruleWorkspace = $admin.'?rule='.$rule->id;
+        $dean = User::factory()->create();
+        $dean->assignRole('dean');
+        $dean->academicFaculties()->attach($entry->level->faculty_id);
+        $this->actingAs($dean)->get($ruleWorkspace)->assertInertia(fn (Assert $page) => $page
+            ->where('rule.can_approve', true)->where('permissions.assessments', false));
+        $this->get('/app/dashboard/admin/assessments')->assertForbidden();
         $this->actingAs($publisher)->from('/app/dashboard')->post($approval, [])->assertRedirect($ruleWorkspace)->assertSessionHasErrors('reason');
+        $this->get($ruleWorkspace)->assertInertia(fn (Assert $page) => $page
+            ->where('rule.can_approve', true)->where('permissions.assessments', true)
+            ->where('years.0.id', $version->academic_year_id)->where('years.0.title', $version->academicYear->title));
         $this->from('/app/dashboard')->post($approval, ['reason' => self::REASON])->assertStatus(303)->assertRedirect($ruleWorkspace)
             ->assertInertiaFlash('dashboardAction', 'Règlement de résultats approuvé.');
         $this->actingAs($manager)->post($admin.'/rules/'.$rule->id.'/deliberations', $juryForm)->assertStatus(303)->assertSessionHasNoErrors();
@@ -245,11 +254,17 @@ class AcademicTeachingTest extends TestCase
         $move('publish', ['revision' => 1, 'notify' => true])->assertStatus(303);
         $this->assertDatabaseCount('notifications', 1);
         $this->get($admin.'?run='.$run->id.'&result='.$result->id)->assertInertia(fn (Assert $page) => $page
-            ->component('dashboard/results/Administration')->where('run.state', 'published')->where('result.annual', '12.80'));
+            ->component('dashboard/results/Administration')->where('run.state', 'published')->where('run.publisher', $publisher->full_name)
+            ->where('rule.can_approve', false)->where('result.annual', '12.80'));
+        $this->get($admin.'?year='.$entry->academic_year_id.'&state=published')->assertInertia(fn (Assert $page) => $page
+            ->has('versions.data', 1)->has('rules.data', 1)->has('runs.data', 1)->where('runs.data.0.id', $run->id));
+        $this->get($admin.'?year=999999')->assertInertia(fn (Assert $page) => $page
+            ->has('versions.data', 0)->has('rules.data', 0)->has('runs.data', 0));
         $foreign = User::factory()->create();
         $foreign->assignRole('admin')->givePermissionTo('publish official results');
         $foreign->academicFaculties()->attach(DB::table('faculties')->insertGetId(['name' => 'Faculté externe', 'code' => 'EXT']));
         $this->actingAs($foreign)->get($admin.'/certified/'.$result->id)->assertForbidden();
+        $this->get($admin)->assertInertia(fn (Assert $page) => $page->has('years', 0)->has('runs.data', 0));
         $this->get($admin.'?run='.$run->id)->assertNotFound();
         $this->actingAs($publisher);
         $this->get($admin.'/certified/'.$result->id)->assertOk()->assertJsonPath('snapshot.annual', '12.80')
