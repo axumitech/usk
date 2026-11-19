@@ -119,7 +119,7 @@ export default function ProfilePageHeading({
                                 {context && context.options.length > 1 && (
                                     <>
                                         <ChevronDown size={13} aria-hidden="true" />
-                                        <StudentYearSelect context={context} section="profile" className="sp-year-select" />
+                                        <StudentYearSelect context={context} section="profile" />
                                     </>
                                 )}
                             </dd>

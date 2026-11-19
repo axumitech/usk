@@ -3,7 +3,9 @@ import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import AcademicForm, { type Field, type FormSpec } from '@/pages/dashboard/studentAcademic/AcademicForm';
 import { dateTime } from '@/pages/dashboard/teaching/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import { ArrowLeft, ArrowRight, BookOpen, ChevronRight, ClipboardCheck, Files, Gavel, ListFilter, Send } from 'lucide-react';
 import { useState } from 'react';
+import '../../../../css/dashboard/academic-results.css';
 import '../../../../css/dashboard/student-academic.css';
 import '../../../../css/student-portal.css';
 
@@ -16,6 +18,7 @@ type Rule = {
     reference: string;
     session_code: string;
     approved_at: string | null;
+    can_approve?: boolean;
     configuration?: { period_code?: string | null; base_rule_id?: number | null };
     periods?: Period[];
 };
@@ -26,6 +29,10 @@ type Run = {
     state: string;
     revision: number;
     meeting_at: string;
+    approved_at: string | null;
+    published_at: string | null;
+    previous_id: number | null;
+    publisher?: string | null;
     minutes_volumes: number;
     context: {
         year: string;
@@ -78,7 +85,8 @@ type Appeal = {
 type Props = {
     filters: Record<string, string | number | undefined>;
     actor: number;
-    permissions: { manage: boolean; publish: boolean; jury: boolean };
+    permissions: { manage: boolean; publish: boolean; jury: boolean; assessments: boolean };
+    years: { id: number; title: string }[];
     members: { id: number; name: string }[];
     versions: Page<{ id: number; title: string }>;
     version: { id: number; code: string; periods?: Period[] } | null;
@@ -116,6 +124,71 @@ const appealStates: Record<string, string> = {
 };
 const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true };
 const credits = (value: number) => new Intl.NumberFormat('fr', { maximumFractionDigits: 2 }).format(value / 100);
+
+function JuryDirectory({ runs, filters, rule }: Pick<Props, 'runs' | 'filters' | 'rule'>) {
+    const scope = { year: filters.year, version: filters.version, rule: rule?.id };
+    return (
+        <section className="portal-panel jury-panel" id="deliberations" aria-labelledby="jury-heading">
+            <header>
+                <div>
+                    <h2 id="jury-heading">Délibérations</h2>
+                    <p>Choisissez une session pour consulter ses dossiers ou intervenir à l’étape en cours.</p>
+                </div>
+            </header>
+            <nav className="jury-states" aria-label="État du jury">
+                <Link href={route(prefix + 'index', scope) + '#deliberations'} aria-current={!filters.state ? 'page' : undefined}>
+                    Toutes
+                </Link>
+                {Object.entries(states).map(([key, label]) => (
+                    <Link
+                        key={key}
+                        href={route(prefix + 'index', { ...scope, state: key }) + '#deliberations'}
+                        aria-current={filters.state === key ? 'page' : undefined}
+                    >
+                        {label}
+                    </Link>
+                ))}
+            </nav>
+            <div data-dashboard-panel="year rule state runs_page">
+                {runs.data.length ? (
+                    <ul className="jury-list">
+                        {runs.data.map((row) => (
+                            <li key={row.id}>
+                                <Link href={route(prefix + 'index', { ...scope, state: filters.state, run: row.id })} className="jury-row">
+                                    <span>
+                                        <strong>
+                                            {row.context.program} · {row.context.level}
+                                        </strong>
+                                        <small>
+                                            {row.context.year} · {row.context.period_name || 'Session ' + row.context.session} · Édition {row.edition}{' '}
+                                            · Jury n°{row.id}
+                                        </small>
+                                    </span>
+                                    <span className="jury-status" data-state={row.state}>
+                                        {states[row.state]}
+                                    </span>
+                                    <ChevronRight aria-hidden="true" size={17} />
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="jury-empty">Aucune délibération dans cette vue.</p>
+                )}
+            </div>
+            <Pagination value={runs} />
+        </section>
+    );
+}
+
+const stageAdvice: Record<string, string> = {
+    prepared: 'À la date prévue, la présidence fait l’appel et ouvre la séance lorsque le quorum est atteint.',
+    open: 'Les membres présents motivent une décision dans chaque dossier. La présidence approuve ensuite l’ensemble des décisions.',
+    approved:
+        'Les décisions sont approuvées. Le doyen ou une autre autorité habilitée à publier dans cette faculté peut maintenant publier toute la session.',
+    published: 'Chaque étudiant autorisé peut consulter sa décision et son bulletin dans Mes résultats.',
+    abandoned: 'La préparation a été abandonnée. Cette édition est conservée pour consultation.',
+};
 
 function RuleForm({ version, levels, periods }: { version: number; levels: Props['levels']; periods: Period[] }) {
     const form = useForm({ level_id: '', period_code: '', code: '', session_code: '', effective_on: '', reference: '', configuration: '' });
@@ -421,6 +494,9 @@ export default function Administration(props: Props) {
             action === 'publish' ? [reason, { name: 'notify', type: 'checkbox', label: 'Notifier les étudiants autorisés' }] : [reason],
         );
     const index = route(prefix + 'index');
+    const scope = { year: filters.year, version: filters.version, rule: filters.rule, state: filters.state };
+    const canViewMinutes = run && (permissions.publish || (permissions.jury && Boolean(run.jury.members[String(actor)])));
+    const landing = !run && !rule && !version;
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Résultats et délibérations" />
@@ -434,23 +510,77 @@ export default function Administration(props: Props) {
                     }}
                 />
             )}
-            <main className="student-portal academic-administration">
+            <main className="student-portal academic-administration results-workspace">
                 <header className="directory-heading">
                     <div>
                         <h1>Résultats et délibérations</h1>
-                        <p>Règlements, dossiers de jury, publications et recours.</p>
+                        <p>Sessions de jury, décisions officielles et recours des étudiants.</p>
                     </div>
-                    <Link href={route('dashboard.admin.assessments.index')}>Évaluations et corrections pédagogiques</Link>
+                    {permissions.assessments && (
+                        <div className="directory-heading-actions">
+                            <Link href={route('dashboard.admin.assessments.index')}>
+                                <ClipboardCheck size={17} aria-hidden="true" /> Évaluations et corrections pédagogiques{' '}
+                                <ArrowRight size={16} aria-hidden="true" />
+                            </Link>
+                        </div>
+                    )}
                 </header>
+                {!landing && (
+                    <Link className="jury-back" href={route(prefix + 'index', run ? scope : { year: filters.year })}>
+                        <ArrowLeft size={16} aria-hidden="true" /> {run ? 'Retour à la liste des jurys' : 'Retour à la vue d’ensemble'}
+                    </Link>
+                )}
                 {message && (
                     <p role="status" className="portal-alert">
                         {message}
                     </p>
                 )}
-                <section className="portal-panel">
-                    <h2>Maquettes et règlements</h2>
+                {landing && (
+                    <section className="portal-panel jury-panel jury-workflow" aria-labelledby="publication-heading">
+                        <h2 id="publication-heading">Comment publier les résultats d’une session ?</h2>
+                        <ol>
+                            <li>
+                                <Files aria-hidden="true" />
+                                <div>
+                                    <strong>Préparer les dossiers</strong>
+                                    <p>Le service des résultats prépare le jury à partir d’un règlement approuvé.</p>
+                                </div>
+                            </li>
+                            <li>
+                                <Gavel aria-hidden="true" />
+                                <div>
+                                    <strong>Décider et approuver</strong>
+                                    <p>Les membres présents décident pour chaque étudiant. La présidence du jury approuve l’ensemble.</p>
+                                </div>
+                            </li>
+                            <li>
+                                <Send aria-hidden="true" />
+                                <div>
+                                    <strong>Publier la session</strong>
+                                    <p>
+                                        Le doyen ou l’autorité habilitée ouvre un jury approuvé et publie ses résultats pour les étudiants concernés.
+                                    </p>
+                                </div>
+                            </li>
+                        </ol>
+                        <nav className="jury-shortcuts" aria-label="Rubriques des résultats">
+                            <a href="#deliberations">
+                                Consulter les jurys <ArrowRight aria-hidden="true" />
+                            </a>
+                            <a href="#reglements">
+                                Maquettes et règlements <ArrowRight aria-hidden="true" />
+                            </a>
+                            {props.appeals && (
+                                <a href="#recours">
+                                    Recours <ArrowRight aria-hidden="true" />
+                                </a>
+                            )}
+                        </nav>
+                    </section>
+                )}
+                {!run && (
                     <form
-                        className="schedule-filters"
+                        className="jury-filter"
                         onSubmit={(event) => {
                             event.preventDefault();
                             const year = new FormData(event.currentTarget).get('year');
@@ -458,150 +588,224 @@ export default function Administration(props: Props) {
                         }}
                     >
                         <label>
-                            Identifiant de l’année <input name="year" type="number" min={1} defaultValue={filters.year} />
+                            Année académique
+                            <select key={filters.year ?? 'all'} name="year" defaultValue={filters.year ?? ''}>
+                                <option value="">Toutes les années</option>
+                                {props.years.map((year) => (
+                                    <option key={year.id} value={year.id}>
+                                        {year.title}
+                                    </option>
+                                ))}
+                            </select>
                         </label>
-                        <button className="admin-secondary">Filtrer</button>
+                        <button type="submit" className="admin-secondary">
+                            <ListFilter size={16} aria-hidden="true" /> Filtrer
+                        </button>
                     </form>
-                    {props.versions.data.length ? (
-                        <ul data-dashboard-panel="year versions_page">
-                            {props.versions.data.map((row) => (
-                                <li key={row.id}>
-                                    <Link href={route(prefix + 'index', { version: row.id })}>{row.title}</Link>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p data-dashboard-panel="year versions_page">Aucune maquette publiée dans ce périmètre.</p>
-                    )}
-                    <Pagination value={props.versions} />
-                    {version && permissions.manage && (
-                        <RuleForm key={version.id} version={version.id} levels={props.levels} periods={version.periods ?? []} />
-                    )}
-                    {version && (
-                        <details>
-                            <summary>Identifiants des EC et des évaluations</summary>
-                            <ul>
-                                {props.items.map((item) => (
-                                    <li key={item.id}>
-                                        EC {item.id} · {item.title} · niveau {item.level_id}
+                )}
+                {landing && <JuryDirectory {...props} />}
+                {!run && (
+                    <section className="portal-panel jury-panel" id="reglements">
+                        <header>
+                            <div>
+                                <h2>Maquettes et règlements</h2>
+                                <p>Ouvrez une maquette pour consulter ses règlements ou un règlement approuvé pour préparer un jury.</p>
+                            </div>
+                        </header>
+                        <h3>
+                            <BookOpen aria-hidden="true" size={18} /> Maquettes publiées
+                        </h3>
+                        {props.versions.data.length ? (
+                            <ul className="jury-list jury-versions" data-dashboard-panel="year versions_page">
+                                {props.versions.data.map((row) => (
+                                    <li key={row.id}>
+                                        <Link
+                                            className="jury-row"
+                                            href={route(prefix + 'index', { year: filters.year, version: row.id }) + '#maquette-selectionnee'}
+                                            aria-current={row.id === version?.id ? 'page' : undefined}
+                                        >
+                                            <span>{row.title}</span>
+                                            <ChevronRight size={16} aria-hidden="true" />
+                                        </Link>
                                     </li>
                                 ))}
                             </ul>
-                            <ul data-dashboard-panel="version sources_page">
-                                {props.assessments?.data.map((item) => (
-                                    <li key={item.id}>
-                                        Évaluation {item.id} · {item.title} · EC {item.ec} · {item.session} · {item.state}
-                                    </li>
-                                ))}
-                            </ul>
-                            <Pagination value={props.assessments} />
-                        </details>
-                    )}
-                    <ul data-dashboard-panel="version rule rules_page">
-                        {props.rules.data.map((row) => (
-                            <li key={row.id}>
-                                <Link href={route(prefix + 'index', { rule: row.id })}>
-                                    {row.code} · {row.reference} · {row.session_code}
-                                </Link>{' '}
-                                · {row.approved_at ? 'Approuvé' : 'À approuver'}
-                            </li>
-                        ))}
-                    </ul>
-                    <Pagination value={props.rules} />
-                    {rule && (
-                        <>
-                            <h3>
-                                {rule.code} · {rule.reference}
-                            </h3>
-                            {rule.configuration && (
-                                <details>
-                                    <summary>Voir le règlement enregistré</summary>
-                                    <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(rule.configuration, null, 2)}</pre>
-                                </details>
-                            )}
-                            {!rule.approved_at && permissions.publish && (
-                                <button
-                                    className="admin-primary"
-                                    onClick={() => open('Approuver le règlement', route(prefix + 'approve-rule', rule.id), {})}
-                                >
-                                    Approuver
-                                </button>
-                            )}
-                            {rule.approved_at && permissions.manage && <PrepareForm key={rule.id} rule={rule} members={props.members} />}
-                        </>
-                    )}
-                </section>
-                <section className="portal-panel">
-                    <h2>Délibérations</h2>
-                    <nav className="student-dossier-links" aria-label="État du jury">
-                        <Link href={route(prefix + 'index', { rule: rule?.id })}>Toutes</Link>
-                        {Object.entries(states).map(([key, label]) => (
-                            <Link key={key} href={route(prefix + 'index', { rule: rule?.id, state: key })}>
-                                {label}
-                            </Link>
-                        ))}
-                    </nav>
-                    {props.runs.data.length ? (
-                        <ul data-dashboard-panel="rule state runs_page">
-                            {props.runs.data.map((row) => (
+                        ) : (
+                            <p data-dashboard-panel="year versions_page">Aucune maquette publiée dans ce périmètre.</p>
+                        )}
+                        <Pagination value={props.versions} />
+                        {version && <h3 id="maquette-selectionnee">Maquette sélectionnée · {version.code}</h3>}
+                        {version && permissions.manage && (
+                            <RuleForm key={version.id} version={version.id} levels={props.levels} periods={version.periods ?? []} />
+                        )}
+                        {version && (
+                            <details>
+                                <summary>Identifiants des EC et des évaluations</summary>
+                                <ul>
+                                    {props.items.map((item) => (
+                                        <li key={item.id}>
+                                            EC {item.id} · {item.title} · niveau {item.level_id}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <ul data-dashboard-panel="version sources_page">
+                                    {props.assessments?.data.map((item) => (
+                                        <li key={item.id}>
+                                            Évaluation {item.id} · {item.title} · EC {item.ec} · {item.session} · {item.state}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <Pagination value={props.assessments} />
+                            </details>
+                        )}
+                        <h3>Règlements {version ? 'de la maquette' : 'de résultats'}</h3>
+                        {props.rules.data.length === 0 && <p className="jury-empty">Aucun règlement pour cette sélection.</p>}
+                        <ul className="jury-list" data-dashboard-panel="year version rule rules_page">
+                            {props.rules.data.map((row) => (
                                 <li key={row.id}>
-                                    <Link href={route(prefix + 'index', { run: row.id })}>
-                                        {row.context.program} · {row.context.level} · {row.context.year} ·{' '}
-                                        {row.context.period_name || row.context.session}
-                                    </Link>{' '}
-                                    · {states[row.state]} · Édition {row.edition} · n°{row.id}
+                                    <Link
+                                        className="jury-row"
+                                        href={
+                                            route(prefix + 'index', { year: filters.year, version: filters.version, rule: row.id }) +
+                                            '#reglement-selectionne'
+                                        }
+                                        aria-current={row.id === rule?.id ? 'page' : undefined}
+                                    >
+                                        <span>
+                                            <strong>
+                                                {row.code} · {row.session_code}
+                                            </strong>
+                                            <small>{row.reference}</small>
+                                        </span>
+                                        <span className="jury-status" data-state={row.approved_at ? 'approved' : 'prepared'}>
+                                            {row.approved_at ? 'Approuvé' : 'À approuver'}
+                                        </span>
+                                        <ChevronRight size={16} aria-hidden="true" />
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
-                    ) : (
-                        <p data-dashboard-panel="rule state runs_page">Aucune délibération dans cette vue.</p>
-                    )}
-                    <Pagination value={props.runs} />
-                </section>
+                        <Pagination value={props.rules} />
+                        {rule && (
+                            <div className="jury-current" id="reglement-selectionne">
+                                <h3>Règlement sélectionné · {rule.code}</h3>
+                                <p>{rule.reference}</p>
+                                {!rule.approved_at && (
+                                    <p>
+                                        Une autre personne habilitée à publier les résultats doit approuver ce règlement avant la préparation du jury.
+                                    </p>
+                                )}
+                                {rule.configuration && (
+                                    <details>
+                                        <summary>Voir le règlement enregistré</summary>
+                                        <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(rule.configuration, null, 2)}</pre>
+                                    </details>
+                                )}
+                                {rule.can_approve && (
+                                    <button
+                                        className="admin-primary"
+                                        onClick={() => open('Approuver le règlement', route(prefix + 'approve-rule', rule.id), {})}
+                                    >
+                                        Approuver
+                                    </button>
+                                )}
+                                {rule.approved_at && permissions.manage && <PrepareForm key={rule.id} rule={rule} members={props.members} />}
+                            </div>
+                        )}
+                    </section>
+                )}
+                {!landing && !run && <JuryDirectory {...props} />}
                 {run && (
-                    <section className="portal-panel">
-                        <h2>
-                            {run.context.program} · {run.context.level}
-                        </h2>
-                        <p>
-                            {states[run.state]} · {run.context.period_name || `Session ${run.context.session}`} · Édition {run.edition} · Jury prévu
-                            le {dateTime(run.meeting_at)}
-                        </p>
-                        <p>{props.undecided ?? 0} dossier(s) sans décision.</p>
-                        <div className="student-dossier-links">
-                            {(permissions.publish || run.jury.members[String(actor)]) &&
-                                run.state !== 'abandoned' &&
-                                Array.from({ length: run.minutes_volumes }, (_, index) => (
-                                    <a key={index} href={route(prefix + 'minutes', { run: run.id, volume: index + 1 })}>
-                                        {['approved', 'published'].includes(run.state) ? 'Procès-verbal approuvé' : 'Procès-verbal provisoire'}
-                                        {run.minutes_volumes > 1 && ` · Volume ${index + 1}`}
-                                    </a>
-                                ))}
-                            {run.state === 'published' && permissions.publish && (
-                                <a href={route(prefix + 'export', run.id)}>Exporter les résultats publiés (CSV)</a>
+                    <section className="portal-panel jury-panel" id="jury-selectionne">
+                        <header>
+                            <div>
+                                <h2>
+                                    {run.context.program} · {run.context.level}
+                                </h2>
+                                <p>
+                                    {run.context.year} · {run.context.period_name || `Session ${run.context.session}`} · Édition {run.edition} · Jury
+                                    n°{run.id}
+                                </p>
+                            </div>
+                            <span className="jury-status" data-state={run.state}>
+                                {states[run.state]}
+                            </span>
+                        </header>
+                        <div className="jury-current">
+                            <h3>{run.state === 'published' ? 'Résultats publiés' : 'Suivi de la délibération'}</h3>
+                            <p>{stageAdvice[run.state]}</p>
+                            <dl className="jury-history">
+                                <div>
+                                    <dt>Séance prévue</dt>
+                                    <dd>{dateTime(run.meeting_at)}</dd>
+                                </div>
+                                <div>
+                                    <dt>Présidence</dt>
+                                    <dd>{run.jury.members[String(run.jury.chair)]}</dd>
+                                </div>
+                                {run.approved_at && (
+                                    <div>
+                                        <dt>Approbation</dt>
+                                        <dd>{dateTime(run.approved_at)}</dd>
+                                    </div>
+                                )}
+                                {run.published_at && (
+                                    <div>
+                                        <dt>Publication</dt>
+                                        <dd>
+                                            {dateTime(run.published_at)}
+                                            {run.publisher && ' · ' + run.publisher}
+                                        </dd>
+                                    </div>
+                                )}
+                            </dl>
+                            {run.previous_id && (permissions.publish || permissions.manage) && (
+                                <Link className="jury-text-link" href={route(prefix + 'index', { run: run.previous_id })}>
+                                    Consulter l’édition publiée précédente
+                                </Link>
                             )}
-                            {run.state === 'open' && actor === run.jury.chair && permissions.jury && (
-                                <button className="admin-primary" onClick={() => transition('approve', 'Approuver les décisions')}>
-                                    Approuver
-                                </button>
-                            )}
-                            {run.state === 'approved' && permissions.publish && (
-                                <button className="admin-primary" onClick={() => transition('publish', 'Publier tous les résultats du jury')}>
-                                    Publier la session
-                                </button>
-                            )}
-                            {!['published', 'abandoned'].includes(run.state) && permissions.manage && (
-                                <button className="admin-secondary" onClick={() => transition('abandon', 'Abandonner cette préparation')}>
-                                    Abandonner
-                                </button>
-                            )}
+                            {run.state === 'open' && <p>{props.undecided ?? 0} dossier(s) sans décision.</p>}
+                            <div className="jury-actions">
+                                {run.state === 'open' && actor === run.jury.chair && permissions.jury && props.undecided === 0 && (
+                                    <button className="admin-primary" onClick={() => transition('approve', 'Approuver les décisions')}>
+                                        Approuver
+                                    </button>
+                                )}
+                                {run.state === 'approved' && permissions.publish && (
+                                    <button className="admin-primary" onClick={() => transition('publish', 'Publier tous les résultats du jury')}>
+                                        Publier la session
+                                    </button>
+                                )}
+                                {!['published', 'abandoned'].includes(run.state) && permissions.manage && (
+                                    <button className="admin-secondary" onClick={() => transition('abandon', 'Abandonner cette préparation')}>
+                                        Abandonner
+                                    </button>
+                                )}
+                            </div>
+                            {run.state === 'prepared' && actor === run.jury.chair && permissions.jury && <OpenJury key={run.id} run={run} />}
                         </div>
-                        {run.state === 'prepared' && actor === run.jury.chair && permissions.jury && <OpenJury key={run.id} run={run} />}
+                        {run.state !== 'abandoned' && canViewMinutes && (
+                            <div className="jury-downloads">
+                                <h3>Documents de la session</h3>
+                                <div className="jury-actions">
+                                    {Array.from({ length: run.minutes_volumes }, (_, index) => (
+                                        <a key={index} href={route(prefix + 'minutes', { run: run.id, volume: index + 1 })}>
+                                            {['approved', 'published'].includes(run.state) ? 'Procès-verbal approuvé' : 'Procès-verbal provisoire'}
+                                            {run.minutes_volumes > 1 && ` · Volume ${index + 1}`}
+                                        </a>
+                                    ))}
+                                    {run.state === 'published' && permissions.publish && (
+                                        <a href={route(prefix + 'export', run.id)}>Exporter les résultats publiés (CSV)</a>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        <h3>Dossiers des étudiants</h3>
                         <form
-                            className="schedule-filters"
+                            className="jury-filter"
                             onSubmit={(event) => {
                                 event.preventDefault();
-                                router.get(index, { run: run.id, q: String(new FormData(event.currentTarget).get('q') || '') });
+                                router.get(index, { ...scope, run: run.id, q: String(new FormData(event.currentTarget).get('q') || '') });
                             }}
                         >
                             <label>
@@ -609,7 +813,8 @@ export default function Administration(props: Props) {
                             </label>
                             <button className="admin-secondary">Rechercher</button>
                         </form>
-                        <div style={{ overflowX: 'auto' }} data-dashboard-panel="run q dossiers_page">
+                        {props.dossiers?.data.length === 0 && <p className="jury-empty">Aucun dossier trouvé pour cette recherche.</p>}
+                        <div className="jury-table-wrap" data-dashboard-panel="run q dossiers_page">
                             <table className="admin-table">
                                 <thead>
                                     <tr>
@@ -623,7 +828,12 @@ export default function Administration(props: Props) {
                                     {props.dossiers?.data.map((row) => (
                                         <tr key={row.id}>
                                             <td>
-                                                <Link href={route(prefix + 'index', { run: run.id, result: row.id })}>
+                                                <Link
+                                                    href={
+                                                        route(prefix + 'index', { ...scope, run: run.id, q: filters.q, result: row.id }) +
+                                                        '#dossier-selectionne'
+                                                    }
+                                                >
                                                     {row.student} · {row.matricule ?? row.academic_enrollment_id}
                                                 </Link>
                                             </td>
@@ -644,8 +854,8 @@ export default function Administration(props: Props) {
                     </section>
                 )}
                 {run && result && (
-                    <section className="portal-panel">
-                        <h2>{result.student}</h2>
+                    <section className="portal-panel jury-panel" id="dossier-selectionne">
+                        <h2>Dossier de {result.student}</h2>
                         <p>
                             Moyenne {result.period_grade ?? result.annual ?? 'indisponible'} · {credits(result.credits.earned)} crédits acquis.
                         </p>
@@ -701,9 +911,12 @@ export default function Administration(props: Props) {
                     </section>
                 )}
                 {props.appeals && (
-                    <section className="portal-panel" id="recours">
+                    <section className="portal-panel jury-panel" id="recours">
                         <h2>Recours sur résultats officiels</h2>
-                        <p>{props.pending_appeals} recours en cours.</p>
+                        <p>
+                            {props.pending_appeals} recours en cours{run ? ' pour cette session' : ' dans la sélection'}.
+                        </p>
+                        {!props.appeals.data.length && <p className="jury-empty">Aucun recours enregistré.</p>}
                         {props.appeals.data.map((appeal) => (
                             <article key={appeal.id} className="portal-ticket">
                                 <h3>

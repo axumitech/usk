@@ -4,11 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\AcademicStructure\AcademicProgram;
 use App\Models\AcademicStructure\AcademicPromotion;
-use App\Models\AcademicYear;
-use App\Models\Faculty;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\User;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Student\Application\Services\RectorReport;
 use App\Notifications\PromotionMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,17 +15,14 @@ use Inertia\Inertia;
 
 final class DelegationWorkspaceController
 {
-    public function index(Request $request)
+    public function index(Request $request, RectorReport $report)
     {
         $actor = $request->user();
         if ($actor->hasRole('rector') && $actor->can('view institutional indicators')) {
-            return Inertia::render('dashboard/delegation/Index', [
-                'title' => 'Rectorat',
-                'indicators' => ['Facultés actives' => Faculty::where('is_active', true)->count(),
-                    'Années ouvertes' => AcademicYear::where('status', 'open')->count(),
-                    'Inscriptions confirmées des années ouvertes' => AcademicEnrollment::where('enrollment_status', 'confirmed')
-                        ->whereHas('academicYear', fn ($year) => $year->where('status', 'open'))->count()],
-            ]);
+            $filters = $request->validate(['year' => ['nullable', 'integer', 'exists:academic_years,id']]);
+
+            return Inertia::render('dashboard/delegation/Index', ['title' => 'Rectorat']
+                + $report->overview(isset($filters['year']) ? (int) $filters['year'] : null));
         }
         if ($actor->hasRole('department-head') && $actor->can('view department programs')) {
             $assigned = DB::table('department_staff')->where('user_id', $actor->id)->select('department_id');

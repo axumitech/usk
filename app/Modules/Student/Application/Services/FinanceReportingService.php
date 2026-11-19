@@ -20,7 +20,11 @@ final class FinanceReportingService
 
     public function totals(User $actor, array $filters): array
     {
-        $ids = $this->entries($actor, $filters)->select('academic_enrollments.id');
+        return $this->totalsForEnrollments($this->entries($actor, $filters)->select('academic_enrollments.id')->toBase());
+    }
+
+    public function totalsForEnrollments(Builder $ids): array
+    {
         $billed = StudentObligation::join('academic_enrollments', 'academic_enrollments.id', '=', 'student_obligations.academic_enrollment_id')
             ->whereIn('academic_enrollments.id', $ids)->selectRaw('academic_enrollments.currency, SUM(student_obligations.amount_cents) AS billed_cents')->groupBy('academic_enrollments.currency')->get()->keyBy('currency');
         $cash = StudentPayment::whereIn('academic_enrollment_id', $ids)->selectRaw("currency, SUM(CASE WHEN status IN ('confirmed','refunded') THEN amount_cents ELSE 0 END) AS gross_cents, SUM(CASE WHEN status = 'pending' THEN amount_cents ELSE 0 END) AS pending_cents, SUM(CASE WHEN status = 'cancelled' THEN amount_cents ELSE 0 END) AS cancelled_cents, SUM(CASE WHEN status = 'refunded' AND NOT EXISTS (SELECT 1 FROM student_payment_refunds r WHERE r.student_payment_id = student_payments.id AND r.status = 'executed') THEN amount_cents ELSE 0 END) AS legacy_reversal_cents")->groupBy('currency')->get()->keyBy('currency');

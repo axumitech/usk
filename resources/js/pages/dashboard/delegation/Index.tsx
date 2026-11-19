@@ -1,30 +1,23 @@
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { Head, Link, useForm } from '@inertiajs/react';
+import RectorDashboard, { type RectorProps } from './RectorDashboard';
 
 type Props = {
     title: string;
-    indicators?: Record<string, number>;
     programs?: { id: number; code: string; name: string; is_active: boolean }[];
     promotions?: { id: number; name: string }[];
-};
+} & Partial<RectorProps>;
 
-export default function Delegation({ title, indicators, programs, promotions }: Props) {
+export default function Delegation({ title, indicators, years, report, programs, promotions }: Props) {
     const form = useForm({ promotion: promotions?.[0]?.id ?? 0, message: '' });
     return (
         <Dashboard>
             <Head title={title} />
-            <main className="mx-auto max-w-4xl space-y-6 p-4 text-slate-900 sm:p-8 dark:text-slate-100">
+            {indicators && years ? (
+                <RectorDashboard indicators={indicators} years={years} report={report ?? null} />
+            ) : (
+            <div className="mx-auto max-w-4xl space-y-6 p-4 text-slate-900 sm:p-8 dark:text-slate-100">
                 <h1 className="text-3xl font-semibold">{title}</h1>
-                {indicators && (
-                    <dl className="grid gap-5 sm:grid-cols-3">
-                        {Object.entries(indicators).map(([label, value]) => (
-                            <div key={label}>
-                                <dt>{label}</dt>
-                                <dd className="text-2xl font-bold">{value}</dd>
-                            </div>
-                        ))}
-                    </dl>
-                )}
                 {programs && (
                     <section>
                         <h2 className="mb-3 text-xl font-semibold">Programmes de vos départements</h2>
@@ -85,7 +78,7 @@ export default function Delegation({ title, indicators, programs, promotions }: 
                                     />
                                 </label>
                                 {(form.errors.promotion || form.errors.message) && <p role="alert">{form.errors.promotion || form.errors.message}</p>}
-                                <button className="rounded bg-blue-800 px-4 py-2 text-white" disabled={form.processing}>
+                                <button className="rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800" disabled={form.processing}>
                                     Envoyer à ma promotion
                                 </button>
                             </form>
@@ -94,7 +87,8 @@ export default function Delegation({ title, indicators, programs, promotions }: 
                         )}
                     </section>
                 )}
-            </main>
+            </div>
+            )}
         </Dashboard>
     );
 }

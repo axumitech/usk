@@ -1,0 +1,131 @@
+.rector-report {
+    --rr-surface: var(--usk-night-surface, #fffefa);
+    --rr-ink: var(--usk-night-text, #17392e);
+    --rr-subtle: var(--usk-night-muted, #53665a);
+    --rr-line: var(--usk-night-border, #d3dfd5);
+    --rr-tint: var(--usk-night-positive, #edf4ed);
+    --rr-accent: var(--usk-night-mint, #236349);
+    color: var(--rr-ink);
+    display: grid;
+    gap: 1.15rem;
+    max-width: 90rem;
+    margin-inline: auto;
+    font-variant-numeric: tabular-nums;
+}
+.rector-report svg { width: 1.2rem; height: 1.2rem; flex: 0 0 auto; stroke-width: 1.7; }
+.rector-hero {
+    padding: clamp(1.25rem, 3vw, 2.25rem);
+    border: 1px solid #476f59;
+    border-radius: 1rem;
+    color: #fffdf5;
+    background: linear-gradient(108deg, #103931, #164a3b 65%, #235642);
+}
+.rector-hero-top, .rector-hero-top > div, .rector-period {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.9rem;
+}
+.rector-hero-top > div { justify-content: start; }
+.rector-hero-icon {
+    display: grid; place-items: center; width: 2.75rem; height: 2.75rem;
+    border: 1px solid #779986; border-radius: 0.75rem; color: #f0d58d;
+}
+.rector-hero-icon svg { width: 1.65rem; height: 1.65rem; }
+.rector-report .rector-hero h1 { color: #fffdf5; }
+.rector-print {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;
+    min-height: 2.75rem; padding: 0.55rem 0.95rem; border: 1px solid #b6cabd;
+    border-radius: 0.65rem; color: #17392e; background: #f3f6ed; font-size: 0.88rem; font-weight: 700; cursor: pointer;
+}
+.rector-print:hover { background: #dfeada; }
+.rector-institution {
+    display: flex; flex-wrap: wrap; gap: 0.55rem 1.75rem;
+    margin-top: 0.85rem; padding-top: 0.95rem; border-top: 1px solid #58796b;
+}
+.rector-institution > div { display: inline-flex; flex-direction: row-reverse; align-items: baseline; gap: 0.4rem; }
+.rector-institution dt { color: #dceade; font-size: 0.82rem; }
+.rector-institution dd { margin: 0; color: #fffdf5; font-size: 1.05rem; font-weight: 700; }
+.rector-period { margin-top: 0.4rem; }
+.rector-period h2 { font: 400 clamp(1.65rem, 3vw, 2.1rem)/1.15 'Libre Caslon Display', Georgia, serif; }
+.rector-period p, .rector-year > span, .rector-empty, .rector-metric small { color: var(--rr-subtle); }
+.rector-period p { font-size: 0.9rem; margin-top: 0.2rem; }
+.rector-year { display: grid; gap: 0.25rem; }
+.rector-year > span { font-size: 0.78rem; font-weight: 650; }
+.rector-year select {
+    min-height: 2.75rem; padding: 0.45rem 0.75rem; border: 1px solid var(--rr-line); border-radius: 0.55rem;
+    appearance: auto; font: inherit; color: var(--rr-ink); background: var(--rr-surface); cursor: pointer;
+}
+.rector-year option { color: var(--rr-ink); background: var(--rr-surface); }
+.rector-metrics, .rector-columns { display: grid; gap: 1rem; }
+.rector-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.rector-columns { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: start; }
+.rector-metric, .rector-panel {
+    min-width: 0; border: 1px solid var(--rr-line); border-radius: 0.85rem;
+    padding: clamp(1rem, 1.65vw, 1.5rem); background: var(--rr-surface);
+}
+.rector-metric dt, .rector-panel h2 { display: flex; align-items: center; gap: 0.55rem; }
+.rector-metric dt { font-size: 0.88rem; font-weight: 650; line-height: 1.3; }
+.rector-metric dt > span, .rector-panel h2 svg { color: var(--rr-accent); }
+.rector-metric dd { display: grid; gap: 0.26rem; margin: 0.82rem 0 0; }
+.rector-metric strong, .rector-cash, .rector-result-top dd {
+    font-size: clamp(1.65rem, 2.75vw, 2.45rem); line-height: 1.05; letter-spacing: -0.04em; font-weight: 650;
+}
+.rector-metric small, .rector-distribution small { font-size: 0.78rem; }
+.rector-panel h2 { font-size: 1.15rem; font-weight: 700; line-height: 1.3; margin-bottom: 1rem; }
+.rector-panel h2 svg { padding: 0.32rem; width: 2rem; height: 2rem; border-radius: 0.5rem; background: var(--rr-tint); }
+.rector-empty { font-size: 0.92rem; }
+.rector-account + .rector-account { margin-top: 1.25rem; padding-top: 1.15rem; border-top: 1px solid var(--rr-line); }
+.rector-account h3, .rector-result-top dt { font-size: 0.87rem; font-weight: 600; }
+.rector-cash, .rector-result-top dd { color: var(--rr-accent); margin: 0.32rem 0 1rem; }
+.rector-lines > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.55rem 0; border-top: 1px solid var(--rr-line); }
+.rector-lines dt, .rector-table th, .rector-distribution dt { font-size: 0.85rem; font-weight: 500; }
+.rector-lines dd, .rector-table td { font-size: 0.9rem; font-weight: 650; text-align: right; }
+.rector-lines dd { white-space: nowrap; }
+.rector-table { width: 100%; border-collapse: collapse; }
+.rector-table :is(td, th) { padding: 0.7rem 0.35rem; text-align: right; }
+.rector-table tr > :first-child { padding-left: 0; text-align: left; }
+.rector-table thead th { color: var(--rr-subtle); font-size: 0.75rem; font-weight: 650; }
+.rector-table tbody tr { border-top: 1px solid var(--rr-line); }
+.rector-distribution > div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0.35rem 0.5rem; }
+.rector-distribution > div + div { margin-top: 0.8rem; }
+.rector-distribution dd { display: flex; align-items: baseline; gap: 0.55rem; font-weight: 650; }
+.rector-distribution small { color: var(--rr-subtle); font-weight: 450; }
+.rector-distribution progress { grid-column: 1 / -1; width: 100%; height: 0.4rem; border: 0; border-radius: 0.5rem; overflow: hidden; background: var(--rr-tint); }
+.rector-distribution progress::-webkit-progress-bar { background: var(--rr-tint); }
+.rector-distribution progress::-webkit-progress-value { background: var(--rr-accent); border-radius: 0.5rem; }
+.rector-distribution progress::-moz-progress-bar { background: var(--rr-accent); border-radius: 0.5rem; }
+@media (max-width: 62rem) {
+    .rector-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rector-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 36rem) {
+    .rector-report { gap: 0.85rem; }
+    .rector-metrics, .rector-columns { gap: 0.65rem; }
+    .rector-metric { padding: 0.85rem; }
+    .rector-metric dt { flex-direction: column; align-items: flex-start; }
+    .rector-year { width: 100%; }
+    .rector-institution { flex-direction: column; align-items: start; }
+    .rector-table :is(td, th) { padding-inline: 0.15rem; }
+    .rector-table thead th { font-size: 0.68rem; }
+    .rector-table tbody th { overflow-wrap: anywhere; }
+}
+@media print {
+    body:has(.rector-report) :is(.usk-dashboard, .usk-page-content, .usk-page-current) {
+        min-height: 0 !important; overflow: visible; padding: 0 !important; margin: 0 !important; color: #151515; background: white !important;
+    }
+    body:has(.rector-report) .usk-dashboard > :not(.usk-page-content),
+    body:has(.rector-report) #app ~ *, body:has(.rector-report) .usk-page-content > :not(.usk-page-current),
+    .rector-report :is(.rector-print, .rector-year) { display: none !important; }
+    .rector-report {
+        --rr-surface: #fff; --rr-ink: #111; --rr-subtle: #444; --rr-line: #bbb; --rr-accent: #183f2e; --rr-tint: #eee;
+        display: block; font-size: 10pt;
+    }
+    .rector-hero, .rector-report .rector-hero h1, .rector-hero-icon, .rector-institution :is(dt, dd) {
+        background: white !important; color: #17392e !important; border-color: #aaa;
+    }
+    .rector-period, .rector-columns, .rector-metrics { margin-top: 0.7rem; }
+    .rector-columns { display: block; }
+    .rector-metrics { grid-template-columns: repeat(4, 1fr); }
+    .rector-hero, .rector-metric, .rector-panel { padding: 0.7rem; }
+    .rector-panel { margin-bottom: 0.7rem; }
+    .rector-hero, .rector-metrics, .rector-account, .rector-result-top, .rector-lines, .rector-distribution > div, .rector-table tr { break-inside: avoid; }
+    .rector-panel h2 { break-after: avoid; }
+}

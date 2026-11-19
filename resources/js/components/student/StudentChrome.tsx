@@ -2,7 +2,8 @@ import StudentNotificationBell from '@/components/student/StudentNotificationBel
 import { usk } from '@/lib/usk';
 import { Link, router } from '@inertiajs/react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { BookOpen, CalendarDays, ChevronDown, ClipboardCheck, House, LockKeyhole, UserRound, Wallet, X } from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
+import { BookOpen, CalendarDays, Check, ChevronDown, ClipboardCheck, House, LockKeyhole, UserRound, Wallet, X } from 'lucide-react';
 import { useState } from 'react';
 import '../../../css/student-chrome.css';
 import { studentHref, studentSectionAccess } from './navigation';
@@ -78,28 +79,40 @@ function yearDestination(section: string) {
     return destinations.includes(section) ? section : section === 'course-detail' ? 'academics' : 'overview';
 }
 
-export function StudentYearSelect({ context, section, className }: { context: StudentChromeData; section: string; className?: string }) {
+export function StudentYearSelect({ context, section }: { context: StudentChromeData; section: string }) {
     const [pending, setPending] = useState(false);
     return (
-        <select
-            className={className}
-            aria-label="Année académique affichée"
-            value={context.academic_id ?? ''}
+        <Select.Root
+            value={String(context.academic_id ?? '')}
             disabled={pending}
-            onChange={(event) => {
+            onValueChange={(value) => {
                 setPending(true);
-                router.visit(studentChromeHref(yearDestination(section), Number(event.target.value)), {
+                router.visit(studentChromeHref(yearDestination(section), Number(value)), {
                     onFinish: () => setPending(false),
                 });
             }}
         >
-            {context.options.map((option) => (
-                <option key={option.id} value={option.id}>
-                    {option.label}
-                    {option.is_current ? ' (année en cours)' : ''}
-                </option>
-            ))}
-        </select>
+            <Select.Trigger className="student-year-trigger" aria-label="Année académique affichée">
+                <span className="sr-only">
+                    <Select.Value />
+                </span>
+            </Select.Trigger>
+            <Select.Portal>
+                <Select.Content className="student-year-menu" position="popper" align="end" sideOffset={6} collisionPadding={12}>
+                    <Select.Viewport className="student-year-options">
+                        {context.options.map((option) => (
+                            <Select.Item key={option.id} value={String(option.id)} textValue={option.label} className="student-year-option">
+                                <Select.ItemText>{option.label}</Select.ItemText>
+                                <small>{option.is_current ? 'Année en cours' : 'Hors période active'}</small>
+                                <Select.ItemIndicator className="student-year-check">
+                                    <Check size={18} aria-hidden="true" />
+                                </Select.ItemIndicator>
+                            </Select.Item>
+                        ))}
+                    </Select.Viewport>
+                </Select.Content>
+            </Select.Portal>
+        </Select.Root>
     );
 }
 
@@ -149,7 +162,7 @@ export function StudentTopHeader({ context, section, layout }: { context: Studen
                 </div>
                 <StudentNotificationBell academic={context.academic_id} active={section === 'notifications'} />
                 {selected && (
-                    <label className="student-app-year">
+                    <div className="student-app-year">
                         <CalendarDays size={17} aria-hidden="true" />
                         <span>
                             <small>
@@ -161,9 +174,13 @@ export function StudentTopHeader({ context, section, layout }: { context: Studen
                             </small>
                             <strong aria-hidden="true">{sameYearCount > 1 ? selected.label : selected.year}</strong>
                         </span>
-                        <ChevronDown size={15} aria-hidden="true" />
-                        <StudentYearSelect context={context} section={section} />
-                    </label>
+                        {context.options.length > 1 && (
+                            <>
+                                <ChevronDown size={15} aria-hidden="true" />
+                                <StudentYearSelect context={context} section={section} />
+                            </>
+                        )}
+                    </div>
                 )}
             </div>
         </header>

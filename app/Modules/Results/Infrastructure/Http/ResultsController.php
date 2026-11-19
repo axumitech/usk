@@ -3,6 +3,7 @@
 namespace App\Modules\Results\Infrastructure\Http;
 
 use App\Models\AcademicStructure\CurriculumVersion;
+use App\Models\AcademicYear;
 use App\Models\Student\AcademicAssessment;
 use App\Models\Student\AcademicDeliberation;
 use App\Models\Student\AcademicOfficialResult;
@@ -40,16 +41,22 @@ final class ResultsController
                     $scope->orWhereJsonContains('program_snapshot->faculty_id', (int) $faculty);
                 }
             }));
-        $ruleQuery = AcademicResultRule::whereIn('curriculum_version_id', (clone $versions)->select('id'));
+        $years = AcademicYear::whereIn('id', (clone $versions)->select('academic_year_id'))->orderByDesc('start_date')->orderByDesc('id')->get(['id', 'title']);
+        $versions->when($filters['year'] ?? null, fn ($q, $id) => $q->where('academic_year_id', $id));
         $version = isset($filters['version']) ? (clone $versions)->with('program', 'academicYear')->findOrFail($filters['version']) : null;
+        $ruleQuery = AcademicResultRule::whereIn('curriculum_version_id', (clone $versions)->select('id'))
+            ->when($version, fn ($q) => $q->where('curriculum_version_id', $version->id));
         $rule = isset($filters['rule']) ? (clone $ruleQuery)->with('version.program')->findOrFail($filters['rule']) : null;
         $runQuery = AcademicDeliberation::whereIn('academic_result_rule_id', (clone $ruleQuery)->select('id'))
+            ->when($rule, fn ($q) => $q->where('academic_result_rule_id', $rule->id))
             ->when(! $actor->canAny([ResultsAccess::MANAGE, ResultsAccess::PUBLISH]), fn ($q) => $q->whereJsonContains('jury->ids', $actor->id));
         $run = isset($filters['run']) ? (clone $runQuery)->with('rule')->withCount('results')->findOrFail($filters['run']) : null;
         $rule ??= $run?->rule;
         $version ??= $rule?->version;
         $result = isset($filters['result']) && $run ? $run->results()->findOrFail($filters['result']) : null;
-        $appealQuery = ServiceRequest::whereHas('officialResult.run', fn ($q) => $q->whereIn('academic_result_rule_id', (clone $ruleQuery)->select('id')));
+        $appealQuery = ServiceRequest::whereHas('officialResult.run', fn ($q) => $q->whereIn('academic_result_rule_id', (clone $ruleQuery)->select('id'))
+            ->when($rule, fn ($q) => $q->where('academic_result_rule_id', $rule->id))
+            ->when($run, fn ($q) => $q->whereKey($run->id)));
         $pendingAppeals = (clone $appealQuery)->whereIn('status', ['open', 'under_review', 'admissible', 'investigating'])->count();
         $appeals = $actor->canAny([ResultsAccess::MANAGE, ResultsAccess::PUBLISH])
             ? $appealQuery->with('officialResult:id,reference,academic_deliberation_id')->latest('id')->paginate(15, ['*'], 'appeals_page')->withQueryString()
@@ -75,21 +82,27 @@ final class ResultsController
             ->when($version, fn ($q) => $q->where(fn ($q) => $q->whereDoesntHave('academicFaculties')->orWhereHas('academicFaculties', fn ($faculty) => $faculty->whereKey($this->access->faculty($version)))))
             ->orderBy('id')->limit(100)->get()->map(fn ($member) => ['id' => $member->id, 'name' => $member->full_name]);
 
+        $areas = $actor->delegatedAreas();
+
         return Inertia::render('dashboard/results/Administration', [
-            'filters' => $filters, 'permissions' => ['manage' => $actor->can(ResultsAccess::MANAGE), 'publish' => $actor->can(ResultsAccess::PUBLISH), 'jury' => $actor->can(ResultsAccess::JURY)],
-            'actor' => $actor->id, 'members' => $members, 'versions' => $versions->with('program', 'academicYear')->when($filters['year'] ?? null, fn ($q, $id) => $q->where('academic_year_id', $id))
+            'filters' => $filters, 'years' => $years, 'permissions' => ['manage' => $actor->can(ResultsAccess::MANAGE), 'publish' => $actor->can(ResultsAccess::PUBLISH), 'jury' => $actor->can(ResultsAccess::JURY),
+                'assessments' => $actor->can('publish academic content') && ($areas === null || in_array('assessments', $areas, true))],
+            'actor' => $actor->id, 'members' => $members, 'versions' => $versions->with('program', 'academicYear')
                 ->latest('id')->paginate(20, ['*'], 'versions_page')->withQueryString()->through(fn ($v) => ['id' => $v->id, 'title' => $v->program->name.' · '.$v->code.' · '.$v->academicYear->title]),
             'version' => $version ? $version->only(['id', 'code', 'periods']) : null,
             'levels' => $levels, 'items' => $items, 'assessments' => $assessments,
             'rules' => $ruleQuery->when($version, fn ($q) => $q->where('curriculum_version_id', $version->id))->latest('id')->paginate(20, ['*'], 'rules_page')->withQueryString()
                 ->through(fn ($row) => $row->only(['id', 'code', 'reference', 'session_code', 'approved_at', 'level_id'])),
             'rule' => $rule ? $rule->only(['id', 'code', 'reference', 'session_code', 'approved_at', 'level_id', 'configuration']) + [
+                'can_approve' => $actor->can(ResultsAccess::PUBLISH) && $rule->author_id !== $actor->id && $rule->approved_at === null,
                 'periods' => $rule->version->units()->where('level_id', $rule->level_id)->get(['period_code', 'period_name'])
                     ->unique('period_code')->values()->map(fn ($unit) => ['code' => $unit->period_code, 'name' => $unit->period_name]),
             ] : null,
-            'runs' => $runQuery->when($rule, fn ($q) => $q->where('academic_result_rule_id', $rule->id))->when($filters['state'] ?? null, fn ($q, $state) => $q->where('state', $state))
-                ->latest('id')->paginate(20, ['*'], 'runs_page')->withQueryString(),
-            'run' => $run ? $run->toArray() + ['minutes_volumes' => ResultDocuments::volumeCount($run->results_count)] : null, 'dossiers' => $rows, 'undecided' => $decisionCount, 'pending_appeals' => $pendingAppeals,
+            'runs' => $runQuery->when($filters['state'] ?? null, fn ($q, $state) => $q->where('state', $state))
+                ->latest('id')->paginate(8, ['*'], 'runs_page')->withQueryString(),
+            'run' => $run ? $run->toArray() + ['minutes_volumes' => ResultDocuments::volumeCount($run->results_count),
+                'publisher' => $run->published_by ? User::find($run->published_by, ['id', 'first_name', 'last_name'])?->full_name : null] : null,
+            'dossiers' => $rows, 'undecided' => $decisionCount, 'pending_appeals' => $pendingAppeals,
             'result' => $result ? $this->summary($result, $run) + ['snapshot' => $result->snapshot, 'decision_reason' => $result->decision_reason,
                 'eligible_decisions' => array_keys(array_filter($run->context['decisions'], fn ($decision) => ResultRules::permitsDecision($decision, $result->snapshot))),
             ] : null,

@@ -60,14 +60,6 @@
     background: var(--attendance-surface);
 }
 
-.attendance-academic select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
 .attendance-academic:focus-within {
     outline: 2px solid var(--attendance-accent);
     outline-offset: 3px;
