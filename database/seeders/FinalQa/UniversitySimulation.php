@@ -75,7 +75,7 @@ final class UniversitySimulation
         });
     }
 
-    public function populate(): void
+    public function populate(bool $progressionWitnesses = false): void
     {
         $this->guard();
         if (AcademicAudit::where('action', self::INSTALLED)->exists()) {
@@ -94,27 +94,40 @@ final class UniversitySimulation
         Mail::fake();
         config(['queue.default' => 'sync']);
         try {
-            UniversityFixtureStorage::transaction(function () use ($admin, $accounts, $catalogue, $population, $fees) {
+            UniversityFixtureStorage::transaction(function () use ($admin, $accounts, $catalogue, $population, $fees, $progressionWitnesses) {
                 $accounts->create('plateforme', 'Supervision', 'Plateforme fictive', 'super-admin');
                 $accounts->create('rectorat', 'Rectorat', 'Fictif', 'rector');
                 $accounts->create('academique', 'Secrétariat', 'Fictif', 'academic-secretary');
                 $candidate = $accounts->create('candidat', 'Candidat', 'Fictif', 'user');
                 $candidate->assignRole('candidate');
-                [$catalog, $students] = Carbon::withTestNow('2025-10-05 10:00:00 Africa/Kinshasa', function () use ($admin, $accounts, $catalogue, $population, $fees) {
-                    $catalog = $catalogue->startYear($catalogue->create($admin, $accounts), $admin, 'past');
+                [$catalog, $students] = Carbon::withTestNow('2025-10-05 10:00:00 Africa/Kinshasa', function () use ($admin, $accounts, $catalogue, $population, $fees, $progressionWitnesses) {
+                    $faculties = UniversityCatalog::FACULTIES;
+                    if ($progressionWitnesses) {
+                        [$name, $departments] = $faculties['dr'];
+                        $faculties = ['dr' => [$name, ['dpr' => $departments['dpr']]]];
+                    }
+                    $catalog = $catalogue->startYear($catalogue->create($admin, $accounts, $faculties), $admin, 'past');
                     $fees->tariffs($admin, $catalog, 'past');
 
-                    return [$catalog, $population->historical($catalog, $admin, $accounts)];
+                    return [$catalog, $population->historical($catalog, $admin, $accounts, $progressionWitnesses ? [1, 2] : null)];
                 });
-                Carbon::withTestNow('2025-11-15 10:00:00 Africa/Kinshasa', fn () => app(UniversityRecords::class)->documents($catalog, $students, $admin));
-                $population->results($catalog, $students, $admin);
+                if (! $progressionWitnesses) {
+                    Carbon::withTestNow('2025-11-15 10:00:00 Africa/Kinshasa', fn () => app(UniversityRecords::class)->documents($catalog, $students, $admin));
+                }
+                $population->results($catalog, $students, $admin, $progressionWitnesses ? ['etudiant.dpr.03' => 'repeat_demo'] : []);
                 Carbon::withTestNow('2026-09-30 16:00:00 Africa/Kinshasa', function () use ($admin, $catalog) {
                     app(CloseAcademicYear::class)->execute($catalog['past_year']->id, $admin->id, UniversityCatalog::REASON);
                     AdmissionCampaign::where('academic_year_id', $catalog['past_year']->id)->update(['is_open' => false]);
                 });
-                Carbon::withTestNow('2026-11-18 09:00:00 Africa/Kinshasa', function () use ($catalogue, $admin, $catalog, $students, $fees, $population, $accounts) {
+                Carbon::withTestNow('2026-11-18 09:00:00 Africa/Kinshasa', function () use ($catalogue, $admin, $catalog, $students, $fees, $population, $accounts, $progressionWitnesses) {
                     $catalog = $catalogue->startYear($catalog, $admin, 'current');
                     $fees->tariffs($admin, $catalog, 'current');
+                    if ($progressionWitnesses) {
+                        if (AcademicEnrollment::count() !== 2 || AcademicOfficialResult::published()->count() !== 2 || AcademicProgression::exists() || DB::select('PRAGMA foreign_key_check') !== []) {
+                            throw new RuntimeException('Les deux témoins de progression doivent avoir un résultat publié et aucune réinscription.');
+                        }
+                        return;
+                    }
                     $population->renew($catalog, $students, $admin, $accounts);
                     $teachers = [];
                     foreach ($catalog['professors'] as $key => $teacher) {

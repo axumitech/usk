@@ -11,8 +11,8 @@ require dirname(__DIR__, 2).'/recette-manuelle-v2/scripts/bootstrap.php';
 
 try {
     $mode = $argv[1] ?? '';
-    if (PHP_SAPI !== 'cli' || ! in_array($mode, ['init', 'simulate', 'verify'], true)) {
-        throw new RuntimeException('Usage : php docs/qa-e2e-final/scripts/university.php init|simulate|verify');
+    if (PHP_SAPI !== 'cli' || ! in_array($mode, ['init', 'simulate', 'simulate-progression', 'verify'], true)) {
+        throw new RuntimeException('Usage : php docs/qa-e2e-final/scripts/university.php init|simulate|simulate-progression|verify');
     }
     if (! in_array(strtolower((string) getenv('APP_ENV')), ['', 'local', 'testing', 'qa'], true)) {
         throw new RuntimeException('Cette commande exige un environnement local de recette.');
@@ -24,6 +24,9 @@ try {
         throw new RuntimeException('USK_QA_FINAL_ROOT doit être un chemin absolu local sous un parent existant et se terminer par usk_qa_e2e ou usk_qa_e2e-<suffixe>.');
     }
     $new = ! file_exists($root);
+    if ($mode === 'simulate-progression' && (! $new || ! preg_match('/^usk_qa_e2e-progression(?:-[a-z0-9_-]+)?$/i', basename(str_replace('\\', '/', $root))))) {
+        throw new RuntimeException('La préparation des deux témoins exige une nouvelle racine privée usk_qa_e2e-progression.');
+    }
     if ($new && $mode === 'verify') {
         throw new RuntimeException('Profil QA absent.');
     }
@@ -55,7 +58,10 @@ try {
         throw new RuntimeException('Échec des migrations du profil QA dédié.');
     }
     $simulation->bootstrap();
-    if ($mode === 'simulate') {
+    if ($mode === 'simulate-progression') {
+        $simulation->populate(progressionWitnesses: true);
+        echo "Témoins de progression préparés : deux résultats publiés, aucune réinscription.".PHP_EOL;
+    } elseif ($mode === 'simulate') {
         $simulation->populate();
         echo json_encode($simulation->verify(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR).PHP_EOL;
     } else {

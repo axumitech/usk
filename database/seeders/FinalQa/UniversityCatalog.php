@@ -31,7 +31,7 @@ final class UniversityCatalog
         'MED' => ['Formation médicale témoin', ['MED1', 'MED2', 'MED3']],
     ];
 
-    public function create(User $admin, UniversityAccounts $accounts): array
+    public function create(User $admin, UniversityAccounts $accounts, array $faculties = self::FACULTIES): array
     {
         $service = app(StructureService::class);
         $base = ['is_active' => true, 'revision' => 0, 'reason' => self::REASON];
@@ -43,7 +43,7 @@ final class UniversityCatalog
                 'periods' => [['code' => 'AN', 'name' => 'Année universitaire fictive']]], $admin);
         }
         $catalog = ['university' => $institution, 'programs' => [], 'teaching_semester' => ['past' => 2, 'current' => 1]];
-        foreach (self::FACULTIES as $facultyCode => [$facultyName, $departments]) {
+        foreach ($faculties as $facultyCode => [$facultyName, $departments]) {
             $faculty = Faculty::create(['code' => strtoupper($facultyCode), 'name' => $facultyName, 'is_active' => true]);
             $service->save('faculty-context', $base, $admin, $faculty->id);
             $accounts->facultyStaff($facultyCode, $faculty);

@@ -25,13 +25,13 @@ final class UniversityPopulation
 {
     public function __construct(private StudentFinanceFixtures $finance, private HistoricalAcademicFixtures $history) {}
 
-    public function historical(array $catalog, User $admin, UniversityAccounts $accounts): array
+    public function historical(array $catalog, User $admin, UniversityAccounts $accounts, ?array $positions = null): array
     {
         $students = [];
         foreach (array_keys($catalog['programs']) as $departmentIndex => $key) {
             $cashier = $this->staff($catalog, $key, 'finance-officer');
             $levels = array_keys($catalog['levels'][$key]);
-            for ($position = 0; $position < 20; $position++) {
+            foreach ($positions ?? range(0, 19) as $position) {
                 $level = $levels[$position < 12 ? 0 : 1];
                 $student = $accounts->student($key, $departmentIndex, $position);
                 $entry = $this->finance->admit($student, $admin, $catalog, 'past', $key, $level);
@@ -48,7 +48,7 @@ final class UniversityPopulation
                 $local = strstr($student->email, '@', true);
                 $students[$key][$level][$local] = $entry;
             }
-            fwrite(STDERR, "Admissions historiques préparées pour $key (20).".PHP_EOL);
+            fwrite(STDERR, "Admissions historiques préparées pour $key.".PHP_EOL);
         }
 
         return $students;
@@ -59,7 +59,7 @@ final class UniversityPopulation
         return User::where('email', $role.'.'.$catalog['faculty_codes'][$key].'@usk.test')->sole();
     }
 
-    public function results(array $catalog, array $students, User $admin): void
+    public function results(array $catalog, array $students, User $admin, array $witnessDecisions = []): void
     {
         foreach ($students as $key => $byLevel) {
             $teacher = User::findOrFail($catalog['professors'][$key]->user_id);
@@ -67,7 +67,7 @@ final class UniversityPopulation
             foreach ($byLevel as $level => $entries) {
                 $decisions = $scores = $sources = [];
                 foreach (array_keys($entries) as $index => $local) {
-                    $decisions[$local] = match ($index % 5) { 2 => 'repeat_demo', 3 => 'resit_demo', default => 'pass_demo' };
+                    $decisions[$local] = $witnessDecisions[$local] ?? match ($index % 5) { 2 => 'repeat_demo', 3 => 'resit_demo', default => 'pass_demo' };
                     $scores[$local] = match ($decisions[$local]) {
                         'repeat_demo' => ['6.00', '8.00'], 'resit_demo' => ['11.00', '8.00'], default => ['16.00', '14.00'],
                     };
@@ -96,8 +96,10 @@ final class UniversityPopulation
                 app(UniversityRecords::class)->practice($catalog['offerings']['past'][$key][$level][0], $teacher, $entries);
                 Carbon::withTestNow('2026-06-20 10:00:00 Africa/Kinshasa',
                     fn () => $this->history->deliberation($admin, $publisher, $catalog, $key, $sources, $level, $decisions, true));
-                Carbon::withTestNow('2026-06-22 10:00:00 Africa/Kinshasa',
-                    fn () => app(UniversityRecords::class)->appeal(array_values($entries)[2], $admin, $publisher));
+                if (count($entries) >= 3) {
+                    Carbon::withTestNow('2026-06-22 10:00:00 Africa/Kinshasa',
+                        fn () => app(UniversityRecords::class)->appeal(array_values($entries)[2], $admin, $publisher));
+                }
                 Carbon::withTestNow('2026-09-20 10:00:00 Africa/Kinshasa', function () use ($entries, $admin) {
                     foreach ($entries as $entry) {
                         $entry->refresh();
