@@ -178,7 +178,7 @@ const Sidebar = ({
         {
             title: string;
             description?: string;
-            items: { id: string; label: string; icon: React.ReactNode; href?: string; status?: string; native?: boolean }[];
+            items: { id: string; label: string; icon: React.ReactNode; href?: string; status?: string }[];
         }
     > = isAdministration
         ? Object.fromEntries(
@@ -191,7 +191,6 @@ const Sidebar = ({
                           label,
                           icon: <menu.icon size={18} />,
                           href: destination.href,
-                          native: destination.native,
                       })),
                   },
               ]),
@@ -451,7 +450,7 @@ const Sidebar = ({
                                     <a
                                         key={item.id}
                                         href={item.href}
-                                        onClick={item.href && !item.native ? visitMenuPage : undefined}
+                                        onClick={item.href ? visitMenuPage : undefined}
                                         aria-disabled={!item.href || undefined}
                                         aria-current={
                                             isAdministration

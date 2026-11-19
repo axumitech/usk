@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\AcademicYear;
 use App\Models\Classes;
 use App\Models\Courses;
@@ -23,6 +24,7 @@ use App\Modules\Student\Application\Services\Audit;
 use App\Notifications\AcademicAssessmentNotice;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -362,9 +364,22 @@ final class AssessmentWorkflowTest extends TestCase
         $handoff = AssessmentHandoff::sole();
         $this->assertSame(1550, $handoff->payload['points_hundredths']);
         $this->assertSame($entry->id, $handoff->payload['academic_enrollment_id']);
-        $this->get(self::ADMIN.'/handoff')->assertJsonPath('0.payload.result_key', 'assessment-record:'.$record->id)
+        $browser = ['Accept' => 'text/html,application/xhtml+xml,*/*;q=0.8'];
+        $this->get(self::ADMIN.'/handoff', $browser)->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/teaching/AssessmentHandoffs')->has('transmissions.data', 1)
+            ->where('transmissions.data.0.course', 'Méthodes')->where('transmissions.data.0.assessment', 'Rapport de méthodes')
+            ->where('transmissions.data.0.session', 'ordinaire')->where('transmissions.data.0.points', 1550)
+            ->where('transmissions.data.0.maximum', 2000)->where('transmissions.data.0.current', true)
+            ->missing('transmissions.data.0.payload'));
+        $url = self::ADMIN.'/handoff';
+        $this->get($url, [
+            'X-Inertia' => 'true', 'Accept' => '*/*',
+            'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(Request::create($url)) ?? '',
+        ])->assertOk()->assertHeader('X-Inertia', 'true')->assertJsonPath('component', 'dashboard/teaching/AssessmentHandoffs');
+        $this->getJson(self::ADMIN.'/handoff')->assertJsonPath('0.payload.result_key', 'assessment-record:'.$record->id)
             ->assertJsonMissingPath('0.payload.feedback')->assertJsonCount(1);
-        $this->get(self::ADMIN.'/handoff?after='.$handoff->id)->assertJsonCount(0);
+        $this->get(self::ADMIN.'/handoff', ['Accept' => '*/*'])->assertJsonCount(1);
+        $this->getJson(self::ADMIN.'/handoff?after='.$handoff->id)->assertJsonCount(0);
         $this->batch($work, 'release', self::ADMIN, true)->assertStatus(303);
         $this->actingAs($student)->get(self::STUDENT.'/'.$work->id.'/feedback')->assertDownload('correction.pdf');
         $this->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
@@ -386,6 +401,10 @@ final class AssessmentWorkflowTest extends TestCase
         $this->assertDatabaseCount('academic_assessment_handoffs', 2);
         $this->assertSame(1550, $handoff->fresh()->payload['points_hundredths']);
         $this->assertSame(1700, AssessmentHandoff::latest('id')->firstOrFail()->payload['points_hundredths']);
+        $this->get(self::ADMIN.'/handoff', $browser)->assertInertia(fn (Assert $page) => $page
+            ->has('transmissions.data', 2)->where('transmissions.data.0.points', 1700)
+            ->where('transmissions.data.0.current', true)->where('transmissions.data.1.points', 1550)
+            ->where('transmissions.data.1.current', false));
         $this->batch($work, 'release')->assertStatus(303);
         $entry->academicYear->update(['status' => 'closed']);
         $this->actingAs($student)->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page
@@ -394,7 +413,12 @@ final class AssessmentWorkflowTest extends TestCase
         AccessRule::create(['feature' => 'results_view', 'level_id' => $entry->level_id, 'mode' => 'hidden', 'is_active' => true]);
         $this->get(self::STUDENT.'/'.$work->id.'/feedback')->assertNotFound();
         $this->get('/app/dashboard/student/assignments?activity=corrected')->assertInertia(fn (Assert $page) => $page->has('resources', 0));
-
+        $this->get(self::ADMIN.'/handoff', $browser)->assertForbidden();
+        $foreignFaculty = DB::table('faculties')->insertGetId(['code' => 'EXT', 'name' => 'Autre faculté']);
+        $admin->academicFaculties()->attach($foreignFaculty);
+        $this->actingAs($admin)->get(self::ADMIN.'/handoff', $browser)->assertInertia(fn (Assert $page) => $page
+            ->has('transmissions.data', 0)->where('transmissions.total', 0));
+        $this->getJson(self::ADMIN.'/handoff')->assertJsonCount(0);
     }
 
     public function test_group_membership_is_fixed_and_only_the_leader_submits_for_individual_corrections(): void
