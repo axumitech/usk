@@ -774,9 +774,16 @@ class AcademicTeachingTest extends TestCase
         $helper->givePermissionTo(['manage courses', 'manage students']);
         $assistant = $this->teacher();
         $this->assign($a, $admin, $assistant, 'assistant');
-        $this->actingAs($admin)->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertForbidden();
-        $admin->givePermissionTo(Permission::findOrCreate('manage users', 'web'));
-        $this->post('/app/dashboard/admin/professors/'.$a->professor_id.'/account', ['email' => $lead->email, 'reason' => self::REASON])->assertStatus(303);
+        $viceDean = User::factory()->create();
+        $viceDean->assignRole('vice-dean');
+        $viceDean->academicFaculties()->attach($entry->level->faculty_id);
+        $profileUrl = '/app/dashboard/admin/professors/'.$a->professor_id;
+        $linkRequest = ['email' => $lead->email, 'reason' => self::REASON];
+        $this->actingAs($viceDean)->get($profileUrl)->assertOk()->assertInertia(fn (Assert $page) => $page->where('canLinkAccount', false));
+        $this->post($profileUrl.'/account', $linkRequest)->assertForbidden();
+        $this->assertNull($a->professor->fresh()->user_id);
+        $this->actingAs($admin)->post($profileUrl.'/account', $linkRequest)->assertStatus(303);
+        $this->assertEquals($lead->id, $a->professor->fresh()->user_id);
         $this->post('/app/dashboard/admin/professors/'.$assistant->id.'/account', ['email' => $helper->email, 'reason' => self::REASON])->assertStatus(303);
         Professor::whereKey([$a->professor_id, $assistant->id])->update(['photo' => 'professors/test-portrait.png']);
         $this->actingAs($lead)->get('/app/dashboard/teacher?offering='.$a->id)->assertInertia(fn (Assert $p) => $p->component('dashboard/teaching/Teacher')

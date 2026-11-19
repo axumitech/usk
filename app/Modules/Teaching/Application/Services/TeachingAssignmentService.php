@@ -25,8 +25,9 @@ class TeachingAssignmentService
             if ($offeringId && ($offering->course_id != $course->id || $offering->academic_year_id != $data['academic_year_id'])) {
                 throw ValidationException::withMessages(['course_id' => 'Le cours et l’année d’une affectation existante ne peuvent pas être changés.']);
             }
-            if ($actorId !== null) {
-                TeachingScope::authorize(User::findOrFail($actorId), (int) $level->faculty_id);
+            $actor = $actorId === null ? null : User::findOrFail($actorId);
+            if ($actor) {
+                TeachingScope::authorize($actor, (int) $level->faculty_id);
             }
             if (! $offeringId && $course->catalog_status !== 'active') {
                 throw ValidationException::withMessages(['course_id' => 'Une matière inactive ou archivée ne peut pas être planifiée à nouveau.']);
@@ -42,6 +43,9 @@ class TeachingAssignmentService
             }
             foreach (['professor_id' => $data['professor_id'] ?? null, 'assistant_professor_id' => $assistantId] as $field => $id) {
                 if ($id && (int) $id !== (int) $offering->$field) {
+                    if ($actor) {
+                        abort_unless(TeachingScope::professors($actor)->whereKey($id)->exists(), 403);
+                    }
                     if (! Professor::lockForUpdate()->findOrFail($id)->is_active) {
                         throw ValidationException::withMessages([$field => 'Choisissez un enseignant actif.']);
                     }
