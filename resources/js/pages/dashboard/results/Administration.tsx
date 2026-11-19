@@ -588,8 +588,8 @@ export default function Administration(props: Props) {
                         }}
                     >
                         <label>
-                            Année académique
-                            <select key={filters.year ?? 'all'} name="year" defaultValue={filters.year ?? ''}>
+                            <span id="jury-year-label">Année académique</span>
+                            <select aria-labelledby="jury-year-label" key={filters.year ?? 'all'} name="year" defaultValue={filters.year ?? ''}>
                                 <option value="">Toutes les années</option>
                                 {props.years.map((year) => (
                                     <option key={year.id} value={year.id}>

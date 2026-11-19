@@ -272,6 +272,7 @@ const Dashboard = ({
                                 roles.some((role) => role === 'user' || role === 'candidate' || role === 'student'))
                         }
                         studentPortal={Boolean(props.studentPortalActive)}
+                        rectorSpace={component === 'dashboard/delegation/Index' && roles.includes('rector')}
                         administration={administration}
                         teaching={teaching}
                         teachingProfileActive={Boolean(props.teachingProfileActive)}

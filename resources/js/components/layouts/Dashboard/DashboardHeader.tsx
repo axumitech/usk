@@ -11,6 +11,7 @@ const DashboardHeader = ({
     adminApps = false,
     enrollmentSpace = false,
     administration = false,
+    rectorSpace = false,
     teaching = false,
     teachingProfileActive = false,
     canManageCourses = false,
@@ -23,6 +24,7 @@ const DashboardHeader = ({
     adminApps?: boolean;
     enrollmentSpace?: boolean;
     administration?: boolean;
+    rectorSpace?: boolean;
     teaching?: boolean;
     teachingProfileActive?: boolean;
     canManageCourses?: boolean;
@@ -30,7 +32,7 @@ const DashboardHeader = ({
     studentPortal?: boolean;
     themeEnabled?: boolean;
 }) => {
-    if (adminApps || enrollmentSpace || administration)
+    if (adminApps || enrollmentSpace || administration || rectorSpace)
         return (
             <header className="admin-topbar">
                 <div>
@@ -45,7 +47,7 @@ const DashboardHeader = ({
                     </button>
                     <div>
                         <strong>Université Simon Kimbangu</strong>
-                        <span>{enrollmentSpace ? (studentPortal ? 'ESPACE ÉTUDIANT' : 'ESPACE CANDIDATURE') : 'ESPACE ADMINISTRATION'}</span>
+                        <span>{rectorSpace ? 'RECTORAT' : enrollmentSpace ? (studentPortal ? 'ESPACE ÉTUDIANT' : 'ESPACE CANDIDATURE') : 'ESPACE ADMINISTRATION'}</span>
                     </div>
                 </div>
                 <div>

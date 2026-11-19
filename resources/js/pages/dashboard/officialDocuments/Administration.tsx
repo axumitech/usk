@@ -184,8 +184,8 @@ export default function Administration({
                         <input name="q" type="search" maxLength={100} placeholder="Rechercher un matricule" defaultValue={filters.q} />
                     </label>
                     <label>
-                        Famille
-                        <select name="kind" defaultValue={filters.kind || ''}>
+                        <span id="official-kind-label">Famille</span>
+                        <select aria-labelledby="official-kind-label" name="kind" defaultValue={filters.kind || ''}>
                             <option value="">Toutes</option>
                             {kindOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -195,8 +195,8 @@ export default function Administration({
                         </select>
                     </label>
                     <label>
-                        Statut de la demande
-                        <select name="status" defaultValue={filters.status || ''}>
+                        <span id="official-status-label">Statut de la demande</span>
+                        <select aria-labelledby="official-status-label" name="status" defaultValue={filters.status || ''}>
                             <option value="">Tous</option>
                             {['open', 'reviewed', 'correction', 'approved', 'refused', 'issued'].map((status) => (
                                 <option key={status} value={status}>

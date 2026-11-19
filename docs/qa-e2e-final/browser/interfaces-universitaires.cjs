@@ -21,7 +21,22 @@ async function palette(element) {
     return style;
 }
 
-run('interfaces-universitaires', async ({ login, visit, proof }) => {
+run('interfaces-universitaires', async ({ login, visit, proof: capture }) => {
+    async function proof(page, id, action, obtained) {
+        await page.evaluate(async () => {
+            await document.fonts.ready;
+            await Promise.allSettled(
+                document
+                    .getAnimations()
+                    .filter((animation) => {
+                        const end = animation.effect?.getComputedTiming().endTime;
+                        return typeof end === 'number' && end < 2000;
+                    })
+                    .map((animation) => animation.finished),
+            );
+        });
+        await capture(page, id, action, obtained);
+    }
     const root = fs.realpathSync(process.env.USK_RECETTE_V2_ROOT);
     assert.match(path.basename(root), /^usk_qa_e2e-/);
     const { password } = JSON.parse(fs.readFileSync(path.join(root, 'final-qa.json'), 'utf8'));
@@ -79,7 +94,9 @@ run('interfaces-universitaires', async ({ login, visit, proof }) => {
         await sp.keyboard.press('Escape');
         await combo.click();
         await other.click();
-        await sp.waitForURL((url) => [portal, portal + '/overview'].includes(url.pathname) && url.searchParams.get('academic') === String(archive.id));
+        await sp.waitForURL(
+            (url) => [portal, portal + '/overview'].includes(url.pathname) && url.searchParams.get('academic') === String(archive.id),
+        );
         await sp.context().close();
 
         const rector = await login('rectorat@usk.test', password);
@@ -102,15 +119,22 @@ run('interfaces-universitaires', async ({ login, visit, proof }) => {
         await rector.getByRole('heading', { name: 'Effectifs par faculté' }).waitFor();
         assert.ok(record.finance.length);
         for (const account of record.finance) {
-            const totals = db.prepare(`SELECT
+            const totals = db
+                .prepare(
+                    `SELECT
                 COALESCE(SUM(CASE WHEN p.status IN ('confirmed','refunded') THEN p.amount_cents ELSE 0 END), 0) AS gross,
                 COALESCE(SUM(CASE WHEN p.status='pending' THEN p.amount_cents ELSE 0 END), 0) AS pending
                 FROM student_payments p JOIN academic_enrollments e ON e.id=p.academic_enrollment_id
-                WHERE e.academic_year_id=? AND p.currency=?`).get(record.year_id, account.currency);
+                WHERE e.academic_year_id=? AND p.currency=?`,
+                )
+                .get(record.year_id, account.currency);
             assert.equal(account.gross_cents, totals.gross);
             assert.equal(account.pending_cents, totals.pending);
             const net = (account.net_cents / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            await rector.locator('.rector-cash').filter({ hasText: net + ' ' + account.currency }).waitFor();
+            await rector
+                .locator('.rector-cash')
+                .filter({ hasText: net + ' ' + account.currency })
+                .waitFor();
         }
         await proof(rector, 'RECTORAT', 'Comparer les effectifs affichés aux inscriptions et consulter les finances', {
             ...counts,
