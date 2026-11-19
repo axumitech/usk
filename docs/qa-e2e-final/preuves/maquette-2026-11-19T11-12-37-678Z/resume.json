@@ -1,0 +1,81 @@
+{
+  "version": {
+    "port": 8065,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "MAQ-DPU-L1",
+      "status": "VALIDÉ",
+      "action": "Enregistrer l’UE composée et son EC",
+      "obtained": {
+        "version": 1,
+        "niveau": "DPU-L1",
+        "id": 1,
+        "credits": 3,
+        "coefficient": 1,
+        "cmi_hours": 15,
+        "td_hours": 8,
+        "ue": "UE-QA-DPU-L1"
+      },
+      "proof": "MAQ-DPU-L1.png"
+    },
+    {
+      "id": "MAQ-DPU-L2",
+      "status": "VALIDÉ",
+      "action": "Enregistrer l’UE composée et son EC",
+      "obtained": {
+        "version": 1,
+        "niveau": "DPU-L2",
+        "id": 3,
+        "credits": 3,
+        "coefficient": 1,
+        "cmi_hours": 15,
+        "td_hours": 8,
+        "ue": "UE-QA-DPU-L2"
+      },
+      "proof": "MAQ-DPU-L2.png"
+    },
+    {
+      "id": "MAQ-DPU-L3",
+      "status": "VALIDÉ",
+      "action": "Enregistrer l’UE composée et son EC",
+      "obtained": {
+        "version": 1,
+        "niveau": "DPU-L3",
+        "id": 6,
+        "credits": 3,
+        "coefficient": 1,
+        "cmi_hours": 15,
+        "td_hours": 8,
+        "ue": "UE-QA-DPU-L3"
+      },
+      "proof": "MAQ-DPU-L3.png"
+    },
+    {
+      "id": "MAQ-publiee",
+      "status": "VALIDÉ",
+      "action": "Relire la version publiée et les validations de niveau",
+      "obtained": {
+        "id": 1,
+        "status": "published",
+        "revision": 5,
+        "published_at": "2026-11-19 11:15:00",
+        "validated_at": "2026-11-19 11:14:51",
+        "niveaux": 3,
+        "programme": "QA-DPU"
+      },
+      "proof": "MAQ-publiee.png"
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "version": {
+    "port": 8072,
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    }
+  },
+  "rows": [
+    {
+      "id": "REC-01",
+      "status": "VALIDÉ",
+      "action": "Vérifier l’ouverture du recours sur le résultat publié de rattrapage",
+      "obtained": {
+        "inscription": 1,
+        "reference": "d9334b87-bcba-4229-8fbd-82612f434960",
+        "publication": "2026-06-23T08:10:00.000000Z",
+        "echeance": "2026-06-30T08:10:00.000000Z",
+        "horloge_témoin": "2026-06-23T08:10:00Z",
+        "moyenne": "13.00"
+      },
+      "proof": "REC-01.png"
+    },
+    {
+      "id": "REC-02",
+      "status": "VALIDÉ",
+      "action": "Déposer le recours sur la décision et relire son numéro",
+      "obtained": {
+        "demande": 1,
+        "etat": "open",
+        "motif": "Je demande la vérification des crédits et de la note conservée de première session dans mon résultat de rattrapage de Droit privé."
+      },
+      "proof": "REC-02.png"
+    },
+    {
+      "id": "REC-03",
+      "status": "VALIDÉ",
+      "action": "Vérifier",
+      "obtained": {
+        "demande": 1,
+        "actor": "admin@usk.test",
+        "etat": "under_review",
+        "revision": 2
+      },
+      "proof": "REC-03.png"
+    },
+    {
+      "id": "REC-04",
+      "status": "VALIDÉ",
+      "action": "Déclarer recevable",
+      "obtained": {
+        "demande": 1,
+        "actor": "admin@usk.test",
+        "etat": "admissible",
+        "revision": 3
+      },
+      "proof": "REC-04.png"
+    },
+    {
+      "id": "REC-05",
+      "status": "VALIDÉ",
+      "action": "Affecter à l’instruction",
+      "obtained": {
+        "demande": 1,
+        "actor": "admin@usk.test",
+        "etat": "investigating",
+        "revision": 4
+      },
+      "proof": "REC-05.png"
+    },
+    {
+      "id": "REC-06",
+      "status": "VALIDÉ",
+      "action": "Rejeter",
+      "obtained": {
+        "demande": 1,
+        "actor": "dean.dr@usk.test",
+        "etat": "rejected",
+        "revision": 5
+      },
+      "proof": "REC-06.png"
+    },
+    {
+      "id": "REC-07",
+      "status": "VALIDÉ",
+      "action": "Relire la décision motivée et vérifier la conservation des deux éditions du jury",
+      "obtained": {
+        "demande": 1,
+        "motif": "Après vérification des deux éditions, la note acquise de 11/20 a été conservée et le 15/20 du rattrapage a été pris en compte. La moyenne de 13/20 et les dix crédits sont confirmés.",
+        "audits": [
+          {
+            "action": "official_result_appeal_filed",
+            "actor_id": 9
+          },
+          {
+            "action": "official_result_appeal_under_review",
+            "actor_id": 1
+          },
+          {
+            "action": "official_result_appeal_admissible",
+            "actor_id": 1
+          },
+          {
+            "action": "official_result_appeal_investigating",
+            "actor_id": 1
+          },
+          {
+            "action": "official_result_appeal_rejected",
+            "actor_id": 2
+          }
+        ],
+        "editions_inchangees": [
+          {
+            "reference": "e9d357b0-2f40-4aa9-9082-68ccc96c1ee4",
+            "decision": "resit_demo",
+            "snapshot_sha256": "9058caac1c29c283021b8db8b2752e92215f38f8f8c18c731815c8cbfb76db21"
+          },
+          {
+            "reference": "d9334b87-bcba-4229-8fbd-82612f434960",
+            "decision": "pass_qa",
+            "snapshot_sha256": "091e01948b1310aa0e8801baffaa689299d78900e0e0d3ce3ae3c70c953333dd"
+          }
+        ]
+      },
+      "proof": "REC-07.png"
+    }
+  ]
+}

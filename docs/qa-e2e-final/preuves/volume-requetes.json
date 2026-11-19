@@ -1,0 +1,53 @@
+{
+    "students": 5000,
+    "payments": 2506,
+    "integrity": "ok",
+    "mode": "Laravel HTTP kernel, SQLite, sequential",
+    "routes": [
+        {
+            "route": "/app/dashboard/admin/student-academic?tab=students&q=QA-VOL",
+            "role": "admin",
+            "n": 10,
+            "p50_ms": 407.45,
+            "p95_ms": 613.49,
+            "min_queries": 42,
+            "max_queries": 42
+        },
+        {
+            "route": "/app/dashboard/admin/student-academic?tab=students&q=QA-VOL-00011",
+            "role": "admin",
+            "n": 10,
+            "p50_ms": 539.29,
+            "p95_ms": 821.41,
+            "min_queries": 42,
+            "max_queries": 43
+        },
+        {
+            "route": "/app/dashboard/admin/student-academic?tab=students&page=2",
+            "role": "admin",
+            "n": 10,
+            "p50_ms": 618.39,
+            "p95_ms": 2588.37,
+            "min_queries": 42,
+            "max_queries": 42
+        },
+        {
+            "route": "/app/dashboard/admin/finance?q=QA-VOL",
+            "role": "admin",
+            "n": 10,
+            "p50_ms": 553.01,
+            "p95_ms": 615.9,
+            "min_queries": 35,
+            "max_queries": 35
+        },
+        {
+            "route": "/app/dashboard/student/fees",
+            "role": "user",
+            "n": 10,
+            "p50_ms": 334.56,
+            "p95_ms": 1321.53,
+            "min_queries": 59,
+            "max_queries": 59
+        }
+    ]
+}

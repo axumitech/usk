@@ -1,0 +1,4 @@
+{
+  "attente": "Prise de contrôle du premier document par le Service Worker",
+  "detail": "page.waitForFunction: Timeout 45000ms exceeded."
+}

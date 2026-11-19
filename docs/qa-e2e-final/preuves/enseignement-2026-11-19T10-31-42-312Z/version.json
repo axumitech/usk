@@ -1,0 +1,14 @@
+{
+  "port": 8068,
+  "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+  "branch": "",
+  "tracked_changes": false,
+  "opcache_cli": false,
+  "assets": {
+    "mode": "build",
+    "entry": "assets/app-BPCWFe7Y.js",
+    "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+    "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+  }
+}

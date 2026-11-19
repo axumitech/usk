@@ -1,0 +1,37 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    }
+  },
+  "rows": [
+    {
+      "id": "RES-01",
+      "status": "VALIDÉ",
+      "action": "Ouvrir les résultats avant publication",
+      "obtained": "Aucun résultat officiel accessible à l’étudiant.",
+      "proof": "RES-01.png"
+    },
+    {
+      "id": "RES-02",
+      "status": "VALIDÉ",
+      "action": "Publier le jury historique approuvé",
+      "obtained": "État publié vérifié dans la fiche du jury et dans la base.",
+      "proof": "RES-02.png"
+    },
+    {
+      "id": "resultats",
+      "status": "BLOQUÉ",
+      "detail": "Expected values to be strictly equal:"
+    }
+  ]
+}

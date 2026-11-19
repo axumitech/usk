@@ -1,0 +1,45 @@
+{
+  "version": {
+    "port": 8070,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "NFC-01",
+      "status": "VALIDÉ",
+      "action": "Associer un identifiant synthétique au moyen du formulaire opérateur.",
+      "obtained": {
+        "inscription": 202
+      },
+      "proof": "NFC-01.png"
+    },
+    {
+      "id": "NFC-02",
+      "status": "VALIDÉ",
+      "action": "Présenter le même identifiant pour une deuxième inscription.",
+      "obtained": {
+        "doublon": "refusé"
+      },
+      "proof": "NFC-02.png"
+    },
+    {
+      "id": "NFC-03",
+      "status": "VALIDÉ",
+      "action": "Dissocier le spécimen et relire les deux inscriptions.",
+      "obtained": {
+        "associations_restantes": 0
+      },
+      "proof": "NFC-03.png"
+    }
+  ]
+}

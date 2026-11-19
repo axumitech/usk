@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "maxLength": 255,
+  "label": "Nom du site (obligatoire)",
+  "invalid": true,
+  "valueMissing": true,
+  "focus": true,
+  "message": "Please fill out this field.",
+  "longueurApres256eFrappe": 255,
+  "requetesEcriture": [],
+  "memeFiche": true,
+  "donneesInchangees": true
+}

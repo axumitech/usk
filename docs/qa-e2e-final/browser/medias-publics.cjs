@@ -104,6 +104,10 @@ run('medias-publics', async ({ login, visit, check, out }) => {
             writes.push(request.method());
     };
     admin.on('request', observeWrite);
+    await name.fill('A'.repeat(255));
+    await name.press('End');
+    await name.press('B');
+    const longueurApres256eFrappe = (await name.inputValue()).length;
     await name.fill('');
     const submit = admin.getByRole('button', { name: 'Mettre à jour', exact: true });
     if (settings.required) {
@@ -128,6 +132,7 @@ run('medias-publics', async ({ login, visit, check, out }) => {
     const result = {
         ...settings,
         ...validation,
+        longueurApres256eFrappe,
         requetesEcriture: writes,
         memeFiche: previous?.id === restored?.id,
         donneesInchangees: JSON.stringify(previous) === JSON.stringify(restored),
@@ -136,6 +141,7 @@ run('medias-publics', async ({ login, visit, check, out }) => {
     await check(admin, 'IMG-05', 'Refuser localement le nom vide, conserver la fiche sans requête d’écriture', async () => {
         assert.equal(result.required, true);
         assert.equal(result.maxLength, 255);
+        assert.equal(result.longueurApres256eFrappe, 255);
         assert.match(result.label, /obligatoire/i);
         assert.ok(result.invalid && result.valueMissing && result.focus && result.message);
         assert.deepEqual(writes, []);

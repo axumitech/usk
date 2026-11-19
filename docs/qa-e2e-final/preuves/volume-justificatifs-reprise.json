@@ -1,0 +1,60 @@
+{
+    "date_utc": "2026-11-19T11:22:37Z",
+    "population": 5000,
+    "profil": "usk_qa_e2e-volume",
+    "mode": "SQLite local, service métier de dépôt et rapprochement, noyau HTTP Laravel, requêtes séquentielles",
+    "paiements_avant": 2506,
+    "paiements_apres": 2506,
+    "justificatifs_charge": 300,
+    "nouveaux_ce_passage": 0,
+    "justificatifs_hors_lot": 0,
+    "en_attente_de_rapprochement": 240,
+    "rapproches_aux_paiements_existants": 60,
+    "fichiers_png_distincts_verifies": 300,
+    "audit_depots_verifies": 300,
+    "audit_decisions_verifiees": 60,
+    "empreinte_sha256_liste_ordonnee_des_fichiers": "48df1a5dc44869761c316b7dee67f1fb8e63de648008f09f06b68bcd5461caef",
+    "integrite_sqlite": "ok",
+    "mesures": [
+        {
+            "route": "/app/dashboard/admin/finance/payment-proofs",
+            "recherche": "QA-VOL",
+            "page": 1,
+            "total": 240,
+            "lignes_affichees": 20,
+            "n": 10,
+            "echauffements_exclus": 1,
+            "p50_ms": 48.11,
+            "p95_ms": 110.98,
+            "requetes_sql_min": 19,
+            "requetes_sql_max": 19
+        },
+        {
+            "route": "/app/dashboard/admin/finance/payment-proofs",
+            "recherche": "QA-VOL",
+            "page": 2,
+            "total": 240,
+            "lignes_affichees": 20,
+            "n": 10,
+            "echauffements_exclus": 1,
+            "p50_ms": 39.96,
+            "p95_ms": 58.17,
+            "requetes_sql_min": 19,
+            "requetes_sql_max": 19
+        },
+        {
+            "route": "/app/dashboard/admin/finance/payment-proofs",
+            "recherche": "QA-VOL-00002",
+            "page": 1,
+            "total": 1,
+            "lignes_affichees": 1,
+            "n": 10,
+            "echauffements_exclus": 1,
+            "p50_ms": 53.05,
+            "p95_ms": 59.1,
+            "requetes_sql_min": 19,
+            "requetes_sql_max": 20
+        }
+    ],
+    "premier_passage": "volume-justificatifs.json"
+}

@@ -1,0 +1,107 @@
+{
+  "version": {
+    "port": 8070,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "fixture": {
+    "accounts": {
+      "registrar_med": {
+        "id": 17,
+        "email": "registrar.med@usk.test"
+      },
+      "dean_med": {
+        "id": 15,
+        "email": "dean.med@usk.test"
+      }
+    },
+    "students": {
+      "med": {
+        "email": "etudiant.scl.01@usk.test",
+        "entry": 238
+      },
+      "law": {
+        "email": "etudiant.dpu.01@usk.test",
+        "entry": 202
+      }
+    },
+    "issued": {
+      "id": 21,
+      "number": "TESTRECETTE06-2026-00000021",
+      "reference": "320aa01a-2b3f-4185-802b-6ddd35892c8f",
+      "sha256": "54b7bdb80c2f9890ce988afe3bdce72b0640f80d0aae98b25a4f86e8cf136cdf",
+      "type": 11,
+      "template": 11,
+      "request": 61
+    }
+  },
+  "rows": [
+    {
+      "id": "DOC-01",
+      "status": "VALIDÉ",
+      "action": "Relire le type actif et le modèle approuvé",
+      "obtained": {
+        "type": 11,
+        "modele": 11
+      },
+      "proofs": [
+        "modele-approuve.png"
+      ]
+    },
+    {
+      "id": "DOC-02",
+      "status": "VALIDÉ",
+      "action": "Relire la demande émise et télécharger son PDF archivé",
+      "obtained": {
+        "demande": 61,
+        "document": 21,
+        "reference": "TESTRECETTE06-2026-00000021",
+        "octets": 25060,
+        "sha256": "54b7bdb80c2f9890ce988afe3bdce72b0640f80d0aae98b25a4f86e8cf136cdf"
+      },
+      "proofs": [
+        "specimen-emis.png",
+        "usk-06-attestation-specimen.pdf"
+      ]
+    },
+    {
+      "id": "DOC-03",
+      "status": "VALIDÉ",
+      "action": "Vérifier la référence publique sans session",
+      "obtained": "Document valide, identité et matricule absents.",
+      "proofs": [
+        "verification-publique.png"
+      ]
+    },
+    {
+      "id": "DOC-04",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le PDF depuis un autre dossier étudiant",
+      "obtained": {
+        "http": 404
+      },
+      "proofs": [
+        "autre-etudiant-refuse.png"
+      ]
+    },
+    {
+      "id": "DOC-05",
+      "actor": "Étudiant Médecine",
+      "action": "Télécharger le document émis",
+      "obtained": "PDF identique à l’archive émise",
+      "status": "VALIDÉ",
+      "proofs": [
+        "bibliotheque-etudiant.png"
+      ]
+    }
+  ]
+}

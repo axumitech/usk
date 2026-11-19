@@ -1,0 +1,72 @@
+{
+  "parcours-final": {
+    "notifications_applicatives": {
+      "AcademicAssessmentNotice": 20,
+      "AcademicEnrollmentChanged": 27,
+      "AcademicScheduleNotice": 16,
+      "EnrollmentDocumentReviewed": 11,
+      "FinancialOperationNotice": 13,
+      "OfficialResultNotice": 2,
+      "StudentAdmissionActivated": 11,
+      "TeacherAnnouncementNotice": 3
+    },
+    "file_en_attente": 0,
+    "file_echecs": 0
+  },
+  "parcours-reprise": {
+    "notifications_applicatives": {
+      "AcademicAssessmentNotice": 20,
+      "AcademicEnrollmentChanged": 27,
+      "AcademicScheduleNotice": 16,
+      "EnrollmentDocumentReplacement": 3,
+      "EnrollmentDocumentReviewed": 14,
+      "FinancialOperationNotice": 13,
+      "OfficialResultNotice": 2,
+      "StudentAdmissionActivated": 12,
+      "TeacherAnnouncementNotice": 2
+    },
+    "file_en_attente": 0,
+    "file_echecs": 0
+  },
+  "usk_qa_e2e-rectorat": {
+    "notifications_applicatives": {
+      "AcademicAssessmentNotice": 980,
+      "AcademicEnrollmentChanged": 1034,
+      "AcademicScheduleNotice": 112,
+      "EnrollmentDocumentReviewed": 210,
+      "FinancialOperationNotice": 360,
+      "OfficialDocumentNotice": 90,
+      "OfficialResultNotice": 20,
+      "StudentAdmissionActivated": 210,
+      "TeacherAnnouncementNotice": 20
+    },
+    "file_en_attente": 0,
+    "file_echecs": 0
+  },
+  "usk_qa_e2e-progression-ui": {
+    "notifications_applicatives": {
+      "AcademicAssessmentNotice": 9,
+      "AcademicEnrollmentChanged": 8,
+      "AcademicScheduleNotice": 12,
+      "EnrollmentDocumentReviewed": 2,
+      "FinancialOperationNotice": 2,
+      "StudentAdmissionActivated": 2
+    },
+    "file_en_attente": 0,
+    "file_echecs": 0
+  },
+  "mailhog": {
+    "messages": 18,
+    "objets": {
+      "USK — Réinitialisez votre mot de passe": 2,
+      "USK — Confirmez votre adresse email": 3,
+      "USK — Décision concernant votre candidature": 1,
+      "USK — Votre dossier a été vérifié — compte rendu": 3,
+      "USK — L’examen de votre dossier a commencé": 2,
+      "USK — Votre candidature a bien été reçue": 4,
+      "USK — Votre candidature a été acceptée": 1,
+      "USK — Pièce à réexaminer · USK-000012": 1,
+      "USK — Des pièces de votre dossier sont à compléter": 1
+    }
+  }
+}

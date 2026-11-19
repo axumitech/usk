@@ -1,0 +1,903 @@
+{
+  "version": {
+    "port": 8064,
+    "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-DhFwbbyu.js",
+      "manifest_sha256": "fa9ca946b011e3538bfad17ec16790ecdd24484167ef3b25718cf8c0fb0f7758",
+      "entry_sha256": "76da3d8f1814fe69983f884dfe36defe72a63ea661da9087b48b1cb1a5c08359",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    }
+  },
+  "groups": [
+    {
+      "id": "tableau-de-bord",
+      "label": "Tableau de bord",
+      "links": [
+        {
+          "title": "Vue d’ensemble",
+          "href": "/app/dashboard"
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "label": "Structure institutionnelle",
+      "links": [
+        {
+          "title": "Université",
+          "href": "/app/dashboard/admin/academic-structure?tab=institution"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/faculties"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/academic-structure?tab=programs"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/levels"
+        }
+      ]
+    },
+    {
+      "id": "preparation",
+      "label": "Préparation académique",
+      "links": [
+        {
+          "title": "Années académiques",
+          "href": "/app/dashboard/admin/academic-years"
+        },
+        {
+          "title": "Maquettes pédagogiques",
+          "href": "/app/dashboard/admin/academic-structure?tab=curriculum"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/course-catalog"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/academic-years/semesters"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/academic-years/calendar"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/schedule"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/schedule/resources"
+        }
+      ]
+    },
+    {
+      "id": "admissions",
+      "label": "Admissions et scolarité",
+      "links": [
+        {
+          "title": "Campagnes d’admission",
+          "href": "/app/dashboard/admin/enrollments/campaigns"
+        },
+        {
+          "title": "Candidatures",
+          "href": "/app/dashboard/admin/enrollments"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/enrollments/overview"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/enrollments?queue=new"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/enrollments?queue=decisions"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic/administration"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic?tab=students"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic?tab=students&history=1"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic/administration/closure"
+        }
+      ]
+    },
+    {
+      "id": "finances",
+      "label": "Finances",
+      "links": [
+        {
+          "title": "Barèmes des frais",
+          "href": "/app/dashboard/admin/finance/tariffs"
+        },
+        {
+          "title": "Comptes, échéances et paiements",
+          "href": "/app/dashboard/admin/finance"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/finance/payment-proofs"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/finance/confirmations"
+        }
+      ]
+    },
+    {
+      "id": "enseignement",
+      "label": "Enseignement",
+      "links": [
+        {
+          "title": "Enseignants et affectations",
+          "href": "/app/dashboard/admin/professors"
+        },
+        {
+          "title": "Offres et inscriptions pédagogiques",
+          "href": "/app/dashboard/admin/teaching"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/teaching/resources"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/schedule/reports"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/schedule/absences"
+        }
+      ]
+    },
+    {
+      "id": "evaluations",
+      "label": "Évaluations et résultats",
+      "links": [
+        {
+          "title": "Évaluations, devoirs et corrections",
+          "href": "/app/dashboard/admin/assessments"
+        },
+        {
+          "title": "Résultats pédagogiques transmis",
+          "href": "/app/dashboard/admin/assessments/handoff"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/academic-results"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/progression"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic/renewals"
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "label": "Documents et services",
+      "links": [
+        {
+          "title": "Documents officiels",
+          "href": "/app/dashboard/admin/official-documents"
+        },
+        {
+          "title": "Modèles de cartes",
+          "href": "/app/dashboard/admin/card-templates"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/card-requests"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/card-issuance/printing"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/card-issuance/delivery"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/card-issuance/nfc"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic?tab=requests"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/student-academic/requests/agenda"
+        }
+      ]
+    },
+    {
+      "id": "communication",
+      "label": "Communication",
+      "links": [
+        {
+          "title": "Annonces et publications",
+          "href": "/app/dashboard/admin/student-academic?tab=teaching"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/posts"
+        }
+      ]
+    },
+    {
+      "id": "systeme",
+      "label": "Administration système",
+      "links": [
+        {
+          "title": "Règles d’accès académique",
+          "href": "/app/dashboard/admin/student-academic?tab=rules"
+        },
+        {
+          "title": "Paramètres du site public",
+          "href": "/app/dashboard/admin/site"
+        },
+        {
+          "title": "",
+          "href": "/app/dashboard/admin/seo"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "group": "Tableau de bord",
+      "title": "Vue d’ensemble administrative — Université Simon Kimbangu",
+      "route": "/app/dashboard",
+      "http": 200,
+      "path": "/app/dashboard",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Vue d’ensemble",
+        "Étudiants confirmés",
+        "Dossiers d’admission"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Structure institutionnelle",
+      "title": "Établissement — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-structure?tab=institution",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-structure",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Établissement",
+        "Université fictive USK — Recette V2",
+        "Facultés"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Structure institutionnelle",
+      "title": "Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/faculties",
+      "http": 200,
+      "path": "/app/dashboard/admin/faculties",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [],
+      "ok": true
+    },
+    {
+      "group": "Structure institutionnelle",
+      "title": "Structure universitaire et maquettes — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-structure?tab=programs",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-structure",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Structure et cursus",
+        "Programmes existants et niveaux",
+        "Cycles académiques"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Structure institutionnelle",
+      "title": "Niveaux et formations — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/levels",
+      "http": 200,
+      "path": "/app/dashboard/admin/levels",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Niveaux et formations",
+        "Faculté de Droit — Recette",
+        "Faculté de Médecine — Recette"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Années académiques — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-years",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-years",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Années académiques",
+        "2025-2026",
+        "2026-2027"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Structure universitaire et maquettes — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-structure?tab=curriculum",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-structure",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Maquettes pédagogiques",
+        "Maquettes par faculté"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Catalogue des cours — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/course-catalog",
+      "http": 200,
+      "path": "/app/dashboard/admin/course-catalog",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Catalogue des cours",
+        "8 cours"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Semestres et périodes — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-years/semesters",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-years/semesters",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Semestres et périodes",
+        "Les semestres · 2026-2027"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Calendrier académique — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-years/calendar",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-years/calendar",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Calendrier académique",
+        "novembre 2026",
+        "Événements du mois"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Horaires des cours — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/schedule",
+      "http": 200,
+      "path": "/app/dashboard/admin/schedule",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Horaires des cours",
+        " Filtres du planning",
+        "Les semestres · 2026-2027"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Préparation académique",
+      "title": "Salles et disponibilités — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/schedule/resources",
+      "http": 200,
+      "path": "/app/dashboard/admin/schedule/resources",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Salles et disponibilités",
+        "Répertoire des salles",
+        "Indisponibilités"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Campagnes d’admission — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/enrollments/campaigns",
+      "http": 200,
+      "path": "/app/dashboard/admin/enrollments/campaigns",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Campagnes d’admission",
+        "Campagnes configurées"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Toutes les candidatures — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/enrollments",
+      "http": 200,
+      "path": "/app/dashboard/admin/enrollments",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Toutes les candidatures",
+        "Candidatures"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Vue d’ensemble des admissions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/enrollments/overview",
+      "http": 200,
+      "path": "/app/dashboard/admin/enrollments/overview",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Vue d’ensemble des admissions",
+        "À traiter en priorité",
+        "Dernières décisions"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "À traiter · Admissions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/enrollments?queue=new",
+      "http": 200,
+      "path": "/app/dashboard/admin/enrollments",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "À traiter",
+        "Dossiers d’inscription"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Décisions · Admissions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/enrollments?queue=decisions",
+      "http": 200,
+      "path": "/app/dashboard/admin/enrollments",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Décisions",
+        "Dossiers d’inscription"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Inscriptions et situations administratives — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic/administration",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic/administration",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Inscriptions et situations administratives",
+        "Filtres des inscriptions",
+        "Inscriptions annuelles"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Répertoire des étudiants — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic?tab=students",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Répertoire des étudiants",
+        "Liste des inscriptions"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Historique des inscriptions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic?tab=students&history=1",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Historique des inscriptions",
+        "Inscriptions par année"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Admissions et scolarité",
+      "title": "Clôture administrative annuelle — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic/administration/closure",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic/administration/closure",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Clôture administrative annuelle",
+        "2026-2027 · En cours"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Finances",
+      "title": "Barèmes des frais — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/finance/tariffs",
+      "http": 200,
+      "path": "/app/dashboard/admin/finance/tariffs",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Barèmes des frais",
+        " Filtrer les barèmes",
+        "RECETTE V2 — 2026-2027 droit L2 (100 USD fictifs)"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Finances",
+      "title": "Gestion financière universitaire — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/finance",
+      "http": 200,
+      "path": "/app/dashboard/admin/finance",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Finances universitaires",
+        " Périmètre du rapport",
+        "Suivi financier"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Finances",
+      "title": "Justificatifs de paiement — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/finance/payment-proofs",
+      "http": 200,
+      "path": "/app/dashboard/admin/finance/payment-proofs",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Justificatifs de paiement"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Finances",
+      "title": "Confirmation des inscriptions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/finance/confirmations",
+      "http": 200,
+      "path": "/app/dashboard/admin/finance/confirmations",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Confirmation des inscriptions",
+        " En attente · 4"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Enseignement",
+      "title": "Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/professors",
+      "http": 200,
+      "path": "/app/dashboard/admin/professors",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [],
+      "ok": true
+    },
+    {
+      "group": "Enseignement",
+      "title": "Gestion des enseignements — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/teaching",
+      "http": 200,
+      "path": "/app/dashboard/admin/teaching",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Enseignements",
+        "Indicateurs du périmètre",
+        "Offres d’enseignement"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Enseignement",
+      "title": "Ressources pédagogiques — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/teaching/resources",
+      "http": 200,
+      "path": "/app/dashboard/admin/teaching/resources",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Ressources pédagogiques",
+        " Rechercher des ressources",
+        " Offres de cours"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Enseignement",
+      "title": "Rapports de présence — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/schedule/reports",
+      "http": 200,
+      "path": "/app/dashboard/admin/schedule/reports",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Rapports de présence",
+        "Assiduité · —"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Enseignement",
+      "title": "Justifications d’absence — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/schedule/absences",
+      "http": 200,
+      "path": "/app/dashboard/admin/schedule/absences",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Justifications d’absence"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Évaluations et résultats",
+      "title": "Évaluations et corrections — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/assessments",
+      "http": 200,
+      "path": "/app/dashboard/admin/assessments",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Évaluations et corrections",
+        "Évaluations",
+        "Offres de cours"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Évaluations et résultats",
+      "title": "Résultats pédagogiques transmis",
+      "route": "/app/dashboard/admin/assessments/handoff",
+      "http": 200,
+      "path": "/app/dashboard/admin/assessments/handoff",
+      "contentType": "application/json",
+      "ok": true
+    },
+    {
+      "group": "Évaluations et résultats",
+      "title": "Résultats et délibérations — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/academic-results",
+      "http": 200,
+      "path": "/app/dashboard/admin/academic-results",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Résultats et délibérations",
+        "Maquettes et règlements",
+        "Délibérations"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Évaluations et résultats",
+      "title": "Progression académique — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/progression",
+      "http": 200,
+      "path": "/app/dashboard/admin/progression",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Progression académique",
+        "Dossiers de parcours",
+        "Décisions et plans de reprise"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Évaluations et résultats",
+      "title": "Réinscriptions — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic/renewals",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic/renewals",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Réinscriptions",
+        "Décisions de passage"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Documents officiels — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/official-documents",
+      "http": 200,
+      "path": "/app/dashboard/admin/official-documents",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Documents officiels",
+        "Catalogue",
+        "Demandes"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Modèles de cartes — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/card-templates",
+      "http": 200,
+      "path": "/app/dashboard/admin/card-templates",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Modèles de cartes",
+        "Modèles enregistrés 0",
+        "Nouveau modèle"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Demandes et éligibilité — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/card-requests",
+      "http": 200,
+      "path": "/app/dashboard/admin/card-requests",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Demandes et éligibilité",
+        "Conditions d’éligibilité",
+        "Inscriptions étudiantes 12"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Génération et impression — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/card-issuance/printing",
+      "http": 200,
+      "path": "/app/dashboard/admin/card-issuance/printing",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Génération et impression"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Délivrance des cartes — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/card-issuance/delivery",
+      "http": 200,
+      "path": "/app/dashboard/admin/card-issuance/delivery",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Délivrance des cartes"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Cartes NFC — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/card-issuance/nfc",
+      "http": 200,
+      "path": "/app/dashboard/admin/card-issuance/nfc",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Cartes NFC"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Demandes de scolarité — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic?tab=requests",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Demandes de scolarité",
+        "File de traitement"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Documents et services",
+      "title": "Agenda des rendez-vous · Scolarité — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic/requests/agenda",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic/requests/agenda",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Agenda des rendez-vous",
+        "16–22 novembre 2026"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Communication",
+      "title": "Nos étudiants — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic?tab=teaching",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Nos étudiants",
+        "Les enseignements publiés",
+        "Ressources, travaux et publications"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Communication",
+      "title": "Blog — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/posts",
+      "http": 200,
+      "path": "/app/dashboard/admin/posts",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Actualités"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Administration système",
+      "title": "Nos étudiants — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/student-academic?tab=rules",
+      "http": 200,
+      "path": "/app/dashboard/admin/student-academic",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Nos étudiants",
+        "Des droits adaptés à chaque parcours"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Administration système",
+      "title": "— Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/site",
+      "http": 200,
+      "path": "/app/dashboard/admin/site",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Paramètres du Site",
+        "Informations Générales",
+        "Coordonnées"
+      ],
+      "ok": true
+    },
+    {
+      "group": "Administration système",
+      "title": "Référencement et informations officielles — Université Simon Kimbangu",
+      "route": "/app/dashboard/admin/seo",
+      "http": 200,
+      "path": "/app/dashboard/admin/seo",
+      "contentType": "text/html; charset=utf-8",
+      "heading": [
+        "Référencement et transparence",
+        "Paramètres globaux",
+        "Métadonnées des pages publiques"
+      ],
+      "ok": true
+    }
+  ]
+}

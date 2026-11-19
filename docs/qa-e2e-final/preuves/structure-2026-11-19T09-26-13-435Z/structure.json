@@ -1,0 +1,38 @@
+{
+  "version": {
+    "port": 8065,
+    "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-DhFwbbyu.js",
+      "manifest_sha256": "fa9ca946b011e3538bfad17ec16790ecdd24484167ef3b25718cf8c0fb0f7758",
+      "entry_sha256": "76da3d8f1814fe69983f884dfe36defe72a63ea661da9087b48b1cb1a5c08359",
+      "revision": "8cc16567b2dfcd7e719b882cc5ac5fcb8c615488"
+    }
+  },
+  "actions": [
+    "Année 2025-2026",
+    "Année 2026-2027",
+    "2025-2026 semestre 1",
+    "2025-2026 semestre 2",
+    "2026-2027 semestre 1",
+    "2026-2027 semestre 2",
+    "Cycle Licence",
+    "Cycle Master",
+    "Cycle Doctorat",
+    "Cycle Formation médicale témoin",
+    "Niveau DPU-L1",
+    "Niveau DPU-L2",
+    "Niveau DPU-L3"
+  ],
+  "faculties": 5,
+  "departments": 10,
+  "error": {
+    "action": "Programme QA-DPU",
+    "message": "locator.selectOption: Timeout 20000ms exceeded."
+  },
+  "formErrors": []
+}

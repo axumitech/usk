@@ -1,0 +1,11 @@
+{
+  "origin": "http://127.0.0.1:8066",
+  "startedAt": "2026-11-19T10:09:32.494Z",
+  "suites": [
+    "auth",
+    "account",
+    "admissions"
+  ],
+  "headless": false,
+  "results": []
+}

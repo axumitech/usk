@@ -1,0 +1,40 @@
+{
+  "origin": "http://127.0.0.1:8066",
+  "startedAt": "2026-11-19T10:33:40.771Z",
+  "suites": [
+    "account"
+  ],
+  "headless": false,
+  "results": [
+    {
+      "id": "EMAIL-01",
+      "actor": "Nouveau candidat fictif",
+      "action": "Créer un compte avec le formulaire public",
+      "expected": "POST /app/register suivi de la vérification email",
+      "observed": "Inscription fictive acceptée. Le portail reste derrière la vérification email.",
+      "status": "VALIDÉ",
+      "proof": "EMAIL-01.png",
+      "url": "http://127.0.0.1:8066/app/email/verify"
+    },
+    {
+      "id": "EMAIL-02",
+      "actor": "Nouveau candidat et MailHog local",
+      "action": "Lire le courriel et utiliser son lien signé",
+      "expected": "Destinataire fictif, lien loopback, accès au portail après HTTP de vérification",
+      "observed": "Courriel reçu de noreply@usk.test. Lien signé vérifié par Laravel et accès candidat ouvert.",
+      "status": "VALIDÉ",
+      "proof": "EMAIL-02-message.png",
+      "url": "http://127.0.0.1:8066/app/dashboard/enrollments"
+    },
+    {
+      "id": "EMAIL-03",
+      "actor": "Compte fictif vérifié",
+      "action": "Demander puis réinitialiser le mot de passe depuis MailHog",
+      "expected": "Contexte conservé et nouveau secret utilisable",
+      "observed": "Demande et confirmation HTTP 303, lien fictif dans MailHog, validation de la confirmation au clavier et nouvelle connexion.",
+      "status": "VALIDÉ",
+      "proof": "EMAIL-03-mailhog.png",
+      "url": "http://127.0.0.1:8066/app/dashboard/enrollments"
+    }
+  ]
+}

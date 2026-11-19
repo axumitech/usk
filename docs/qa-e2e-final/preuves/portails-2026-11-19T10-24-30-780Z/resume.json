@@ -1,0 +1,242 @@
+{
+  "origin": "http://127.0.0.1:8068",
+  "startedAt": "2026-11-19T10:24:30.780Z",
+  "suites": [
+    "auth",
+    "account",
+    "admissions"
+  ],
+  "headless": false,
+  "results": [
+    {
+      "id": "AUTH-01",
+      "actor": "Candidat fictif",
+      "action": "Saisir un mauvais mot de passe avec le site public ouvert dans un second onglet",
+      "expected": "POST sans Referer, Location /app/login et erreur associée au champ",
+      "observed": "Refus HTTP 302 vers la connexion. Identifiants invalides",
+      "status": "VALIDÉ",
+      "proof": "AUTH-01.png",
+      "url": "http://127.0.0.1:8068/app/login"
+    },
+    {
+      "id": "AUTH-02",
+      "actor": "Candidat fictif",
+      "action": "Se connecter, se déconnecter puis ouvrir une page privée",
+      "expected": "POST logout, message visible puis nouvelle demande de connexion",
+      "observed": "Déconnexion confirmée à l’écran. La page privée exige de se reconnecter.",
+      "status": "VALIDÉ",
+      "proof": "AUTH-02-retour-logout.png",
+      "url": "http://127.0.0.1:8068/app/login"
+    },
+    {
+      "id": "EMAIL-01",
+      "actor": "Nouveau candidat fictif",
+      "action": "Créer un compte avec le formulaire public",
+      "expected": "POST /app/register suivi de la vérification email",
+      "observed": "page.waitForResponse: Timeout 18000ms exceeded while waiting for event \"response\"",
+      "status": "BLOQUÉ",
+      "proof": "EMAIL-01-observation.png",
+      "url": "http://127.0.0.1:8068/app/register"
+    },
+    {
+      "id": "EMAIL-02",
+      "actor": "MailHog local",
+      "action": "Confirmer l’adresse",
+      "expected": "Courriel de vérification réellement reçu et utilisé",
+      "observed": "Création préalable indisponible.",
+      "status": "BLOQUÉ",
+      "proof": null,
+      "url": "http://127.0.0.1:8068/app/register"
+    },
+    {
+      "id": "S02-01",
+      "actor": "Candidat Médecine",
+      "action": "Choisir l’année, la faculté, le programme et L1",
+      "expected": "Année 2026-2027 en premier ; contexte cohérent disponible",
+      "observed": "Brouillon e9a38050-83b9-4169-9e73-e44c35b8b62b, coordonnées sauvegardées à l’étape 2.",
+      "status": "VALIDÉ",
+      "proof": "S02-01.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b/edit"
+    },
+    {
+      "id": "S02-02",
+      "actor": "Candidat Médecine",
+      "action": "Se déconnecter puis reprendre le brouillon",
+      "expected": "Même UUID, nom/email et étape 2 restaurés",
+      "observed": "Reprise du dossier e9a38050-83b9-4169-9e73-e44c35b8b62b et passage effectif à l’étape 3 sans erreur 405.",
+      "status": "VALIDÉ",
+      "proof": "S02-02.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b/edit"
+    },
+    {
+      "id": "S02-03",
+      "actor": "Candidat Médecine",
+      "action": "Tenter de continuer sans pièce exigée",
+      "expected": "Erreur locale compréhensible ; conservation du brouillon",
+      "observed": "Pièce manquante signalée, étape 3 conservée, aucune soumission finale.",
+      "status": "VALIDÉ",
+      "proof": "S02-03.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b/edit"
+    },
+    {
+      "id": "S02-04",
+      "actor": "Candidat Médecine",
+      "action": "Importer les pièces et sauvegarder partiellement",
+      "expected": "Fichiers enregistrés sur le même dossier",
+      "observed": "1 pièce(s) persistée(s) ; UUID du dossier inchangé.",
+      "status": "VALIDÉ",
+      "proof": "S02-04.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b/edit"
+    },
+    {
+      "id": "S02-05",
+      "actor": "Candidat Médecine",
+      "action": "Reprendre une seconde fois et contrôler les données précédentes",
+      "expected": "Même année/contexte et mêmes pièces après reconnexion",
+      "observed": "Année, faculté, programme, niveau, coordonnées et pièces restaurés sans deuxième candidature.",
+      "status": "VALIDÉ",
+      "proof": "S02-05.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b/edit"
+    },
+    {
+      "id": "S02-06",
+      "actor": "Candidat Médecine",
+      "action": "Relire et soumettre la candidature",
+      "expected": "Statut Soumise, une seule candidature",
+      "observed": "Dossier e9a38050-83b9-4169-9e73-e44c35b8b62b soumis ; une seule carte de candidature visible.",
+      "status": "VALIDÉ",
+      "proof": "S02-06.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments"
+    },
+    {
+      "id": "S03-01",
+      "actor": "Doyen Médecine",
+      "action": "Ouvrir le dossier, commencer l’analyse et consulter la pièce",
+      "expected": "Examen explicite et aperçu privé disponibles",
+      "observed": "Dossier administratif 12 en analyse, pièce affichée via URL contrôlée.",
+      "status": "VALIDÉ",
+      "proof": "S03-01.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/12"
+    },
+    {
+      "id": "S03-02",
+      "actor": "Doyen Droit",
+      "action": "Essayer le dossier et la pièce de Médecine",
+      "expected": "403/404 sur dossier et aperçu privé hors faculté",
+      "observed": "Dossier et document privés refusés à la faculté étrangère.",
+      "status": "VALIDÉ",
+      "proof": "S03-02.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/documents/722e43bb-6828-4e84-9f93-c7650831ca68/preview"
+    },
+    {
+      "id": "S03-03",
+      "actor": "Doyen Médecine",
+      "action": "Demander correction avec plusieurs motifs et Autre motif",
+      "expected": "Motifs historisés ; validation impossible tant que la pièce reste à corriger",
+      "observed": "Motifs illisible+incomplet+autre enregistrés, détail trop court refusé puis correction demandée, admission désactivée.",
+      "status": "VALIDÉ",
+      "proof": "S03-03.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/12"
+    },
+    {
+      "id": "S03-04",
+      "actor": "Candidat Médecine",
+      "action": "Lire la correction et remplacer la pièce",
+      "expected": "Motifs compréhensibles, version2 à réexaminer, historique conservé",
+      "observed": "Remplacement transmis comme version2 ; motifs et événements précédents consultables.",
+      "status": "VALIDÉ",
+      "proof": "S03-04.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/e9a38050-83b9-4169-9e73-e44c35b8b62b?document=722e43bb-6828-4e84-9f93-c7650831ca68"
+    },
+    {
+      "id": "S03-05",
+      "actor": "Doyen Médecine",
+      "action": "Réexaminer la nouvelle version puis admettre",
+      "expected": "Pièces acceptées et décision officielle motivée",
+      "observed": "Nouvelle version acceptée ; admission motivée enregistrée et affichée.",
+      "status": "VALIDÉ",
+      "proof": "S03-05.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/12"
+    },
+    {
+      "id": "S03-06",
+      "actor": "Candidat admis Médecine",
+      "action": "Consulter la décision avant tout paiement",
+      "expected": "Admis et inscription à confirmer ; admission distincte de l’activation financière",
+      "observed": "Admission distincte du paiement : inscription 13 encore à confirmer.",
+      "status": "VALIDÉ",
+      "proof": "S03-06.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/student/fees?application=e9a38050-83b9-4169-9e73-e44c35b8b62b"
+    },
+    {
+      "id": "S02-07",
+      "actor": "Candidat Droit",
+      "action": "Déposer une candidature Droit indépendante",
+      "expected": "Dossier complet soumis par les formulaires existants",
+      "observed": "Candidature Droit a79f5de0-01a1-41e2-8b27-9a99486e5e7c soumise avec ses pièces.",
+      "status": "VALIDÉ",
+      "proof": "S02-07.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments"
+    },
+    {
+      "id": "S03-07",
+      "actor": "Doyen Droit",
+      "action": "Refuser une pièce puis motiver le rejet de candidature",
+      "expected": "Motif documentaire prédéfini et décision officielle distincte",
+      "observed": "Refus de pièce pour non-conformité puis rejet officiel motivé, sans admission.",
+      "status": "VALIDÉ",
+      "proof": "S03-07.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/13"
+    },
+    {
+      "id": "S03-08",
+      "actor": "Candidat Droit",
+      "action": "Lire le rejet et son historique",
+      "expected": "Refus, motif affiché et aucun lien d’espace étudiant",
+      "observed": "Refus et motivation communiqués ; absence d’ouverture de l’espace étudiant.",
+      "status": "VALIDÉ",
+      "proof": "S03-08.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/a79f5de0-01a1-41e2-8b27-9a99486e5e7c"
+    },
+    {
+      "id": "S03-MAIL-01",
+      "actor": "Candidat / MailHog local",
+      "action": "Consulter l’email de réception de candidature",
+      "expected": "Email récent du destinataire fictif et preuve dans l’interface MailHog",
+      "observed": "USK — Votre candidature a bien été reçue ; destinataire candidat.med@usk.test ; reçu 2026-11-19T11:26:32.3961363+01:00 ; capture S03-MAIL-01-mailhog.png.",
+      "status": "VALIDÉ",
+      "proof": "S03-MAIL-01.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/a79f5de0-01a1-41e2-8b27-9a99486e5e7c"
+    },
+    {
+      "id": "S03-MAIL-02",
+      "actor": "Candidat / MailHog local",
+      "action": "Consulter l’email de demande de correction",
+      "expected": "Email récent du destinataire fictif et preuve dans l’interface MailHog",
+      "observed": "USK — Des pièces de votre dossier sont à compléter ; destinataire candidat.med@usk.test ; reçu 2026-11-19T11:28:41.6882315+01:00 ; capture S03-MAIL-02-mailhog.png.",
+      "status": "VALIDÉ",
+      "proof": "S03-MAIL-02.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/a79f5de0-01a1-41e2-8b27-9a99486e5e7c"
+    },
+    {
+      "id": "S03-MAIL-03",
+      "actor": "Candidat / MailHog local",
+      "action": "Consulter l’email de décision d’admission",
+      "expected": "Email récent du destinataire fictif et preuve dans l’interface MailHog",
+      "observed": "USK — Votre candidature a été acceptée ; destinataire candidat.med@usk.test ; reçu 2026-11-19T11:29:31.3283924+01:00 ; capture S03-MAIL-03-mailhog.png.",
+      "status": "VALIDÉ",
+      "proof": "S03-MAIL-03.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/a79f5de0-01a1-41e2-8b27-9a99486e5e7c"
+    },
+    {
+      "id": "S03-MAIL-04",
+      "actor": "Candidat / MailHog local",
+      "action": "Consulter l’email de décision de refus",
+      "expected": "Email récent du destinataire fictif et preuve dans l’interface MailHog",
+      "observed": "USK — Décision concernant votre candidature ; destinataire candidat.droit@usk.test ; reçu 2026-11-19T11:31:12.8249721+01:00 ; capture S03-MAIL-04-mailhog.png.",
+      "status": "VALIDÉ",
+      "proof": "S03-MAIL-04.png",
+      "url": "http://127.0.0.1:8068/app/dashboard/enrollments/a79f5de0-01a1-41e2-8b27-9a99486e5e7c"
+    }
+  ]
+}

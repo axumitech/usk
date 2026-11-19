@@ -1,0 +1,69 @@
+{
+  "version": {
+    "port": 8068,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "SOL-01",
+      "status": "VALIDÉ",
+      "action": "Enregistrer un versement général égal au montant encore dû",
+      "obtained": {
+        "entry": 8,
+        "amount_cents": 7100,
+        "payment": 13,
+        "status": "pending"
+      },
+      "proof": "SOL-01.png"
+    },
+    {
+      "id": "SOL-02",
+      "status": "VALIDÉ",
+      "action": "Confirmer le versement avant son affectation",
+      "obtained": {
+        "outstanding_cents": 7100,
+        "unallocated_cents": 7100
+      },
+      "proof": "SOL-02.png"
+    },
+    {
+      "id": "SOL-03",
+      "status": "VALIDÉ",
+      "action": "Affecter aux obligations et solder le compte annuel",
+      "obtained": {
+        "allocated_cents": 7100,
+        "balance": {
+          "assessed": true,
+          "currency": "USD",
+          "total_cents": 10000,
+          "waived_cents": 0,
+          "due_cents": 10000,
+          "paid_cents": 10000,
+          "pending_cents": 0,
+          "balance_cents": 0,
+          "overdue_cents": 0,
+          "credit_cents": 0,
+          "unallocated_cents": 0,
+          "refunded_cents": 0,
+          "financial_clearance_status": "cleared"
+        }
+      },
+      "proof": "SOL-03.png"
+    },
+    {
+      "id": "solde",
+      "status": "BLOQUÉ",
+      "detail": "page.waitForEvent: Timeout 35000ms exceeded while waiting for event \"popup\""
+    }
+  ]
+}

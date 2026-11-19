@@ -1,0 +1,75 @@
+{
+  "source": [
+    {
+      "id": "logo",
+      "width": 192,
+      "height": 192,
+      "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829"
+    },
+    {
+      "id": "favicon",
+      "width": 180,
+      "height": 180,
+      "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423"
+    }
+  ],
+  "apres_upload": [
+    {
+      "id": "logo",
+      "reference": "site/rutWytig9L9hVdl9HwwzF7a9dWqlxTMktZMzgl3p.png",
+      "visible": true,
+      "path": "/storage/site/rutWytig9L9hVdl9HwwzF7a9dWqlxTMktZMzgl3p.png",
+      "http": 200,
+      "mime": "image/png",
+      "bytes": 39839,
+      "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829",
+      "decoded": true,
+      "width": 192,
+      "height": 192
+    },
+    {
+      "id": "favicon",
+      "reference": "site/ObTvV9pwW9633kNJyQPXNElIR06x9WOesinyH4Zn.png",
+      "visible": true,
+      "path": "/storage/site/ObTvV9pwW9633kNJyQPXNElIR06x9WOesinyH4Zn.png",
+      "http": 200,
+      "mime": "image/png",
+      "bytes": 36047,
+      "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423",
+      "decoded": true,
+      "width": 180,
+      "height": 180
+    }
+  ],
+  "edition_textuelle": {
+    "slogan": "Université fictive de recette — édition textuelle",
+    "medias": [
+      {
+        "id": "logo",
+        "reference": "site/rutWytig9L9hVdl9HwwzF7a9dWqlxTMktZMzgl3p.png",
+        "visible": true,
+        "path": "/storage/site/rutWytig9L9hVdl9HwwzF7a9dWqlxTMktZMzgl3p.png",
+        "http": 200,
+        "mime": "image/png",
+        "bytes": 39839,
+        "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829",
+        "decoded": true,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "id": "favicon",
+        "reference": "site/ObTvV9pwW9633kNJyQPXNElIR06x9WOesinyH4Zn.png",
+        "visible": true,
+        "path": "/storage/site/ObTvV9pwW9633kNJyQPXNElIR06x9WOesinyH4Zn.png",
+        "http": 200,
+        "mime": "image/png",
+        "bytes": 36047,
+        "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423",
+        "decoded": true,
+        "width": 180,
+        "height": 180
+      }
+    ]
+  }
+}
