@@ -79,7 +79,7 @@ run('interfaces-universitaires', async ({ login, visit, proof }) => {
         await sp.keyboard.press('Escape');
         await combo.click();
         await other.click();
-        await sp.waitForURL((url) => url.pathname === portal && url.searchParams.get('academic') === String(archive.id));
+        await sp.waitForURL((url) => [portal, portal + '/overview'].includes(url.pathname) && url.searchParams.get('academic') === String(archive.id));
         await sp.context().close();
 
         const rector = await login('rectorat@usk.test', password);
@@ -164,6 +164,11 @@ run('interfaces-universitaires', async ({ login, visit, proof }) => {
             filtre: await palette(docsMain.getByRole('button', { name: 'Filtrer' })),
         });
         const kind = docs.types.data[0].kind;
+        await docsMain.locator('.official-catalog a').first().click();
+        await dean.waitForURL((url) => url.hash === '#modeles' && url.searchParams.get('type') === String(docs.types.data[0].id));
+        await docsMain.getByRole('heading', { name: 'Modèles · ' + docs.types.data[0].name }).waitFor();
+        await docsMain.getByRole('link', { name: 'Réinitialiser' }).click();
+        await dean.waitForURL((url) => url.pathname === documentsPath && !url.search);
         await docsMain.getByLabel('Famille', { exact: true }).selectOption(kind);
         await docsMain.getByRole('button', { name: 'Filtrer' }).click();
         await dean.waitForURL((url) => url.searchParams.get('kind') === kind);

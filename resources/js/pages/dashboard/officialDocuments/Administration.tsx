@@ -278,7 +278,7 @@ export default function Administration({
                         {types.data.map((item) => (
                             <li key={item.id}>
                                 <Link
-                                    href={route(prefix + 'index', { ...filters, type: item.id })}
+                                    href={route(prefix + 'index', { ...filters, type: item.id }) + '#modeles'}
                                     aria-current={item.id === type?.id ? 'true' : undefined}
                                 >
                                     <FileText aria-hidden="true" />
@@ -298,7 +298,7 @@ export default function Administration({
                     <Pagination value={types} />
                     {type && (
                         <>
-                            <h3 className="font-semibold">Modèles · {type.name}</h3>
+                            <h3 id="modeles" className="scroll-mt-24 font-semibold">Modèles · {type.name}</h3>
                             <div className="flex flex-wrap gap-2">
                                 {permissions.approve && (
                                     <button
