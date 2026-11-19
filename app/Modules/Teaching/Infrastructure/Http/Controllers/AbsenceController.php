@@ -24,7 +24,8 @@ final class AbsenceController
         abort_unless($request->user()->hasRole('student'), 403);
         $records = AcademicAttendance::where('status', 'absent')->whereHas('enrollment.profile', fn ($q) => $q->where('user_id', $request->user()->id))
             ->whereHas('session', fn ($q) => $q->where('is_published', true)->whereNull('cancelled_at')->where('ends_at', '<=', now()))
-            ->with(['session.offering.course', 'session.offering.curriculumItem', 'justification'])->latest('id')->paginate(20)->withQueryString()->through($this->row(...));
+            ->with(['session.offering.course', 'session.offering.curriculumItem', 'justification'])->latest('id')->paginate(20)->withQueryString()
+            ->through(fn (AcademicAttendance $attendance) => $this->row($attendance));
 
         return Inertia::render('dashboard/schedule/Absences', [
             'staff' => false,

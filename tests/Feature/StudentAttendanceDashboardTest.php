@@ -16,6 +16,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\CreatesStudentContext;
 use Tests\TestCase;
@@ -106,6 +107,29 @@ final class StudentAttendanceDashboardTest extends TestCase
 
         AccessRule::create(['feature' => 'schedule_view', 'academic_year_id' => $entry->academic_year_id, 'mode' => 'hidden', 'is_active' => true]);
         $this->get($url)->assertForbidden();
+    }
+
+    public function test_second_absence_keeps_the_student_projection_and_download_url(): void
+    {
+        Storage::fake('local');
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $course = $this->offering($entry, 'Droit public');
+        $attachments = [];
+        foreach ([3, 2] as $days) {
+            $attendance = $this->attendance($entry, $this->makeSession($course, now()->subDays($days)), 'absent');
+            $path = 'absence-justifications/specimen-'.$days.'.png';
+            Storage::disk('local')->put($path, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jHV4AAAAASUVORK5CYII='));
+            $attachments[] = $attendance->justification()->create(['status' => 'submitted', 'reason' => 'Pièce de recette', 'path' => $path]);
+        }
+        $second = $attachments[0];
+        $url = route('dashboard.student.absences.file', $second);
+        $this->actingAs($student)->get(route('dashboard.student.absences'))->assertInertia(fn (Assert $page) => $page
+            ->where('staff', false)->has('records.data', 2)
+            ->where('records.data.0.student', null)->where('records.data.1.student', null)
+            ->where('records.data.1.case.id', $second->id)->where('records.data.1.case.download_url', $url));
+        $this->get($url)->assertOk()->assertDownload();
+        $this->actingAs(User::factory()->create()->assignRole('student'))->get($url)->assertNotFound();
     }
 
     private function offering(AcademicEnrollment $entry, string $title, array $overrides = []): AcademicOffering
