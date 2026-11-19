@@ -1,6 +1,6 @@
 # Mesures sur 5 000 étudiants — annuaire, bulletin PDF et file
 
-19 novembre 2026, 11 h 05 à Kinshasa. Application à la révision `a36ed79`, sans changement local de code métier au moment de la mesure. Le profil SQLite exclusivement synthétique contenait 5 000 étudiants et 2 506 paiements. Chaque série comprend un échauffement et dix répétitions mesurées. Avec dix valeurs, le 95e centile empirique au rang supérieur correspond au maximum. [Mesures JSON](volume-metiers.json)
+19 novembre 2026, 11 h 05 à Kinshasa. Application à la révision `a36ed79`, sans changement local de code métier au moment de la mesure. Le profil SQLite exclusivement synthétique contenait 5 000 étudiants et 2 506 paiements. Chaque série comprend un échauffement et dix répétitions mesurées. Avec dix valeurs, le 95e centile empirique au rang supérieur correspond au maximum. La somme SHA-256 du script correspond à sa version mesurée, conservée au commit `63133cf`. [Mesures JSON](volume-metiers.json)
 
 | Opération | Résultat contrôlé à chaque passage | Médiane | 95e centile | Requêtes SQL |
 | --- | --- | ---: | ---: | ---: |
@@ -28,4 +28,3 @@ php docs/qa-e2e-final/scripts/volume-metiers.php
 ```
 
 Les notifications de mesure restent consultables dans ce seul profil. Les archives PDF temporaires libérées après le test ne contiennent aucune donnée de l’installation usuelle. [Script de mesure](../scripts/volume-metiers.php)
-
