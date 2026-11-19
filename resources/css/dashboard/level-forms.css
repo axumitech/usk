@@ -569,7 +569,7 @@
     pointer-events: none;
     color: var(--usk-night-mint, #8ea67a);
 }
-.usk-admin-apps .level-form-modal .lf-select-wrap select {
+#level-create-faculty {
     padding-left: 41px;
 }
 .usk-admin-apps .lf-label .lf-optional {

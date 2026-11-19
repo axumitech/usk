@@ -90,10 +90,12 @@ run('ux', async ({ login, visit, proof, check, origin }) => {
         const first = page.locator('a.levels-card').first();
         const canonical = new URL(await first.getAttribute('href'), origin);
         await first.click();
+        await page.waitForURL((url) => url.pathname === canonical.pathname);
+        const level = (await visit(page, canonical.href)).level;
         await page.getByRole('tab', { name: 'Enseignants', exact: true }).click();
         const button = page.getByRole('button', { name: 'Modifier le niveau' });
         await button.click();
-        const id = (await page.locator('#app').evaluate((el) => JSON.parse(el.dataset.page).props)).level.id;
+        const id = level.id;
         const tag = modal.locator('#level-create-tag');
         const original = await tag.inputValue();
         const changed = 'Recette UX ' + Date.now();
@@ -136,6 +138,12 @@ run('ux', async ({ login, visit, proof, check, origin }) => {
         await trigger.focus();
         await page.keyboard.press('Enter');
         await modal.waitFor();
+        const gap = await modal.locator('#level-create-faculty').evaluate((select) => {
+            const icon = select.previousElementSibling.getBoundingClientRect();
+            return select.getBoundingClientRect().left + parseFloat(getComputedStyle(select).paddingLeft) - icon.right;
+        });
+        assert.ok(gap >= 4, 'Le libellé de la faculté chevauche son pictogramme : marge ' + gap + ' px');
+        await proof(page, 'UX-03a', 'Vérifier la lisibilité du nom de faculté dans le sélecteur de niveau', { gapPixels:gap });
         for (let i = 0; i < 18; i++) {
             await page.keyboard.press('Tab');
             assert.ok(await modal.evaluate((el) => el.contains(document.activeElement)), 'Le focus reste dans le formulaire');
