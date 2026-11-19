@@ -101,12 +101,23 @@ run('interfaces-universitaires', async ({ login, visit, proof }) => {
         await rector.getByRole('heading', { name: 'Résultats et jurys' }).waitFor();
         await rector.getByRole('heading', { name: 'Effectifs par faculté' }).waitFor();
         assert.ok(record.finance.length);
+        for (const account of record.finance) {
+            const totals = db.prepare(`SELECT
+                COALESCE(SUM(CASE WHEN p.status IN ('confirmed','refunded') THEN p.amount_cents ELSE 0 END), 0) AS gross,
+                COALESCE(SUM(CASE WHEN p.status='pending' THEN p.amount_cents ELSE 0 END), 0) AS pending
+                FROM student_payments p JOIN academic_enrollments e ON e.id=p.academic_enrollment_id
+                WHERE e.academic_year_id=? AND p.currency=?`).get(record.year_id, account.currency);
+            assert.equal(account.gross_cents, totals.gross);
+            assert.equal(account.pending_cents, totals.pending);
+            const net = (account.net_cents / 100).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            await rector.locator('.rector-cash').filter({ hasText: net + ' ' + account.currency }).waitFor();
+        }
         await proof(rector, 'RECTORAT', 'Comparer les effectifs affichés aux inscriptions et consulter les finances', {
             ...counts,
             finances: record.finance,
             resultats: record.results,
         });
-        const previous = annual.years.find((y) => y.id !== record.year_id);
+        const previous = annual.years.find((y) => y.id !== record.year_id && y.status === 'closed');
         assert.ok(previous);
         await rector.getByLabel('Année académique', { exact: true }).selectOption(String(previous.id));
         await rector.waitForURL((url) => url.searchParams.get('year') === String(previous.id));
