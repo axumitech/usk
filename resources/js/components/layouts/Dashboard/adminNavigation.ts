@@ -12,7 +12,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 
-type Destination = { href: string; anyPermission?: string[]; institutionWide?: boolean; native?: boolean };
+type Destination = { href: string; anyPermission?: string[]; institutionWide?: boolean };
 type Entry = [label: string, destination: Destination];
 type AdminGroup = { id: string; title: string; shortLabel: string; icon: LucideIcon; items: Entry[] };
 type AdminActor = { permissions?: string[]; hasAcademicFacultyScope?: boolean; delegatedAreas?: string[] | null };
@@ -114,7 +114,7 @@ export const adminNavigation: AdminGroup[] = [
         icon: NotebookPen,
         items: [
             ['Évaluations, devoirs et corrections', destination('assessments', publish)],
-            ['Résultats pédagogiques transmis', { ...destination('assessments/handoff', publish), native: true }],
+            ['Résultats pédagogiques transmis', destination('assessments/handoff', publish)],
             [
                 'Délibérations et résultats officiels',
                 destination('academic-results', 'manage academic results', 'deliberate academic results', 'publish official results'),

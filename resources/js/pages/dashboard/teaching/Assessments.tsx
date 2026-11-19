@@ -1,6 +1,6 @@
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
-import { dateTime } from '@/pages/dashboard/teaching/types';
+import { dateTime, participationLabels } from '@/pages/dashboard/teaching/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     ArrowDown,
@@ -136,19 +136,6 @@ const assessmentStatuses = [
     { value: 'closed', label: 'Clôturées' },
     { value: 'cancelled', label: 'Annulées' },
 ];
-const participationLabels: Record<string, string> = {
-    unassessed: 'À qualifier',
-    submitted: 'Remis',
-    late_submission: 'Remis en retard',
-    not_submitted: 'Non remis',
-    present: 'Présent',
-    late: 'Arrivé en retard',
-    absent: 'Absent',
-    excused: 'Absence justifiée',
-    exempt: 'Dispensé',
-    interrupted: 'Interrompu',
-    invalidated: 'Invalidé',
-};
 const points = (value: number | null | undefined) => (value == null ? '' : (value / 100).toFixed(2));
 const reason: Field = { name: 'reason', label: 'Motif', type: 'textarea', required: true, minLength: 5, help: 'Au moins 5 caractères.' };
 const actionUrl = (path: string, filters: Props['filters']) => {
@@ -1071,9 +1058,9 @@ function AssessmentIndex({ props, index, link, teacher }: { props: Props; index:
                     )}
                     <Pagination value={offers} />
                     {props.admin && (
-                        <a className="assessments-export" href={route(props.prefix + 'handoff')}>
-                            <FileText size={16} aria-hidden="true" /> Flux JSON des résultats validés
-                        </a>
+                        <Link className="assessments-export" href={route(props.prefix + 'handoff')}>
+                            <FileText size={16} aria-hidden="true" /> Consulter les résultats pédagogiques transmis
+                        </Link>
                     )}
                 </aside>
             </div>

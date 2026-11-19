@@ -48,5 +48,18 @@ export type Person = { id: number; first_name: string; last_name: string };
 export const states = { draft: 'Brouillon', published: 'Publiée', archived: 'Archivée' };
 export const roles = { lead: 'Responsable', primary_assistant: 'Assistant principal', instructor: 'Intervenant', assistant: 'Assistant' };
 export const modes = { mandatory: 'Obligatoire', elective: 'Option', repeat: 'Reprise', derogation: 'Dérogation' };
+export const participationLabels: Record<string, string> = {
+    unassessed: 'À qualifier',
+    submitted: 'Remis',
+    late_submission: 'Remis en retard',
+    not_submitted: 'Non remis',
+    present: 'Présent',
+    late: 'Arrivé en retard',
+    absent: 'Absent',
+    excused: 'Absence justifiée',
+    exempt: 'Dispensé',
+    interrupted: 'Interrompu',
+    invalidated: 'Invalidé',
+};
 export const dateTime = (value: string) =>
     new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Africa/Kinshasa' }).format(new Date(value));
