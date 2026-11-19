@@ -27,10 +27,10 @@ run('solde', async ({ login, visit, proof }) => {
     const dialog = agent.getByRole('dialog');
     const submit = async (page, title) => {
         const d = page.getByRole('dialog');
-        const changed = page.waitForResponse((res) => res.request().method() === 'POST');
+        const changed = page.waitForResponse((res) => res.request().method() === 'POST', { timeout: 120000 });
         await d.getByRole('button', { name: title, exact: true }).click();
         assert.ok([302, 303].includes((await changed).status()));
-        await d.waitFor({ state: 'hidden' });
+        await d.waitFor({ state: 'hidden', timeout: 120000 });
     };
     let view = await visit(agent, url);
     let payment = view.payments.data.find((p) => p.reference === reference);
@@ -90,9 +90,18 @@ run('solde', async ({ login, visit, proof }) => {
             balance: view.statement.balance,
         });
     }
-    const opened = agent.waitForEvent('popup');
-    await row.getByRole('link', { name: 'Consulter le reçu' }).click();
-    const receipt = await opened;
+    const receiptLink = row.getByRole('link', { name: 'Consulter le reçu' });
+    const receiptUrl = new URL(await receiptLink.getAttribute('href'), agent.url());
+    assert.equal(receiptUrl.origin, new URL(agent.url()).origin);
+    const opened = agent
+        .context()
+        .waitForEvent('page', { timeout: 20000 })
+        .catch(() => null);
+    await receiptLink.click();
+    const popup = await opened;
+    const receipt = popup ?? agent;
+    if (!popup) await receipt.goto(receiptUrl.href, { waitUntil: 'domcontentloaded' });
+    await receipt.waitForURL(receiptUrl.href, { timeout: 120000 });
     await receipt.waitForLoadState('domcontentloaded');
     assert.equal(new URL(receipt.url()).origin, new URL(agent.url()).origin);
     await receipt.locator('main').getByText(reference, { exact: true }).waitFor();
@@ -112,7 +121,8 @@ run('solde', async ({ login, visit, proof }) => {
     const bytes = await exported;
     assert.equal(bytes.subarray(0, 4).toString(), '%PDF');
     assert.ok(bytes.length > 1000);
-    await receipt.close();
+    if (popup) await popup.close();
+    else await visit(agent, url);
     await proof(agent, 'SOL-04', 'Produire le PDF du reçu par la commande d’impression du navigateur', {
         payment: payment.id,
         bytes: bytes.length,

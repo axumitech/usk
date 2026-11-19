@@ -7,10 +7,10 @@ const { probe } = require('./runtime.cjs');
 const chapterTitle = 'Méthodes de lecture du droit — chapitre QA';
 const syllabusTitle = 'Programme de lecture juridique — syllabus QA';
 const objectives = 'Identifier les sources du droit, comparer deux décisions et justifier une interprétation.';
-async function save(page) {
+async function save(page, method = 'POST') {
     const modal = page.getByRole('dialog');
     const [response] = await Promise.all([
-        page.waitForResponse((r) => r.request().method() === 'POST', { timeout: 120000 }),
+        page.waitForResponse((r) => r.request().method() === method, { timeout: 120000 }),
         modal.getByRole('button', { name: 'Enregistrer', exact: true }).click(),
     ]);
     assert.ok([302, 303].includes(response.status()));
@@ -81,6 +81,21 @@ run('plan-cours', async ({ login, visit, proof, origin }) => {
         offre: target.id,
         chapitre: chapter.id,
         syllabus: resource.id,
+    });
+    const coursePage = '/app/dashboard/teacher?view=courses&offering=' + target.id;
+    await visit(teacher, coursePage);
+    const presentation = 'Présentation de la méthode de lecture des sources du droit pour le groupe de simulation.';
+    await teacher.locator('#teacher-course-presentation').getByRole('button', { name: 'Modifier' }).click();
+    await modal.getByLabel('Présentation', { exact: true }).fill(presentation);
+    await modal.getByLabel('Objectifs pédagogiques', { exact: true }).fill(objectives);
+    await save(teacher, 'PUT');
+    await visit(teacher, coursePage);
+    await teacher.getByText(presentation, { exact: true }).waitFor();
+    await teacher.getByText(objectives, { exact: true }).waitFor();
+    await teacher.locator('#teacher-course-plan').getByRole('link', { name: chapterTitle }).waitFor();
+    await proof(teacher, 'PLAN-02b', 'Enregistrer la présentation et les objectifs puis retrouver le chapitre au plan du cours', {
+        offre: target.id,
+        chapitre: chapter.id,
     });
     const student = await login('etudiant.droit@usk.test');
     await visit(student, '/app/dashboard/student/courses?academic=' + entry);

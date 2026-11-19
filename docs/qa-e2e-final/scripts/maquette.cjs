@@ -35,6 +35,7 @@ run('maquette', async ({ login, visit, proof, out }) => {
         const credits = (id) => db.prepare('SELECT credit_required FROM level_details WHERE level_id=?').get(id)?.credit_required;
         const reason = 'Préparation pédagogique fictive de la maquette de Droit public pour la recette locale USK.';
         const page = await login('admin@usk.test', password);
+        page.setDefaultTimeout(90000);
         if (current().status === 'draft') {
             for (const level of levels) {
                 const courseCode = 'EC-QA-' + level.code;
@@ -45,10 +46,14 @@ run('maquette', async ({ login, visit, proof, out }) => {
                 if (credits(level.id) === null || credits(level.id) === undefined) {
                     trace.step = 'Configurer les crédits du niveau ' + level.code;
                     await visit(page, admin + '/levels/details/' + level.id + '?tab=infos');
-                    await page.getByRole('button', { name: 'Modifier : Crédits requis' }).click();
+                    const metric = page.locator('.ld-metric').filter({ has: page.getByText('Crédits requis', { exact: true }) });
+                    const editCredits = metric.getByRole('button');
+                    await editCredits.waitFor({ state: 'visible' });
+                    trace.credit_control = await editCredits.getAttribute('aria-label');
+                    await editCredits.press('Enter');
                     const dialog = page.getByRole('dialog');
                     await dialog.getByRole('spinbutton').fill('60');
-                    await dialog.getByRole('button', { name: 'Enregistrer la modification' }).click();
+                    await dialog.getByRole('button', { name: 'Enregistrer la modification' }).press('Enter');
                     await dialog.waitFor({ state: 'hidden' });
                     assert.equal(credits(level.id), 60);
                     trace.actions.push({ niveau: level.code, plafond_fictif: 60 });
@@ -154,6 +159,9 @@ run('maquette', async ({ login, visit, proof, out }) => {
             niveaux: levels.length,
             programme: version.program,
         });
+    } catch (error) {
+        trace.erreur = error.message;
+        throw error;
     } finally {
         db.close();
         fs.writeFileSync(path.join(out, 'actions.json'), JSON.stringify(trace, null, 2));

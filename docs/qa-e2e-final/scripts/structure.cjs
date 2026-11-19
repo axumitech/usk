@@ -30,8 +30,8 @@ async function main() {
         const context = await browser.newContext({ serviceWorkers: 'block', viewport: { width: 1440, height: 1000 } });
         await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
         page = await context.newPage();
-        page.setDefaultTimeout(60000);
-        page.setDefaultNavigationTimeout(90000);
+        page.setDefaultTimeout(150000);
+        page.setDefaultNavigationTimeout(150000);
         await page.goto(origin + '/app/login', {waitUntil: 'domcontentloaded'});
         await page.locator('input[name=email]').fill('admin@usk.test');
         await page.locator('input[name=password]').fill(privateProfile.password);

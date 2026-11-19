@@ -30,4 +30,12 @@ foreach (['med' => 'etudiant.scl.01@usk.test', 'law' => 'etudiant.dpu.01@usk.tes
     }
     $students[$key] = ['email' => $email, 'entry' => $entry->id];
 }
-echo json_encode(['accounts' => ['registrar_med' => $issuer->only('id', 'email'), 'dean_med' => $dean->only('id', 'email')], 'students' => $students], JSON_THROW_ON_ERROR);
+$document = DB::table('official_documents as d')
+    ->join('official_document_types as t', 't.id', '=', 'd.official_document_type_id')
+    ->join('official_document_templates as v', 'v.id', '=', 'd.official_document_template_id')
+    ->join('student_service_requests as r', 'r.id', '=', 'd.student_service_request_id')
+    ->where('t.code', 'TESTRECETTE06')->where('t.faculty_id', $faculty->id)->where('d.academic_enrollment_id', $students['med']['entry'])
+    ->where('d.status', 'issued')->where('r.status', 'issued')->where('v.author_id', $issuer->id)
+    ->where('r.document_approved_by', $dean->id)->where('d.issued_by', $issuer->id)
+    ->first(['d.id', 'd.number', 'd.reference', 'd.sha256', 't.id as type', 'v.id as template', 'r.id as request']);
+echo json_encode(['accounts' => ['registrar_med' => $issuer->only('id', 'email'), 'dean_med' => $dean->only('id', 'email')], 'students' => $students, 'issued' => $document], JSON_THROW_ON_ERROR);

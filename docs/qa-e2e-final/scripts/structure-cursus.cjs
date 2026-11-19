@@ -1,6 +1,7 @@
 /* global require, module, __dirname */
 /* eslint @typescript-eslint/no-require-imports: "off" */
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -13,9 +14,12 @@ async function configureCourses({ page, db, faculties, origin, reference, report
         const query = db.prepare(sql);
         if (query.get(...args)) return;
         step(label);
+        const started = Date.now();
         await act();
         assert.ok(query.get(...args), label);
         report.actions.push(label);
+        (report.durations_ms ??= {})[label] = Date.now() - started;
+        fs.writeFileSync(path.join(directory, 'progression-ui.json'), JSON.stringify(report, null, 2));
     }
     await go('academic-years');
     for (const start of [2025, 2026]) {

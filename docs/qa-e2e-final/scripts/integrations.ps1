@@ -98,7 +98,9 @@ try {
         'InstitutionalRoleCatalogMigrationTest|AnnualFacultyPackScopeTest|GroupPromotionCurriculumTest'
     } elseif ($Moteur -eq 'pgsql') {
         [regex]::Match((Get-Content -Raw .github/workflows/tests.yml),"--filter='([^']+)'").Groups[1].Value
-    } else { 'AcademicStructureTest|UniversityFinanceTest|EnrollmentFinancialConfirmationTest|PaymentRecordingNavigationTest' }
+    } else {
+        'AcademicStructureTest|UniversityFinanceTest|EnrollmentFinancialConfirmationTest|PaymentRecordingNavigationTest|ProfessorDirectoryScopeTest|StudentAttendanceDashboardTest|SiteModuleTest|InstitutionalRoleCatalogMigrationTest|AnnualFacultyPackScopeTest|GroupPromotionCurriculumTest'
+    }
     if (!$filter) { throw 'Filtre de tests vide.' }
     Invoke-Checked 'php' @('-d','memory_limit=1G','vendor/bin/phpunit',"--filter=$filter",'--do-not-cache-result')
     if ($Moteur -eq 'pgsql' -and $Suite -eq 'integration') {

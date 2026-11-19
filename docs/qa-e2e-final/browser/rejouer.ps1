@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory)][string]$Profil,
     [Parameter(Mandatory)][ValidateRange(1024,65535)][int]$Port,
     [ValidateRange(1024,65535)][int]$MailHogPort=8025,
-    [ValidateSet('pwa','portails','finances','enseignement','documents','etudiant','roles','cartes','resultats','modules','ux','solde')][string]$Suite='portails',
+    [ValidateSet('pwa','annuaire-enseignants','maquettes-facultaires','progression','jury','nfc','session','portails','finances','admission-finance','enseignement','evaluation','absence','plan-cours','rattachement','medias-publics','documents','etudiant','roles','cartes','resultats','modules','ux','solde')][string]$Suite='portails',
     [string[]]$Parcours=@(),
     [ValidateRange(1,2147483647)][int]$ReprendreSupport,
     [switch]$ConsultationResultat,
