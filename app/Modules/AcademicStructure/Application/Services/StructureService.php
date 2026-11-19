@@ -114,6 +114,11 @@ class StructureService
                     if (AcademicOffering::where('class_id', $group->id)->where('academic_year_id', '!=', $promotion->academic_year_id)->exists() || AcademicEnrollment::where('class_id', $group->id)->where('academic_year_id', '!=', $promotion->academic_year_id)->exists()) {
                         throw ValidationException::withMessages(['group' => 'Ce groupe est déjà utilisé dans une autre année. Conservez son contexte historique.']);
                     }
+                    if (AcademicOffering::where('class_id', $group->id)
+                        ->whereHas('curriculumItem.unit.version', fn ($version) => $version->where('academic_program_id', '!=', $program->id))
+                        ->exists()) {
+                        throw ValidationException::withMessages(['group' => 'Une offre de ce groupe relève déjà de la maquette d’un autre programme.']);
+                    }
                     if (AcademicEnrollment::where('class_id', $group->id)->where(fn ($entries) => $entries
                         ->whereHas('curriculumVersion', fn ($q) => $q->where('academic_program_id', '!=', $program->id))
                         ->orWhereHas('promotion', fn ($q) => $q->where('academic_program_id', '!=', $program->id))
