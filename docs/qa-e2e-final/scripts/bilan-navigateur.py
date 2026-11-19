@@ -43,6 +43,8 @@ for folder in sorted(proofs.iterdir(), key=lambda item: item.name):
             if key in {suite, "DOC-BLOCK"}:
                 record("INTERRUPTION " + suite, event["status"], resume, version)
                 continue
+            if suite == "absence-piece":
+                key = "PIÈCE " + key
             record(key, event["status"], resume, version)
     if matrix.exists():
         result = read(matrix)
@@ -58,6 +60,8 @@ for folder in sorted(proofs.iterdir(), key=lambda item: item.name):
         trace = read(folder / "trace.json")
         ok = trace.get("assetHashMatch") and trace.get("scriptHttp") == 200 and trace.get("offlineFallback")
         record("PWA hors ligne", "VALIDÉ" if ok else "ÉCHEC", folder / "trace.json", version)
+    elif suite == "pwa" and (folder / "incident.json").exists():
+        record("PWA hors ligne", "BLOQUÉ", folder / "incident.json", version)
     if suite == "enseignement" and (folder / "trace.json").exists():
         trace = read(folder / "trace.json")
         for check in trace["checks"]:
@@ -73,9 +77,22 @@ for folder in sorted(proofs.iterdir(), key=lambda item: item.name):
         for page in trace["pages"]:
             record("MENU " + page["route"], "VALIDÉ" if page["ok"] else "ÉCHEC", folder / "navigation.json", trace["version"]["revision"])
 
+suites = {}
+for row in rows.values():
+    suite = re.split(r"-\d{4}-\d{2}-\d{2}T", row["preuve"], maxsplit=1)[0]
+    suites.setdefault(suite, Counter())[row["statut"]] += 1
+
+def suite_status(counts):
+    if counts["ÉCHEC"]:
+        return "ÉCHEC"
+    if counts["BLOQUÉ"]:
+        return "BLOQUÉ"
+    return "VALIDÉ"
+
 summary = {
     "unite": "Dernier verdict enregistré de chaque contrôle nommé. Les destinations du menu sont des consultations HTTP dans Chrome. Les contrôles prévus mais jamais atteints figurent dans les fiches.",
     "totaux": dict(Counter(row["statut"] for row in rows.values())),
+    "par_parcours": {suite: {"verdict": suite_status(counts), "controles": counts} for suite, counts in sorted(suites.items())},
     "controles": dict(sorted(rows.items())),
 }
 output = proofs / "bilan-navigateur.json"

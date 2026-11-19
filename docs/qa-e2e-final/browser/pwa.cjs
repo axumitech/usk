@@ -10,10 +10,11 @@ const out = runDirectory('pwa');
     const verified = await verify();
     fs.writeFileSync(path.join(out, 'version.json'), JSON.stringify(verified, null, 2));
     const browser = await chromium.launch(chromiumOptions);
+    let page;
     try {
         const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'fr-FR' });
         await ctx.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
-        const page = await ctx.newPage();
+        page = await ctx.newPage();
         page.setDefaultTimeout(45000);
         page.setDefaultNavigationTimeout(90000);
         const response = await page.goto(origin + '/app/login', { waitUntil: 'domcontentloaded' });
@@ -29,7 +30,7 @@ const out = runDirectory('pwa');
         assert(observed);
         const bytes = await (await page.request.get(origin + '/build/' + metadata.assets.entry)).body();
         assert.equal(createHash('sha256').update(bytes).digest('hex'), metadata.assets.entry_sha256);
-        await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
+        await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { polling: 250, timeout: 90000 });
         const state = await page.evaluate(async () => {
             const names = await caches.keys();
             const entries = [];
@@ -49,6 +50,14 @@ const out = runDirectory('pwa');
         const record = { metadata, observed, assetHashMatch: true, serviceWorker: state, scriptHttp: sw.status(), offlineFallback: true };
         fs.writeFileSync(path.join(out, 'trace.json'), JSON.stringify(record, null, 2));
         console.log('Chrome a chargé l’asset attesté de cette révision, installé le service worker et affiché le secours hors connexion.');
+    } catch (error) {
+        const registration = await page?.evaluate(async () => {
+            const current = await navigator.serviceWorker.getRegistration();
+            return { scope: current?.scope, installing: current?.installing?.state, waiting: current?.waiting?.state, active: current?.active?.state,
+                controller: navigator.serviceWorker.controller?.state, visibility: document.visibilityState, caches: await caches.keys() };
+        }).catch(() => null);
+        fs.writeFileSync(path.join(out, 'incident.json'), JSON.stringify({ detail: error.message.split('\n')[0], registration }, null, 2));
+        throw error;
     } finally {
         await browser.close();
     }

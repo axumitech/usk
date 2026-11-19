@@ -91,7 +91,59 @@ run('medias-publics', async ({ login, visit, check, out }) => {
             assert.equal(row.height, media[i].height);
         }
     };
-    await visit(admin, sitePage);
+    const previous = (await visit(admin, sitePage)).site;
+    await edit();
+    const name = admin.locator('#siteName');
+    const settings = await name.evaluate((el) => {
+        el.addEventListener('invalid', () => el.setAttribute('data-qa-invalid', 'true'), { once: true });
+        return { required: el.required, maxLength: el.maxLength, label: el.labels[0]?.textContent.trim() };
+    });
+    const writes = [];
+    const observeWrite = (request) => {
+        if (['POST', 'PUT', 'PATCH'].includes(request.method()) && new URL(request.url()).pathname.includes('/admin/site'))
+            writes.push(request.method());
+    };
+    admin.on('request', observeWrite);
+    await name.fill('');
+    const submit = admin.getByRole('button', { name: 'Mettre à jour', exact: true });
+    if (settings.required) {
+        await submit.click();
+    } else {
+        await Promise.all([
+            admin.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.includes('/admin/site')),
+            submit.click(),
+        ]);
+        await admin.locator('#siteName + p').waitFor();
+    }
+    const validation = await name.evaluate((el) => ({
+        invalid: el.getAttribute('data-qa-invalid') === 'true',
+        valueMissing: el.validity.valueMissing,
+        focus: document.activeElement === el,
+        message: el.validationMessage,
+    }));
+    await admin.screenshot({ path: path.join(out, 'IMG-05-champ-vide.png') });
+    await name.fill(previous?.siteName ?? '');
+    admin.off('request', observeWrite);
+    const restored = (await visit(admin, sitePage)).site;
+    const result = {
+        ...settings,
+        ...validation,
+        requetesEcriture: writes,
+        memeFiche: previous?.id === restored?.id,
+        donneesInchangees: JSON.stringify(previous) === JSON.stringify(restored),
+    };
+    fs.writeFileSync(path.join(out, 'validation-nom.json'), JSON.stringify(result, null, 2));
+    await check(admin, 'IMG-05', 'Refuser localement le nom vide, conserver la fiche sans requête d’écriture', async () => {
+        assert.equal(result.required, true);
+        assert.equal(result.maxLength, 255);
+        assert.match(result.label, /obligatoire/i);
+        assert.ok(result.invalid && result.valueMissing && result.focus && result.message);
+        assert.deepEqual(writes, []);
+        assert.deepEqual(restored, previous);
+        assert.equal(new URL(admin.url()).pathname, sitePage);
+        return result;
+    });
+    if (process.env.USK_QA_SITE_FIELD_ONLY === 'true') return;
     await edit();
     await admin.locator('#siteName').fill(siteName);
     await admin.locator('#siteTagline').fill('Université fictive de recette — première édition');
