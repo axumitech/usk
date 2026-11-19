@@ -1,25 +1,29 @@
 <?php
 
 use App\Support\UniversityRoles;
+use Database\Migrations\Support\InstitutionalAclJournal;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
+
+require_once __DIR__.'/support/InstitutionalAclJournal.php';
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('department_staff', function (Blueprint $table) {
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('department_id')->constrained('academic_departments')->cascadeOnDelete();
-            $table->primary(['user_id', 'department_id']);
-        });
+        if (! Schema::hasTable('department_staff')) {
+            Schema::create('department_staff', function (Blueprint $table) {
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('department_id')->constrained('academic_departments')->cascadeOnDelete();
+                $table->primary(['user_id', 'department_id']);
+            });
+        }
 
-        DB::transaction(function () {
+        InstitutionalAclJournal::apply('platform', ['super admin', 'super-admin'], UniversityRoles::GRANTS['super-admin'], function () {
             $old = Role::where(['name' => 'super admin', 'guard_name' => 'web'])->first();
             if (! $old) {
                 return;
@@ -42,15 +46,17 @@ return new class extends Migration
             }
             $role->syncPermissions(UniversityRoles::GRANTS['super-admin']);
         });
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     public function down(): void
     {
         if (DB::table('department_staff')->exists()) {
-            throw new RuntimeException('Sauvegardez et retirez les délégations départementales avant le retour arrière.');
+            throw new RuntimeException('Des délégations départementales ont été ajoutées. Restaurez la sauvegarde vérifiée en maintenance.');
         }
+        InstitutionalAclJournal::restore('platform');
         Schema::drop('department_staff');
-        // Keep explicit technical permissions on rollback. Restoring the blanket grant requires an owner decision.
+        if (! DB::table(InstitutionalAclJournal::TABLE)->exists()) {
+            Schema::drop(InstitutionalAclJournal::TABLE);
+        }
     }
 };

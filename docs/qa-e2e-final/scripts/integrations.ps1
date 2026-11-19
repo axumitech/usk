@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory)][string]$RepertoireNeuf,
     [string]$Bin,
     [string]$Projet = (Join-Path $PSScriptRoot '../../..'),
+    [ValidateSet('integration','habilitations')][string]$Suite = 'integration',
     [int]$Port
 )
 $ErrorActionPreference = 'Stop'
@@ -93,12 +94,14 @@ try {
         if ($identity -ne "usk_qa_e2e|127.0.0.1|$Port") { throw 'Cible MySQL inattendue.' }
     }
     "Cible vérifiée $identity"
-    $filter = if ($Moteur -eq 'pgsql') {
+    $filter = if ($Suite -eq 'habilitations') {
+        'InstitutionalRoleCatalogMigrationTest|AnnualFacultyPackScopeTest|GroupPromotionCurriculumTest'
+    } elseif ($Moteur -eq 'pgsql') {
         [regex]::Match((Get-Content -Raw .github/workflows/tests.yml),"--filter='([^']+)'").Groups[1].Value
     } else { 'AcademicStructureTest|UniversityFinanceTest|EnrollmentFinancialConfirmationTest|PaymentRecordingNavigationTest' }
     if (!$filter) { throw 'Filtre de tests vide.' }
     Invoke-Checked 'php' @('-d','memory_limit=1G','vendor/bin/phpunit',"--filter=$filter",'--do-not-cache-result')
-    if ($Moteur -eq 'pgsql') {
+    if ($Moteur -eq 'pgsql' -and $Suite -eq 'integration') {
         Invoke-Checked 'php' @('-d','memory_limit=1G','vendor/bin/phpunit','tests/Integration/PostgresConcurrencyTest.php','--do-not-cache-result')
     }
 } finally {
