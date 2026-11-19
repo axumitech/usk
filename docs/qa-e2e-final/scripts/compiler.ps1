@@ -10,6 +10,8 @@ if (!(Test-Path -LiteralPath (Join-Path $profilePath 'profile.json')) -or
     !(Test-Path -LiteralPath (Join-Path $profilePath 'usk-recette-v2.sqlite'))) { throw 'Profil QA absent.' }
 if (Test-Path -LiteralPath $build) { throw 'La destination du bundle doit être neuve.' }
 Push-Location -LiteralPath $projectPath
+$previousProfile = $env:USK_RECETTE_V2_ROOT
+$previousMode = $env:USK_RECETTE_V2_BUILD_ONLY
 try {
     function Get-CleanRevision {
         $status = git status --porcelain --untracked-files=all
@@ -30,6 +32,16 @@ try {
         manifest_sha256 = (Get-FileHash -LiteralPath $manifest).Hash.ToLowerInvariant()
         entry_sha256 = (Get-FileHash -LiteralPath (Join-Path $build $entry)).Hash.ToLowerInvariant()
     }
+    $env:USK_RECETTE_V2_ROOT = $profilePath
+    $env:USK_RECETTE_V2_BUILD_ONLY = 'true'
+    [IO.Directory]::CreateDirectory((Join-Path $profilePath 'storage/app/public')) | Out-Null
+    & php docs/recette-manuelle-v2/scripts/recette.php storage:link
+    if ($LASTEXITCODE) { throw 'Échec du lien entre les médias publics et le profil QA.' }
+    if (!(Test-Path -LiteralPath (Join-Path $profilePath 'public/storage') -PathType Container)) { throw 'Médias publics inaccessibles.' }
     [IO.File]::WriteAllText((Join-Path $build 'usk-recipe-build.json'), ($stamp | ConvertTo-Json))
     $stamp | ConvertTo-Json
-} finally { Pop-Location }
+} finally {
+    $env:USK_RECETTE_V2_ROOT = $previousProfile
+    $env:USK_RECETTE_V2_BUILD_ONLY = $previousMode
+    Pop-Location
+}

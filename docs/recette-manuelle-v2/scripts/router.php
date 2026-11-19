@@ -38,6 +38,25 @@ if ($uri && $built && str_starts_with($uri, '/build/')) {
     return;
 }
 
+if ($uri && $built && str_starts_with($uri, '/storage/')) {
+    $expected = realpath(dirname($built).'/storage/app/public');
+    $linked = realpath($built.'/storage');
+    $asset = realpath($built.'/'.rawurldecode($uri));
+    if ($expected && $linked === $expected && $asset && str_starts_with($asset, $expected.DIRECTORY_SEPARATOR) && is_file($asset)) {
+        $mime = mime_content_type($asset);
+        if (in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/x-icon', 'image/vnd.microsoft.icon'], true)) {
+            header('Content-Type: '.$mime);
+            header('X-Content-Type-Options: nosniff');
+            readfile($asset);
+
+            return;
+        }
+    }
+    http_response_code(404);
+
+    return;
+}
+
 $asset = $uri ? realpath($public.'/'.rawurldecode($uri)) : false;
 if ($asset && str_starts_with($asset, $public.DIRECTORY_SEPARATOR) && is_file($asset)
     && ($uri === '/pwa/offline.html'

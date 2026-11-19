@@ -115,5 +115,14 @@ class SiteModuleTest extends TestCase
         $site = Site::first();
         $this->assertStringContainsString('site/', $site->logo_url);
         $this->assertStringContainsString('site/', $site->favicon_url);
+
+        $this->putJson('/api/site', ['siteName' => 'Site de recette'])->assertOk();
+        $this->assertDatabaseHas('sites', [
+            'id' => $site->id,
+            'logo_url' => $site->logo_url,
+            'favicon_url' => $site->favicon_url,
+        ]);
+        $this->putJson('/api/site', ['siteName' => 'Site de recette', 'faviconUrl' => null])->assertOk();
+        $this->assertDatabaseHas('sites', ['id' => $site->id, 'logo_url' => $site->logo_url, 'favicon_url' => null]);
     }
 }
