@@ -124,6 +124,24 @@ final class AdministrativeRoleAccessTest extends TestCase
         $this->post(route('dashboard.delegation.publish'), ['promotion' => 1, 'message' => 'Réunion de promotion'])->assertNotFound();
     }
 
+    public function test_finance_officer_can_record_from_the_finance_screen_within_assigned_faculty(): void
+    {
+        $this->seed(RolePermissionSeeder::class);
+        $student = $this->studentContext();
+        $entry = $student->studentProfile->enrollments()->sole();
+        $cashier = User::factory()->create()->assignRole('finance-officer');
+        $cashier->academicFaculties()->attach($entry->level->faculty_id);
+        $payload = ['kind' => 'unallocated', 'amount' => '15.00', 'method' => 'cash', 'reference' => 'QA-DELEGATION',
+            'note' => 'Versement de recette comptable.'];
+        $this->actingAs($cashier)->post(route('dashboard.admin.student-academic.payments', $entry), $payload)
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('student_payments', ['academic_enrollment_id' => $entry->id, 'reference' => 'QA-DELEGATION', 'status' => 'pending']);
+        $this->get(route('dashboard.admin.student-academic.show', $entry))->assertForbidden();
+        $other = Faculty::create(['name' => 'Autre faculté comptable', 'code' => 'AUT']);
+        $cashier->academicFaculties()->sync([$other->id]);
+        $this->post(route('dashboard.admin.student-academic.payments', $entry), $payload)->assertForbidden();
+    }
+
     public function test_specialized_permission_is_required_and_does_not_replace_the_administrative_role(): void
     {
         $this->seed(RolePermissionSeeder::class);

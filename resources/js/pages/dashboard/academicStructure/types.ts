@@ -138,7 +138,7 @@ export type Props = {
         | null;
     sites: { id: number; site_name: string; address?: string | null; contact_email?: string | null; contact_phone?: string | null }[];
     faculties: { id: number; name: string; university_id: number | null }[];
-    years: { id: number; title: string; university_id: number | null; start_date?: string; end_date?: string }[];
+    years: { id: number; title: string; university_id: number | null; start_date?: string; end_date?: string; status?: string }[];
     levels: Level[];
     departments: Row[];
     cycles: Row[];

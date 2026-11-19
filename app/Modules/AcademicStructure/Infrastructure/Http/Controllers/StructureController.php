@@ -54,7 +54,7 @@ class StructureController extends Controller
         }
         abort_if($program && ! TeachingScope::allows($request->user(), (int) $program->faculty_id), 403);
         $years = AcademicYear::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))
-            ->orderByDesc('start_date')->get(['id', 'title', 'university_id', 'start_date', 'end_date']);
+            ->orderByDesc('start_date')->get(['id', 'title', 'university_id', 'start_date', 'end_date', 'status']);
         $packYear = $version?->academic_year_id ?? ($filters['year'] ?? $years->first()?->id);
         $scheduleYear = $version?->academic_year_id ?? $version?->cohort?->academic_year_id;
         $facultyPack = $institution && $years->contains('id', $packYear) && (($filters['tab'] ?? null) === 'curriculum' || $version)
@@ -127,10 +127,22 @@ class StructureController extends Controller
             'university' => ['tab' => 'institution'],
             'year-context' => ['tab' => 'programs'],
             'program' => ['program' => $model->id],
+            'group-promotion' => ['tab' => 'programs', 'program' => $model->promotion->academic_program_id],
             default => [],
         };
 
         return redirect()->route('dashboard.admin.academic-structure.index', $destination)->with('success', $kind === 'university' ? 'Informations de l’établissement enregistrées.' : 'Référentiel enregistré.');
+    }
+
+    public function createGroup(Request $request, int $promotion)
+    {
+        Gate::authorize('manage', AcademicProgram::class);
+        $data = $request->validate(['name' => 'required|string|max:120', 'capacity' => 'nullable|integer|min:1|max:2147483647',
+            'faculty_id' => 'prohibited', 'level_id' => 'prohibited', 'academic_year_id' => 'prohibited']);
+        $group = $this->structure->createGroup($promotion, $data['name'], isset($data['capacity']) ? (int) $data['capacity'] : null, $request->user());
+
+        return to_route('dashboard.admin.academic-structure.index', ['tab' => 'programs', 'program' => $group->promotion->academic_program_id], 303)
+            ->with('success', 'Groupe enregistré dans la promotion.');
     }
 
     public function annualDrafts(Request $request)
