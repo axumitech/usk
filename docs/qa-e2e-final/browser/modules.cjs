@@ -20,7 +20,10 @@ run('modules', async ({ login, visit, check, out, origin }) => {
     const teacher = await login('professeur.droit@usk.test');
     const student = await login('etudiant.droit@usk.test');
     const admin = await login('admin@usk.test');
-    const publicPage = await admin.context().browser().newPage({ locale: 'fr-FR', viewport: { width: 1410, height: 930 } });
+    const publicPage = await admin
+        .context()
+        .browser()
+        .newPage({ locale: 'fr-FR', viewport: { width: 1410, height: 930 } });
     await publicPage.context().route('**/*', (r) => (new URL(r.request().url()).origin === origin ? r.continue() : r.abort()));
     const reports = adminBase + '/schedule/reports';
     let announcement;
@@ -29,18 +32,25 @@ run('modules', async ({ login, visit, check, out, origin }) => {
         const { overview } = await visit(teacher, '/app/dashboard/teacher?view=announcements');
         const target = overview.announcement_targets.find((item) => /Fondements.*Droit.*L1/i.test(item.title));
         assert.ok(target, 'Offre de Fondements du droit accessible au professeur.');
-        await teacher.getByRole('button', { name: 'Envoyer une annonce' }).first().click();
+        await visit(teacher, '/app/dashboard/teacher?view=courses&offering=' + target.id);
+        await teacher.getByRole('button', { name: 'Envoyer une annonce', exact: true }).click();
         const dialog = teacher.getByRole('dialog');
-        await dialog.getByLabel(/^Cours/).selectOption(String(target.id));
-        await dialog.getByLabel(/^Titre/).fill(title);
-        await dialog.getByLabel(/^Message/).fill(body);
-        const submitted = teacher.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/teacher/announcements'));
+        assert.equal(await dialog.getByRole('combobox').first().inputValue(), String(target.id));
+        await dialog.locator('input[type="text"]').fill(title);
+        await dialog.locator('textarea').fill(body);
+        const submitted = teacher.waitForResponse(
+            (r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/teacher/announcements'),
+        );
         await dialog.getByRole('button', { name: 'Envoyer l’annonce' }).click();
         assert.equal((await submitted).status(), 303);
         await teacher.waitForURL((u) => u.searchParams.has('announcement'));
         announcement = Number(new URL(teacher.url()).searchParams.get('announcement'));
         assert.ok(announcement);
-        await teacher.getByText(/Annonce publiée\..*reçu une notification/).filter({ visible: true }).first().waitFor();
+        await teacher
+            .getByText(/Annonce publiée\..*reçu une notification/)
+            .filter({ visible: true })
+            .first()
+            .waitFor();
         await teacher.getByText(title, { exact: true }).filter({ visible: true }).first().waitFor();
         return { offre: target.id, ressource: announcement, cours: target.title, titre: title };
     });
@@ -78,7 +88,7 @@ run('modules', async ({ login, visit, check, out, origin }) => {
         const initial = await visit(admin, reports);
         const year = initial.years.find((y) => y.title === '2026-2027');
         assert.ok(year);
-        await admin.getByLabel('Année', { exact: true }).selectOption(String(year.id));
+        await admin.locator('form').getByRole('combobox').selectOption(String(year.id));
         await admin.getByRole('button', { name: 'Filtrer' }).click();
         await admin.waitForURL((url) => url.searchParams.get('year') === String(year.id));
         const filtered = await visit(admin, admin.url());
@@ -100,10 +110,14 @@ run('modules', async ({ login, visit, check, out, origin }) => {
         const initial = await visit(admin, seo);
         const original = initial.settings.identity.city || '';
         const testCity = 'Ville fictive QA ' + tag;
+        const city = admin
+            .locator('.seo-fields label')
+            .filter({ hasText: /^\s*Ville/ })
+            .locator('textarea');
         async function persist(value) {
-            const summary = admin.getByText('Identité et informations officielles à valider', { exact: true });
+            const summary = admin.locator('summary').filter({ hasText: 'Identité et informations officielles à valider' });
             await summary.click();
-            await admin.getByLabel('Ville', { exact: true }).fill(value);
+            await city.fill(value);
             await admin.getByRole('button', { name: 'Enregistrer les paramètres' }).click();
             await admin.getByText('Paramètres enregistrés.', { exact: true }).waitFor();
             return (await visit(admin, seo)).settings.identity.city || '';
@@ -111,7 +125,7 @@ run('modules', async ({ login, visit, check, out, origin }) => {
         try {
             assert.equal(await persist(testCity), testCity);
             await admin.getByText('Identité et informations officielles à valider', { exact: true }).click();
-            await admin.getByLabel('Ville', { exact: true }).scrollIntoViewIfNeeded();
+            await city.scrollIntoViewIfNeeded();
             await admin.screenshot({ path: path.join(out, 'MOD-05-ville-modifiee.png') });
         } finally {
             const current = (await visit(admin, seo)).settings.identity.city || '';
@@ -142,7 +156,8 @@ run('modules', async ({ login, visit, check, out, origin }) => {
         await visit(publicPage, '/blog');
         const link = publicPage.getByRole('link').filter({ hasText: article }).first();
         await link.click();
-        await publicPage.getByRole('heading', { name: article, exact: true }).waitFor();
+        await publicPage.waitForURL((url) => /^\/blog\/\d+$/.test(url.pathname));
+        await publicPage.getByRole('heading', { name: article, exact: true, level: 1 }).filter({ visible: true }).first().waitFor();
         await publicPage.getByText(articleBody, { exact: true }).filter({ visible: true }).first().waitFor();
         return { titre: article, chemin_public: new URL(publicPage.url()).pathname, connexion: false };
     });

@@ -21,6 +21,12 @@ async function submit(page, button, pathname) {
 function validate(row, previous, kind) {
     assert.deepEqual(row.source, previous.source);
     assert.deepEqual(row.official, previous.official);
+    assert.ok(previous.past_payments.some((payment) => payment.status === 'confirmed' && payment.amount_cents > 0));
+    assert.deepEqual(row.past_payments, previous.past_payments);
+    assert.equal(row.target_tuition.length, 1);
+    assert.equal(row.target_tuition[0].installment, 1);
+    assert.equal(row.target_tuition[0].amount_cents, 10000);
+    assert.equal(row.target_tuition[0].currency, 'USD');
     assert.equal(row.decision.kind, kind);
     assert.equal(row.decision.academic_official_result_id, row.official.id);
     assert.equal(row.decision.source_enrollment_id, row.source.id);

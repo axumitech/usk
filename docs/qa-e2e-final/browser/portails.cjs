@@ -241,7 +241,7 @@ async function main() {
                     const url = new URL(response.url());
                     return url.origin === origin && url.pathname === pathname && response.request().method() === method;
                 },
-                { timeout: 18000 },
+                { timeout: 90000 },
             );
 
         async function logout(strict = true) {

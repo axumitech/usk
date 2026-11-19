@@ -143,7 +143,7 @@ run('ux', async ({ login, visit, proof, check, origin }) => {
             return select.getBoundingClientRect().left + parseFloat(getComputedStyle(select).paddingLeft) - icon.right;
         });
         assert.ok(gap >= 4, 'Le libellé de la faculté chevauche son pictogramme : marge ' + gap + ' px');
-        await proof(page, 'UX-03a', 'Vérifier la lisibilité du nom de faculté dans le sélecteur de niveau', { gapPixels:gap });
+        await proof(page, 'UX-03a', 'Vérifier la lisibilité du nom de faculté dans le sélecteur de niveau', { gapPixels: gap });
         for (let i = 0; i < 18; i++) {
             await page.keyboard.press('Tab');
             assert.ok(await modal.evaluate((el) => el.contains(document.activeElement)), 'Le focus reste dans le formulaire');

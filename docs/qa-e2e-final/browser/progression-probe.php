@@ -41,6 +41,9 @@ foreach (['advance' => '02', 'repeat' => '03'] as $kind => $suffix) {
     if ($plan->count() > 1) {
         throw new RuntimeException('Décision de progression dupliquée.');
     }
+    $pastPayments = $source->payments()->orderBy('id')->get(['id', 'status', 'amount_cents', 'currency']);
+    $targetTuition = $target->first()?->obligations()->where('kind', 'tuition')->orderBy('installment')
+        ->get(['installment', 'amount_cents', 'currency', 'due_at']) ?? [];
     $rows[$kind] = [
         'email' => $email, 'source' => $source->only($fields),
         'official' => ['id' => $result->id, 'decision' => $result->decision, 'reference' => $result->reference,
@@ -50,6 +53,7 @@ foreach (['advance' => '02', 'repeat' => '03'] as $kind => $suffix) {
                 ->where('academic_year_id', $year->id)->where('level_id', $level->id)->where('is_active', true)->sole()->id],
         'decision' => $plan->first()?->only(['id', 'source_enrollment_id', 'target_enrollment_id', 'academic_official_result_id', 'kind']),
         'target' => $target->first()?->only($fields),
+        'past_payments' => $pastPayments, 'target_tuition' => $targetTuition,
     ];
 }
 echo json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

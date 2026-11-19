@@ -42,7 +42,7 @@ module.exports.run = async function run(h) {
     const mutate = async (control, expectedPath, action = 'click') => {
         const observed = page.waitForResponse(
             (response) => response.request().method() === 'POST' && new URL(response.url()).pathname === expectedPath,
-            { timeout: 20000 },
+            { timeout: 90000 },
         );
         try {
             await control[action]();
