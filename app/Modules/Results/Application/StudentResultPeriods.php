@@ -10,6 +10,7 @@ use App\Models\Student\AssessmentRecord;
 use App\Modules\Student\Application\Services\AcademicAccessService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 
 final class StudentResultPeriods
@@ -75,7 +76,7 @@ final class StudentResultPeriods
         $semesters = [];
         $editions = $this->currentEditions($entry)->lazy(15);
         if ($preferred) {
-            $editions = $editions->prepend($preferred);
+            $editions = LazyCollection::make([$preferred])->concat($editions);
         }
         foreach ($editions as $edition) {
             foreach (self::completePeriods($edition->snapshot) as $key => $period) {

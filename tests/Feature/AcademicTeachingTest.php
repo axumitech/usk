@@ -334,6 +334,11 @@ class AcademicTeachingTest extends TestCase
             'reason' => self::REASON])->assertStatus(303)->assertSessionHasNoErrors();
         $this->actingAs($student)->get($studentUrl)->assertInertia(fn (Assert $page) => $page
             ->where('official_results.selected.annual', '13.20')->has('official_results.items.data', 2));
+        $this->get($resultsReturn)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected.reference', $result->reference)
+            ->where('official_results.selected.annual', '12.80')
+            ->where('official_results.selected.unmapped_period_keys.0', 'P1')
+            ->where('official_results.semesters.0.reference', null));
         $this->invalid(fn () => $progressions->start($progression, $student->studentProfile), 'progression');
         $progressions->decide($entry, $manager, $destination + ['academic_official_result_id' => $revised->id]);
         $this->assertSame($revised->id, $progression->fresh()->academic_official_result_id);
@@ -442,6 +447,10 @@ class AcademicTeachingTest extends TestCase
             ->where('course_credits.planned', 900)->where('course_credits.earned', 500)->where('course_credits.remaining', 0));
         $this->get($studentUrl.'&semester=2')->assertInertia(fn (Assert $page) => $page
             ->where('official_results.selected_semester', 2)->where('official_results.selected', null));
+        $this->get($studentUrl.'&official='.$result->reference)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('official_results.selected.reference', $result->reference)
+            ->where('official_results.semesters.0.reference', $result->reference)
+            ->where('official_results.selected_semester', 1));
         $this->get('/app/dashboard/student/results/official/'.$result->reference.'/transcript?academic='.$entry->id)->assertNotFound();
     }
 
