@@ -14,7 +14,7 @@ class EloquentSiteRepository implements SiteRepository
         return $model ? $this->mapToEntity($model) : null;
     }
 
-    public function save(Site $site): Site
+    public function save(Site $site, bool $updateLogo = true, bool $updateFavicon = true): Site
     {
         $model = EloquentSite::first() ?? new EloquentSite();
         
@@ -24,12 +24,16 @@ class EloquentSiteRepository implements SiteRepository
             'contact_email' => $site->contactEmail(),
             'contact_phone' => $site->contactPhone(),
             'address' => $site->address(),
-            'logo_url' => $site->logoUrl(),
-            'favicon_url' => $site->faviconUrl(),
             'social_links' => $site->socialLinks(),
             'description' => $site->description(),
         ]);
         
+        if ($updateLogo) {
+            $model->logo_url = $site->logoUrl();
+        }
+        if ($updateFavicon) {
+            $model->favicon_url = $site->faviconUrl();
+        }
         $model->save();
 
         return $this->mapToEntity($model);

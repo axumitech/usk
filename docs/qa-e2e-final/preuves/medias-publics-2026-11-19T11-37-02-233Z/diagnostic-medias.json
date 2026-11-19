@@ -1,0 +1,55 @@
+{
+  "source": [
+    {
+      "id": "logo",
+      "width": 192,
+      "height": 192,
+      "hash": "1a67e9c7f4523a2697d1ae4a3d6ba1c5816d6e06058035a119a366bf72a32829"
+    },
+    {
+      "id": "favicon",
+      "width": 180,
+      "height": 180,
+      "hash": "9c27b5443d7465f410cba5361d5294b742176150a51dbbbd270f77b465cc4423"
+    }
+  ],
+  "apres_upload": [
+    {
+      "id": "logo",
+      "reference": "site/zDat494medlb24T37AA4ak3H45yX7Y0VwGfi5adw.png",
+      "path": "/storage/site/zDat494medlb24T37AA4ak3H45yX7Y0VwGfi5adw.png",
+      "http": 403,
+      "mime": "text/html",
+      "bytes": 6659,
+      "hash": "9e817d960de1f7907467d44bf42c3e3daeea07def102c3ec92b6a1a194b6395b",
+      "decoded": false,
+      "width": 0,
+      "height": 0
+    },
+    {
+      "id": "favicon",
+      "reference": "site/lxioacaKhU0PSXLwW7tCvGyUFTM6uB21RgMDmvlE.png",
+      "path": "/storage/site/lxioacaKhU0PSXLwW7tCvGyUFTM6uB21RgMDmvlE.png",
+      "http": 403,
+      "mime": "text/html",
+      "bytes": 6659,
+      "hash": "9e817d960de1f7907467d44bf42c3e3daeea07def102c3ec92b6a1a194b6395b",
+      "decoded": false,
+      "width": 0,
+      "height": 0
+    }
+  ],
+  "edition_textuelle": {
+    "slogan": "Université fictive de recette — édition textuelle",
+    "medias": [
+      {
+        "id": "logo",
+        "reference": null
+      },
+      {
+        "id": "favicon",
+        "reference": null
+      }
+    ]
+  }
+}

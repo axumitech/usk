@@ -1,3 +1,4 @@
+import FeedbackToast, { type ToastFeedback } from '@/components/admin/FeedbackToast';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import TeacherModuleHeading from '@/components/teaching/TeacherModuleHeading';
@@ -26,6 +27,7 @@ import '../../../../css/student-portal.css';
 import AcademicForm, { type Field, type FormSpec } from '../studentAcademic/AcademicForm';
 import TeacherLearningChapters, { type LearningChapter, type LearningChapterSelection } from './TeacherLearningChapters';
 import TeacherLearningResource from './TeacherLearningResource';
+import { publicationConfirmation, type PublicationAction } from './learningPublication';
 
 type Page<T> = { data: T[]; total: number; current_page?: number };
 type Reference = { id: number; title: string };
@@ -113,6 +115,7 @@ export default function Learning({
 }: Props) {
     const limits = usePage<{ uploadLimits?: UploadLimits }>().props.uploadLimits ?? defaultUploadLimits;
     const [modal, setModal] = useState<FormSpec | null>(null);
+    const [feedback, setFeedback] = useState<ToastFeedback | null>(null);
     const index = route(prefix + 'index');
     const admin = downloads !== null;
     const teacher = prefix === 'dashboard.teaching.learning.';
@@ -120,10 +123,27 @@ export default function Learning({
     const chapterTitle = chapter === 'unassigned' ? 'Sans chapitre' : sections.find((section) => section.id === chapter)?.title;
     const libraryUrl = (params: Props['filters'] = {}) =>
         route(prefix + 'index', { ...filters, offering: offering ?? undefined, resource: undefined, ...params });
-    const open = (title: string, description: string, action: string, fields: Field[], values?: FormSpec['values']) => {
+    const open = (
+        title: string,
+        description: string,
+        action: string,
+        fields: Field[],
+        values?: FormSpec['values'],
+        confirmedStateMessage?: FormSpec['confirmedStateMessage'],
+    ) => {
         const url = new URL(action, window.location.origin);
         if (chapter !== null) url.searchParams.set('section', String(chapter));
-        setModal({ title, description, action: url.href, fields, values, requireSuccessFlash: true, eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined });
+        setFeedback(null);
+        setModal({
+            title,
+            description,
+            action: url.href,
+            fields,
+            values,
+            requireSuccessFlash: true,
+            confirmedStateMessage,
+            eyebrow: teacher ? 'ESPACE ENSEIGNANT' : undefined,
+        });
     };
     const edit = (item?: Item) => {
         if (!offering) return;
@@ -132,7 +152,9 @@ export default function Learning({
             { name: 'body', label: 'Texte pédagogique', type: 'textarea', value: item?.body },
             { name: 'url', label: 'Lien externe HTTP ou HTTPS', type: 'url', value: item?.url },
             {
-                name: 'file', label: item?.filename ? `Remplacer ${item.filename}` : 'Fichier privé', type: 'file',
+                name: 'file',
+                label: item?.filename ? `Remplacer ${item.filename}` : 'Fichier privé',
+                type: 'file',
                 accept: '.pdf,.docx,.pptx,.xlsx,.txt,.jpg,.jpeg,.png,.webp,.mp4,.webm,.mp3,.ogg,.wav',
                 help: `Support : PDF, DOCX, PPTX, XLSX, TXT, JPG, PNG ou WebP. Vidéo : MP4 ou WebM. Audio : MP3, OGG ou WAV. ${uploadSize(limits.document_kb)} maximum par fichier.`,
             },
@@ -194,7 +216,7 @@ export default function Learning({
             ],
             { revision: work.revision },
         );
-    const publish = (item: Item, action: 'publish' | 'withdraw' | 'archive') =>
+    const publish = (item: Item, action: PublicationAction) =>
         open(
             { publish: 'Publier', withdraw: 'Retirer', archive: 'Archiver' }[action],
             {
@@ -205,6 +227,7 @@ export default function Learning({
             route(prefix + 'transition', item.id),
             action === 'publish' ? [reason, { name: 'notify', label: 'Notifier les étudiants concernés', type: 'checkbox' }] : [reason],
             { revision: item.revision, action },
+            (page) => publicationConfirmation(page, item, action),
         );
     const reuse = (item: Item, version?: number) =>
         open(
@@ -392,9 +415,13 @@ export default function Learning({
                 <AcademicForm
                     spec={modal}
                     onClose={() => setModal(null)}
-                    onSuccess={() => setModal(null)}
+                    onSuccess={(message) => {
+                        setModal(null);
+                        setFeedback({ id: Date.now(), tone: 'success', message });
+                    }}
                 />
             )}
+            {feedback && <FeedbackToast feedback={feedback} onDismiss={() => setFeedback(null)} />}
             <div
                 className={['student-portal academic-administration learning-library', teacher && 'teacher-module-page teacher-learning-library']
                     .filter(Boolean)

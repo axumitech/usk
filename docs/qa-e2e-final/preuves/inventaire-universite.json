@@ -1,0 +1,57 @@
+{
+  "profil": "usk_qa_e2e-presentation",
+  "releve": "lecture seule sur la première génération, sans mutations de recette navigateur",
+  "annees": {
+    "2025-2026": "closed",
+    "2026-2027": "open"
+  },
+  "effectifs": {
+    "universities": 1,
+    "faculties": 5,
+    "academic_departments": 10,
+    "academic_cycles": 4,
+    "academic_programs": 10,
+    "levels": 28,
+    "academic_promotions": 56,
+    "classes": 56,
+    "academic_years": 2,
+    "academic_semesters": 4,
+    "curriculum_versions": 20,
+    "curriculum_units": 56,
+    "curriculum_items": 112,
+    "courses": 56,
+    "professors": 10,
+    "academic_teaching_assignments": 112,
+    "academic_offerings": 112,
+    "academic_sessions": 112,
+    "academic_attendances": 400,
+    "academic_resources": 150,
+    "academic_assessments": 110,
+    "academic_submissions": 980,
+    "academic_assessment_records": 1000,
+    "academic_deliberations": 20,
+    "academic_official_results": 200,
+    "academic_progressions": 160,
+    "student_obligations": 370,
+    "student_payments": 360,
+    "student_payment_proofs": 20,
+    "student_financial_adjustments": 20,
+    "student_service_requests": 60,
+    "official_documents": 20,
+    "student_card_issuances": 0,
+    "academic_audits": 8936,
+    "notifications": 3036
+  },
+  "statuts": {
+    "student_payments": {
+      "cancelled": 18,
+      "confirmed": 342
+    },
+    "student_payment_proofs": {
+      "pending": 20
+    },
+    "enrollments": {
+      "validated": 210
+    }
+  }
+}

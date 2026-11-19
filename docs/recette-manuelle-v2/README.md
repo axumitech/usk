@@ -99,7 +99,7 @@ Mot de passe local commun `password`.
 | Email | Espace ou rôle de recette |
 | --- | --- |
 | `admin@usk.test` | Administration générale |
-| `superadmin@usk.test` | Super-administration |
+| `superadmin@usk.test` | Administration technique de la plateforme USK |
 | `doyen.med@usk.test` / `doyen.droit@usk.test` | Admission, validation de la progression et publication des résultats de la faculté |
 | `vicedoyen.med@usk.test` / `vicedoyen.droit@usk.test` | Pédagogie, préparation de la progression, résultats et délibération de la faculté |
 | `appariteur.med@usk.test` / `appariteur.droit@usk.test` | Dossiers et scolarité de la faculté |

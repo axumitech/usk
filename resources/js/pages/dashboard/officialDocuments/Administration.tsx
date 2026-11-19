@@ -1,10 +1,22 @@
-import PageHeading from '@/components/admin/PageHeading';
 import Pagination from '@/components/admin/Pagination';
 import Dashboard from '@/components/layouts/Dashboard/Dashboard';
 import { documentLabels, documentReason, type DocumentRequest, type DocumentRow, type Page } from '@/components/student/OfficialDocumentCenter';
 import AcademicForm, { type Field, type FormSpec } from '@/pages/dashboard/studentAcademic/AcademicForm';
 import { Head, Link, router } from '@inertiajs/react';
+import {
+    Archive as ArchiveIcon,
+    ArrowRight,
+    BookOpen,
+    ChevronRight,
+    ClipboardList,
+    FileCheck2,
+    FileText,
+    Filter,
+    Inbox,
+    RotateCcw,
+} from 'lucide-react';
 import { useState } from 'react';
+import '../../../../css/dashboard/official-documents.css';
 
 type Type = { id: number; name: string; kind: string; code: string; active: boolean; policy: { copies: boolean } };
 type Template = {
@@ -100,31 +112,80 @@ export default function Administration({
     return (
         <Dashboard hideAppsNavigation>
             <Head title="Documents officiels" />
-            <main className="mx-auto max-w-6xl space-y-6 p-5">
-                <PageHeading title="Documents officiels" description="Catalogue, demandes, émission et registre de vérification" />
-                {message && <p role="status">{message}</p>}
+            <article className="official-admin" aria-labelledby="official-documents-title">
+                <header className="official-heading">
+                    <h1 id="official-documents-title">Documents officiels</h1>
+                    <nav aria-label="Rubriques des documents officiels">
+                        <a href="#catalogue">
+                            <BookOpen />
+                            Catalogue
+                        </a>
+                        <a href="#demandes">
+                            <Inbox />
+                            Demandes
+                        </a>
+                        <a href="#archives">
+                            <ArchiveIcon />
+                            Archives et délivrance
+                        </a>
+                    </nav>
+                </header>
+                {message && (
+                    <p className="official-notice" role="status">
+                        {message}
+                    </p>
+                )}
+                <dl className="official-stats">
+                    <div>
+                        <dt>
+                            <ClipboardList />
+                            Demandes au total
+                        </dt>
+                        <dd>{Object.values(counts).reduce((sum, value) => sum + Number(value), 0)}</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            <Inbox />
+                            Demandes reçues à contrôler
+                        </dt>
+                        <dd>{counts.open ?? 0}</dd>
+                    </div>
+                    <div>
+                        <dt>
+                            <FileCheck2 />
+                            Documents à remettre
+                        </dt>
+                        <dd>{archive_counts.delivery ?? 0}</dd>
+                    </div>
+                </dl>
                 <form
-                    className="flex flex-wrap items-end gap-3"
+                    className="official-panel official-filters"
+                    aria-labelledby="doc-filters"
                     onSubmit={(event) => {
                         event.preventDefault();
                         const form = new FormData(event.currentTarget);
+                        if (type && form.get('kind') === type.kind) form.set('type', String(type.id));
                         router.get(
                             route(prefix + 'index'),
                             Object.fromEntries([...form].filter(([, value]) => value !== '').map(([name, value]) => [name, String(value)])),
                         );
                     }}
                 >
-                    <label className="flex flex-col">
+                    <h2 id="doc-filters">
+                        <Filter />
+                        Filtres
+                    </h2>
+                    <label>
                         Inscription (ID)
-                        <input name="academic" type="number" min="1" defaultValue={filters.academic} />
+                        <input name="academic" type="number" placeholder="N° d’inscription" min="1" defaultValue={filters.academic} />
                     </label>
-                    <label className="flex flex-col">
+                    <label>
                         Matricule de la demande
-                        <input name="q" defaultValue={filters.q} />
+                        <input name="q" type="search" maxLength={100} placeholder="Rechercher un matricule" defaultValue={filters.q} />
                     </label>
-                    <label className="flex flex-col">
-                        Famille
-                        <select name="kind" defaultValue={filters.kind || ''}>
+                    <label>
+                        <span id="official-kind-label">Famille</span>
+                        <select aria-labelledby="official-kind-label" name="kind" defaultValue={filters.kind || ''}>
                             <option value="">Toutes</option>
                             {kindOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -133,33 +194,34 @@ export default function Administration({
                             ))}
                         </select>
                     </label>
-                    <label className="flex flex-col">
-                        Statut de la demande
-                        <select name="status" defaultValue={filters.status || ''}>
+                    <label>
+                        <span id="official-status-label">Statut de la demande</span>
+                        <select aria-labelledby="official-status-label" name="status" defaultValue={filters.status || ''}>
                             <option value="">Tous</option>
                             {['open', 'reviewed', 'correction', 'approved', 'refused', 'issued'].map((status) => (
                                 <option key={status} value={status}>
-                                    {documentLabels[status]}
+                                    {documentLabels[status]} ({counts[status] ?? 0})
                                 </option>
                             ))}
                         </select>
                     </label>
-                    {type && <input type="hidden" name="type" value={type.id} />}
-                    <button className="admin-primary" type="submit">
-                        Filtrer
-                    </button>
-                    <Link className="admin-secondary" href={route(prefix + 'index')}>
-                        Réinitialiser
-                    </Link>
+                    <div className="official-filter-actions">
+                        <button className="admin-primary" type="submit">
+                            <Filter />
+                            Filtrer
+                        </button>
+                        <Link className="admin-secondary" href={route(prefix + 'index')}>
+                            <RotateCcw />
+                            Réinitialiser
+                        </Link>
+                    </div>
                 </form>
-                <p>
-                    {Object.entries(counts)
-                        .map(([status, count]) => `${documentLabels[status]} ${count}`)
-                        .join(' · ')}{' '}
-                </p>
 
-                <section className="space-y-3 rounded-lg border p-4">
-                    <h2 className="text-lg font-semibold">Catalogue</h2>
+                <section id="catalogue" className="official-panel">
+                    <h2>
+                        <BookOpen />
+                        Catalogue
+                    </h2>
                     {permissions.manage && (
                         <button
                             className="admin-primary"
@@ -211,20 +273,32 @@ export default function Administration({
                             Ajouter un type
                         </button>
                     )}
-                    <ul className="space-y-2">
+                    {types.data.length === 0 && <p className="official-empty">Aucun type de document pour ces filtres.</p>}
+                    <ul className="official-catalog">
                         {types.data.map((item) => (
                             <li key={item.id}>
-                                <Link href={route(prefix + 'index', { ...filters, type: item.id })}>
-                                    {item.name} · {item.code}
-                                </Link>{' '}
-                                · {item.active ? 'Actif' : 'Inactif'}
+                                <Link
+                                    href={route(prefix + 'index', { ...filters, type: item.id }) + '#modeles'}
+                                    aria-current={item.id === type?.id ? 'true' : undefined}
+                                >
+                                    <FileText aria-hidden="true" />
+                                    <span>
+                                        <strong>{item.name}</strong>
+                                        <small>
+                                            {item.code} · {item.active ? 'Actif' : 'Inactif'}
+                                        </small>
+                                    </span>
+                                    <span className="official-model-link">
+                                        Modèles <ChevronRight />
+                                    </span>
+                                </Link>
                             </li>
                         ))}
                     </ul>
                     <Pagination value={types} />
                     {type && (
                         <>
-                            <h3 className="font-semibold">Modèles · {type.name}</h3>
+                            <h3 id="modeles" className="scroll-mt-24 font-semibold">Modèles · {type.name}</h3>
                             <div className="flex flex-wrap gap-2">
                                 {permissions.approve && (
                                     <button
@@ -321,12 +395,16 @@ export default function Administration({
                                         )}
                                 </details>
                             ))}
+                            {templates?.data.length === 0 && <p className="official-empty">Aucun modèle pour ce type de document.</p>}
                             {templates && <Pagination value={templates} />}
                         </>
                     )}
                 </section>
-                <section className="space-y-3 rounded-lg border p-4">
-                    <h2 className="text-lg font-semibold">Demandes</h2>
+                <section id="demandes" className="official-panel">
+                    <h2>
+                        <Inbox />
+                        Demandes
+                    </h2>
                     {entry && (
                         <p>
                             {entry.name} · {entry.matricule} · {entry.year}
@@ -339,15 +417,16 @@ export default function Administration({
                                 Ouvrir · {item.name}
                             </button>
                         ))}
-                    {requests.data.length === 0 && <p>Aucune demande pour ces filtres.</p>}
+                    {requests.data.length === 0 && <p className="official-empty">Aucune demande pour ces filtres.</p>}
                     {requests.data.map((ticket) => (
                         <article key={ticket.id} className="space-y-2 border-t py-3">
-                            <p>
-                                <strong>{ticket.subject}</strong> · {documentLabels[ticket.status]} ·{' '}
+                            <div className="official-record-heading">
+                                <h3>{ticket.subject}</h3>
+                                <span className="official-state">{documentLabels[ticket.status]}</span>
                                 <Link href={route(prefix + 'index', { ...filters, academic: ticket.academic_enrollment_id })}>
-                                    Inscription {ticket.academic_enrollment_id}
+                                    Inscription {ticket.academic_enrollment_id} <ArrowRight />
                                 </Link>
-                            </p>
+                            </div>
                             <p className="whitespace-pre-wrap">{ticket.reason}</p>
                             {ticket.response && <p>{ticket.response}</p>}
                             <div className="flex flex-wrap gap-2">
@@ -432,10 +511,18 @@ export default function Administration({
                     ))}
                     <Pagination value={requests} />
                 </section>
-                <section className="space-y-3 rounded-lg border p-4">
-                    <h2 className="text-lg font-semibold">Archives et délivrance</h2>
-                    <div className="flex flex-wrap gap-2">
-                        <Link className="admin-secondary" href={route(prefix + 'index', { ...filters, archive: undefined })}>
+                <section id="archives" className="official-panel">
+                    <h2>
+                        <ArchiveIcon />
+                        Archives et délivrance
+                    </h2>
+                    <div className="official-archive-filters">
+                        <Link
+                            className="admin-secondary"
+                            preserveScroll
+                            aria-current={!filters.archive ? 'page' : undefined}
+                            href={route(prefix + 'index', { ...filters, archive: undefined })}
+                        >
                             Toutes les archives
                         </Link>
                         {Object.entries({
@@ -448,6 +535,7 @@ export default function Administration({
                             <Link
                                 key={archive}
                                 className="admin-secondary"
+                                preserveScroll
                                 aria-current={filters.archive === archive ? 'page' : undefined}
                                 href={route(prefix + 'index', { ...filters, archive })}
                             >
@@ -455,7 +543,7 @@ export default function Administration({
                             </Link>
                         ))}
                     </div>
-                    {documents.data.length === 0 && <p>Aucun document émis pour ces filtres.</p>}
+                    {documents.data.length === 0 && <p className="official-empty">Aucun document émis pour ces filtres.</p>}
                     {documents.data.map((document) => (
                         <article key={document.id} className="space-y-2 border-t py-3">
                             <p>
@@ -548,8 +636,12 @@ export default function Administration({
                     <Pagination value={documents} />
                 </section>
                 {result_archives && (
-                    <section className="space-y-3 rounded-lg border p-4">
-                        <h2 className="text-lg font-semibold">Archives de résultats</h2>
+                    <section className="official-panel">
+                        <h2>
+                            <ArchiveIcon />
+                            Archives de résultats
+                        </h2>
+                        {result_archives.data.length === 0 && <p className="official-empty">Aucune archive de résultats pour ces filtres.</p>}
                         {result_archives.data.map((archive) => (
                             <p className="flex flex-wrap gap-2" key={archive.id}>
                                 {({ report: 'Bulletin', transcript: 'Relevé', minutes: 'Procès-verbal' } as Record<string, string>)[archive.kind] ??
@@ -571,7 +663,7 @@ export default function Administration({
                     </section>
                 )}
                 {audit.length > 0 && (
-                    <section className="space-y-3 rounded-lg border p-4">
+                    <section className="official-panel">
                         <h2 className="text-lg font-semibold">Historique du dossier</h2>
                         <ul className="space-y-2">
                             {audit.map((event) => (
@@ -594,7 +686,7 @@ export default function Administration({
                         }}
                     />
                 )}
-            </main>
+            </article>
         </Dashboard>
     );
 }

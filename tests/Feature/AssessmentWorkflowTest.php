@@ -571,6 +571,9 @@ final class AssessmentWorkflowTest extends TestCase
         ))->assertStatus(303)->assertSessionHasNoErrors();
         $this->assertNull($cancelled->assessment()->sole()->scheduled_publish_at);
         $teacher->revokePermissionTo('manage courses');
+        $this->assertTrue($teacher->fresh()->can('manage courses'));
+        Role::findByName('professor', 'web')->revokePermissionTo('manage courses');
+        $this->assertFalse($teacher->fresh()->can('manage courses'));
 
         $this->travel(30)->minutes();
         $this->artisan('assessment:publish-scheduled')->assertSuccessful();

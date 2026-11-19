@@ -1,0 +1,99 @@
+{
+  "version": {
+    "port": 8075,
+    "revision": "a46a95e9ff77187515779a10ae56048e18026589",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CHKSllJp.js",
+      "manifest_sha256": "0cb6587cdb0bcfca863c081fc1c80812e61075798c81740a02c3a1e70dc75102",
+      "entry_sha256": "2f043e8a11df4eb59e28572c93099135d7c0dad912d0455a306c12c6a84c9194",
+      "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+    }
+  },
+  "rows": [
+    {
+      "id": "ANN-01",
+      "status": "VALIDÉ",
+      "action": "Ouvrir l’annuaire avec le mandat de vice-doyen de Droit.",
+      "obtained": {
+        "faculte": "Droit",
+        "enseignants": [
+          1,
+          2
+        ],
+        "cours": 12,
+        "modification_identite": false
+      },
+      "proof": "ANN-01.png"
+    },
+    {
+      "id": "ANN-02",
+      "status": "VALIDÉ",
+      "action": "Ouvrir la fiche de Droit public et vérifier les actions du vice-doyen.",
+      "obtained": {
+        "enseignant": 1,
+        "affectations_en_droit": 12,
+        "gerer_affectation": true,
+        "rattacher_compte": false
+      },
+      "proof": "ANN-02.png"
+    },
+    {
+      "id": "ANN-03",
+      "status": "VALIDÉ",
+      "action": "Comparer l’annuaire institutionnel et ses facultés au périmètre du vice-doyen.",
+      "obtained": {
+        "enseignants": 10,
+        "facultes": [
+          "Sciences sociales, politiques et administratives",
+          "Droit",
+          "Santé publique",
+          "Médecine humaine",
+          "Théologie"
+        ],
+        "revision": "a46a95e9ff77187515779a10ae56048e18026589"
+      },
+      "proof": "ANN-03.png"
+    },
+    {
+      "id": "ANN-04",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le formulaire institutionnel de Sciences cliniques et vérifier la fiche préremplie.",
+      "obtained": {
+        "enseignant": 3,
+        "formulaire_edition": true,
+        "enregistrement": false
+      },
+      "proof": "ANN-04.png"
+    },
+    {
+      "id": "ANN-05",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le profil personnel de l’enseignant depuis une session indépendante.",
+      "obtained": {
+        "enseignant": 1,
+        "nom": "Professeur Droit public",
+        "facultes": [
+          "Droit"
+        ]
+      },
+      "proof": "ANN-05.png"
+    },
+    {
+      "id": "ANN-06",
+      "status": "VALIDÉ",
+      "action": "Ouvrir le profil personnel de l’enseignant depuis une session indépendante.",
+      "obtained": {
+        "enseignant": 3,
+        "nom": "Professeur Sciences cliniques",
+        "facultes": [
+          "Médecine humaine"
+        ]
+      },
+      "proof": "ANN-06.png"
+    }
+  ]
+}

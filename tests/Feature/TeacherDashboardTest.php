@@ -213,7 +213,9 @@ final class TeacherDashboardTest extends TestCase
             ->where('courseLinks.assessments', null));
 
         $actor->revokePermissionTo('manage courses');
-        $this->actingAs($actor)->get($url)->assertInertia(fn (Assert $page) => $page
+        $this->assertTrue($actor->refresh()->can('manage courses'));
+        Role::findByName('professor', 'web')->revokePermissionTo('manage courses');
+        $this->actingAs($actor->refresh())->get($url)->assertInertia(fn (Assert $page) => $page
             ->where('canPublish', false)->where('courseManagementRestriction', 'permission_required')
             ->where('courseLinks.assessments', null));
     }

@@ -5,6 +5,7 @@ namespace App\Modules\Teaching\Infrastructure\Http\Controllers;
 use App\Models\Professor;
 use App\Models\User;
 use App\Modules\Student\Application\Services\Audit;
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -19,7 +20,7 @@ final class ProfessorInvitationController
 {
     public static function canInvite(User $actor): bool
     {
-        return $actor->hasRole('admin') && $actor->can('manage users') && ! $actor->academicFaculties()->exists();
+        return TeachingScope::canManageProfiles($actor);
     }
 
     public function send(Request $request, Professor $professor)

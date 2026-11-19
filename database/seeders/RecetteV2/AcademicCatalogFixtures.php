@@ -156,9 +156,9 @@ final class AcademicCatalogFixtures
     /** Called after current enrollments and explicit course registrations exist. */
     public function content(array $catalog, array $users): array
     {
-        foreach (['med', 'droit'] as $key) {
+        foreach (array_keys($catalog['programs']) as $key) {
             $teacher = $users['professeur.'.$key];
-            $levelKey = $key === 'med' ? 'L2' : 'L1';
+            $levelKey = $key === 'med' ? 'L2' : array_key_first($catalog['levels'][$key]);
             $offer = $catalog['offerings']['current'][$key][$levelKey][0];
             $materialTitle = 'Support fictif de '.$offer->course->title;
             $material = $offer->resources()->where('kind', 'material')->where('title', $materialTitle)->first();
@@ -205,7 +205,7 @@ final class AcademicCatalogFixtures
         return $catalog;
     }
 
-    private function year(University $institution, string $title, string $start, string $end, User $admin): AcademicYear
+    public function year(University $institution, string $title, string $start, string $end, User $admin): AcademicYear
     {
         $year = AcademicYear::where('title', $title)->first();
         if (! $year) {
@@ -223,18 +223,18 @@ final class AcademicCatalogFixtures
         return $year->fresh();
     }
 
-    private function annual(array $catalog, string $scope, User $admin): array
+    public function annual(array $catalog, string $scope, User $admin): array
     {
         $year = $catalog[$scope.'_year'];
-        $semester = AcademicSemester::firstOrCreate(['academic_year_id' => $year->id, 'number' => 1], ['start_date' => $year->start_date, 'end_date' => $year->end_date]);
+        $semester = AcademicSemester::firstOrCreate(['academic_year_id' => $year->id, 'number' => $catalog['teaching_semester'][$scope] ?? 1], ['start_date' => $year->start_date, 'end_date' => $year->end_date]);
         $catalog['semesters'][$scope] = $semester;
-        foreach (['med', 'droit'] as $facultyKey) {
+        foreach (array_keys($catalog['programs']) as $facultyKey) {
             $program = $catalog['programs'][$facultyKey];
             app(AnnualProgramPreparation::class)->ensureAdmissionCohort($program, $year, $admin->id);
             $catalog['cohorts'][$scope][$facultyKey] = AdmissionCohort::where('academic_program_id', $program->id)->where('academic_year_id', $year->id)->sole();
             $version = $this->curriculum($catalog, $scope, $facultyKey, $admin);
             $catalog['versions'][$scope][$facultyKey] = $version;
-            foreach (['L1', 'L2'] as $levelKey) {
+            foreach (array_keys($catalog['levels'][$facultyKey]) as $levelKey) {
                 $level = $catalog['levels'][$facultyKey][$levelKey];
                 $promotion = AcademicPromotion::firstOrCreate(['academic_program_id' => $program->id, 'academic_year_id' => $year->id, 'level_id' => $level->id], [
                     'code' => 'RV2-'.$year->id.'-'.$level->id, 'name' => 'Promotion fictive '.$year->title.' '.$level->title, 'is_active' => true,
@@ -266,7 +266,8 @@ final class AcademicCatalogFixtures
                     $catalog['offerings'][$scope][$facultyKey][$levelKey][$index] = $offer->fresh();
                     if (! $offer->sessions()->exists()) {
                         $day = $scope === 'past' ? ($facultyKey === 'med' ? '2026-05-11' : '2026-05-12') : ($facultyKey === 'med' ? '2026-11-23' : '2026-11-24');
-                        $hour = 9 + ($levelKey === 'L2' ? 4 : 0) + $index * 2;
+                        $levelPosition = array_search($levelKey, array_keys($catalog['levels'][$facultyKey]), true);
+                        $hour = 9 + 4 * $levelPosition + $index * 2;
                         app(ScheduleService::class)->save([
                             'academic_offering_id' => $offer->id, 'starts_at' => sprintf('%sT%02d:00', $day, $hour),
                             'ends_at' => sprintf('%sT%02d:00', $day, $hour + 1), 'room' => 'Auditoire fictif '.$facultyKey,
@@ -303,7 +304,7 @@ final class AcademicCatalogFixtures
         }
         if ($version->status === 'draft') {
             $units = [];
-            foreach (['L1', 'L2'] as $levelKey) {
+            foreach (array_keys($catalog['levels'][$facultyKey]) as $levelKey) {
                 $units[] = ['level_id' => $catalog['levels'][$facultyKey][$levelKey]->id, 'period_code' => 'AN',
                     'code' => 'UE-'.$levelKey, 'name' => 'Enseignements annuels fictifs '.$levelKey, 'expected_credits' => '10.00',
                     'items' => array_map(fn (Courses $course) => ['source_course_id' => $course->id, 'credits' => '5.00', 'coefficient' => '1.000',

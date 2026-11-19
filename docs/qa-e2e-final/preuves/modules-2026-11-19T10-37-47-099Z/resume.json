@@ -1,0 +1,102 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    }
+  },
+  "rows": [
+    {
+      "id": "MOD-01",
+      "status": "VALIDÉ",
+      "action": "Publier une annonce pour un cours de Droit L1",
+      "obtained": {
+        "offre": 13,
+        "ressource": 17,
+        "cours": "Fondements de Droit L1 — Recette",
+        "titre": "Réunion fictive des étudiants de Droit L1 1795084662928"
+      },
+      "proof": "MOD-01.png"
+    },
+    {
+      "id": "MOD-02",
+      "status": "VALIDÉ",
+      "action": "Retrouver le titre dans la liste, ouvrir le détail et lire le message dans son année",
+      "obtained": {
+        "inscription": 9,
+        "ressource": 17,
+        "annee": "2026-2027",
+        "titre": "Réunion fictive des étudiants de Droit L1 1795084662928",
+        "texte": "Les étudiants du cours se retrouveront pour préparer le prochain atelier de lecture juridique.",
+        "liste": "MOD-02-liste.png"
+      },
+      "proof": "MOD-02.png"
+    },
+    {
+      "id": "MOD-03",
+      "status": "VALIDÉ",
+      "action": "Ouvrir la notification individuelle et vérifier le renvoi au détail de la même annonce",
+      "obtained": {
+        "notification": "56d2af42-e838-4d16-bf17-20d7ee5c1f0e",
+        "inscription": 9,
+        "ressource": 17,
+        "boite": "MOD-03-notification.png"
+      },
+      "proof": "MOD-03.png"
+    },
+    {
+      "id": "MOD-04",
+      "status": "VALIDÉ",
+      "action": "Filtrer le rapport de présence et télécharger son export CSV",
+      "obtained": {
+        "annee": "2026-2027",
+        "seances": 0,
+        "appels_saisis": 0,
+        "export": "MOD-04-presences.csv"
+      },
+      "proof": "MOD-04.png"
+    },
+    {
+      "id": "MOD-05",
+      "status": "VALIDÉ",
+      "action": "Modifier la ville dans les paramètres, relire puis restaurer la valeur du profil",
+      "obtained": {
+        "champ": "Ville",
+        "relecture": "Ville fictive QA 1795084662928",
+        "valeur_initiale_retablie": true,
+        "preuve_modification": "MOD-05-ville-modifiee.png"
+      },
+      "proof": "MOD-05.png"
+    },
+    {
+      "id": "MOD-06",
+      "status": "VALIDÉ",
+      "action": "Publier une actualité institutionnelle depuis la rubrique Communication",
+      "obtained": {
+        "article": 2,
+        "titre": "Journée universitaire fictive 1795084662928",
+        "statut": "published"
+      },
+      "proof": "MOD-06.png"
+    },
+    {
+      "id": "MOD-07",
+      "status": "VALIDÉ",
+      "action": "Retrouver l’actualité à partir du journal public et lire son contenu sans connexion",
+      "obtained": {
+        "titre": "Journée universitaire fictive 1795084662928",
+        "chemin_public": "/blog/2",
+        "connexion": false
+      },
+      "proof": "MOD-07.png"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "port": 8066,
+  "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+  "branch": "",
+  "tracked_changes": false,
+  "opcache_cli": false,
+  "assets": {
+    "mode": "build",
+    "entry": "assets/app-CTeWqyuC.js",
+    "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+    "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+  }
+}

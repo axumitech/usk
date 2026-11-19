@@ -126,7 +126,7 @@ class StudentPortalController extends Controller
         $entry = $this->context($request);
         $entry->profile->newQuery()->whereKey($entry->student_profile_id)->whereNull('welcome_seen_at')->update(['welcome_seen_at' => now()]);
 
-        return back(303);
+        return to_route('dashboard.student.index', ['academic' => $entry->id], 303);
     }
 
     private function canChooseDepartment(AcademicEnrollment $entry): bool

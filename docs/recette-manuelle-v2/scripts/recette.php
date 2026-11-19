@@ -9,12 +9,15 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
 $command = $argv[1] ?? '';
-if (! in_array($command, ['install', 'db:seed', 'queue:work', 'migrate:status'], true)) {
-    fwrite(STDERR, "Commandes de recette : install, db:seed, queue:work, migrate:status.\n");
+if (! in_array($command, ['install', 'db:seed', 'queue:work', 'migrate:status', 'storage:link'], true)) {
+    fwrite(STDERR, "Commandes de recette : install, db:seed, queue:work, migrate:status, storage:link.\n");
     exit(1);
 }
 
 try {
+    if ($command === 'storage:link' && (count($argv) !== 2 || ! recetteBuiltPublicPath())) {
+        throw new RuntimeException('Le lien de stockage exige le répertoire public compilé du profil QA.');
+    }
     $app = recetteApplication($command === 'install');
 } catch (RuntimeException $exception) {
     fwrite(STDERR, $exception->getMessage().PHP_EOL);

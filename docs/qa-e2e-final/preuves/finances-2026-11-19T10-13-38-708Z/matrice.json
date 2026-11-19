@@ -1,0 +1,318 @@
+[
+  {
+    "post": "/app/login",
+    "status": 302,
+    "location": "http://127.0.0.1:8066/app/dashboard"
+  },
+  {
+    "post": "/app/login",
+    "status": 302,
+    "location": "http://127.0.0.1:8066/app/dashboard"
+  },
+  {
+    "post": "/app/dashboard/admin/student-academic/8/payments",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F01-reponse-perdue-et-rejeu",
+    "state": "VALIDÉ",
+    "detail": {
+      "httpCommit": 303,
+      "attempts": 2,
+      "sameOperation": true,
+      "entries": 1,
+      "montantValide": 2000,
+      "url": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+    }
+  },
+  {
+    "post": "/app/dashboard/admin/student-academic/8/payments",
+    "status": 302,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F02-montant-invalide",
+    "state": "VALIDÉ",
+    "detail": {
+      "errorVisible": true,
+      "entries": 1,
+      "url": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+    }
+  },
+  {
+    "post": "/app/dashboard/admin/student-academic/payments/11/status",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F03-confirmer-29",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "pending_confirmation",
+      "paid": 2900,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ]
+      ],
+      "proofs": []
+    }
+  },
+  {
+    "id": "F04-depot-preuve",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "pending_confirmation",
+      "paid": 2900,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ]
+      ],
+      "proofs": [
+        [
+          1,
+          "QA-SEUIL1",
+          "pending",
+          null
+        ]
+      ]
+    }
+  },
+  {
+    "post": "/app/dashboard/student/payments/proofs",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/student/fees?academic=8"
+  },
+  {
+    "post": "/app/dashboard/admin/finance/payment-proofs/1/review",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F05-refus-preuve",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "pending_confirmation",
+      "paid": 2900,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ]
+      ],
+      "proofs": [
+        [
+          1,
+          "QA-SEUIL1",
+          "rejected",
+          null
+        ]
+      ]
+    }
+  },
+  {
+    "post": "/app/dashboard/student/payments/proofs",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/student/fees?academic=8"
+  },
+  {
+    "id": "F06-depot-corrige",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "pending_confirmation",
+      "paid": 2900,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ]
+      ],
+      "proofs": [
+        [
+          1,
+          "QA-SEUIL1",
+          "rejected",
+          null
+        ],
+        [
+          2,
+          "QA-SEUIL1",
+          "pending",
+          null
+        ]
+      ]
+    }
+  },
+  {
+    "post": "/app/dashboard/admin/finance/payment-proofs/2/review",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F07-valider-preuve-et-30",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "confirmed",
+      "paid": 3000,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ],
+        [
+          12,
+          "QA-SEUIL1",
+          "confirmed",
+          100
+        ]
+      ],
+      "proofs": [
+        [
+          1,
+          "QA-SEUIL1",
+          "rejected",
+          null
+        ],
+        [
+          2,
+          "QA-SEUIL1",
+          "accepted",
+          12
+        ]
+      ]
+    }
+  },
+  {
+    "post": "/app/dashboard/admin/student-academic/payments/12/status",
+    "status": 303,
+    "location": "http://127.0.0.1:8066/app/dashboard/admin/finance?academic=8"
+  },
+  {
+    "id": "F08-annuler-paiement-sans-refuser-preuve",
+    "state": "VALIDÉ",
+    "detail": {
+      "origin": "http://127.0.0.1:8066",
+      "finance": "sqlite",
+      "manifest": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry": 8,
+      "status": "confirmed",
+      "paid": 2900,
+      "payments": [
+        [
+          6,
+          "RECETTE-V2-CURRENT-ETUDIANT.MED3",
+          "confirmed",
+          2000
+        ],
+        [
+          11,
+          "QA-SEUIL29",
+          "confirmed",
+          900
+        ],
+        [
+          12,
+          "QA-SEUIL1",
+          "cancelled",
+          100
+        ]
+      ],
+      "proofs": [
+        [
+          1,
+          "QA-SEUIL1",
+          "rejected",
+          null
+        ],
+        [
+          2,
+          "QA-SEUIL1",
+          "accepted",
+          12
+        ]
+      ],
+      "proofDecision": "accepted",
+      "accountingStatus": "cancelled",
+      "coursesAt30": true,
+      "coursesAfterCancellation": true
+    }
+  },
+  {
+    "post": "/app/dashboard/student/payments/proofs",
+    "status": 302,
+    "location": "http://127.0.0.1:8066/app/dashboard/student/fees?academic=8"
+  },
+  {
+    "id": "F09-piece-identique-nouvelle-reference",
+    "state": "VALIDÉ",
+    "detail": {
+      "visible": true,
+      "proofsUnchanged": true,
+      "paymentsUnchanged": true
+    }
+  }
+]

@@ -1,0 +1,120 @@
+{
+  "advance": {
+    "email": "etudiant.dpr.02@usk.test",
+    "source": {
+      "id": 1,
+      "matricule": "DR0001",
+      "level_id": 1,
+      "academic_year_id": 1,
+      "admission_cohort_id": 1,
+      "academic_promotion_id": 1,
+      "curriculum_version_id": 1,
+      "enrollment_status": "completed"
+    },
+    "official": {
+      "id": 1,
+      "decision": "pass_demo",
+      "reference": "0346023e-dff0-4408-b706-73ff54cd527c",
+      "snapshot_sha256": "50562ec0b359f2e047d92f365bc3e36f07c5d946888c69ddc3fc3cff911a2f96"
+    },
+    "destination": {
+      "year_id": 2,
+      "level_id": 2,
+      "level": "L2 — Droit privé",
+      "version_id": 2,
+      "promotion_id": 5
+    },
+    "decision": {
+      "id": 1,
+      "source_enrollment_id": 1,
+      "target_enrollment_id": 3,
+      "academic_official_result_id": 1,
+      "kind": "advance"
+    },
+    "target": {
+      "id": 3,
+      "matricule": "DR0001",
+      "level_id": 2,
+      "academic_year_id": 2,
+      "admission_cohort_id": 1,
+      "academic_promotion_id": 5,
+      "curriculum_version_id": 2,
+      "enrollment_status": "pending_confirmation"
+    },
+    "past_payments": [
+      {
+        "id": 1,
+        "status": "confirmed",
+        "amount_cents": 8000,
+        "currency": "USD"
+      }
+    ],
+    "target_tuition": [
+      {
+        "installment": 1,
+        "amount_cents": 10000,
+        "currency": "USD",
+        "due_at": "2027-09-30T00:00:00.000000Z"
+      }
+    ]
+  },
+  "repeat": {
+    "email": "etudiant.dpr.03@usk.test",
+    "source": {
+      "id": 2,
+      "matricule": "DR0002",
+      "level_id": 1,
+      "academic_year_id": 1,
+      "admission_cohort_id": 1,
+      "academic_promotion_id": 1,
+      "curriculum_version_id": 1,
+      "enrollment_status": "completed"
+    },
+    "official": {
+      "id": 2,
+      "decision": "repeat_demo",
+      "reference": "3ca466fd-5a07-4cb7-b349-2fa3258eebe1",
+      "snapshot_sha256": "a7f3bb612c9ad3b3b7d3728fa2f9b8cfe46fde0214fbf1ac4f66bae313c136b7"
+    },
+    "destination": {
+      "year_id": 2,
+      "level_id": 1,
+      "level": "L1 — Droit privé",
+      "version_id": 2,
+      "promotion_id": 4
+    },
+    "decision": {
+      "id": 2,
+      "source_enrollment_id": 2,
+      "target_enrollment_id": 4,
+      "academic_official_result_id": 2,
+      "kind": "repeat"
+    },
+    "target": {
+      "id": 4,
+      "matricule": "DR0002",
+      "level_id": 1,
+      "academic_year_id": 2,
+      "admission_cohort_id": 1,
+      "academic_promotion_id": 4,
+      "curriculum_version_id": 2,
+      "enrollment_status": "pending_confirmation"
+    },
+    "past_payments": [
+      {
+        "id": 2,
+        "status": "confirmed",
+        "amount_cents": 10000,
+        "currency": "USD"
+      }
+    ],
+    "target_tuition": [
+      {
+        "installment": 1,
+        "amount_cents": 10000,
+        "currency": "USD",
+        "due_at": "2027-09-30T00:00:00.000000Z"
+      }
+    ]
+  }
+}

@@ -35,6 +35,7 @@ export type FormSpec = {
     eyebrow?: string;
     requireSuccessFlash?: boolean;
     acceptsResponse?: (page: Page) => boolean;
+    confirmedStateMessage?: (page: Page) => string | undefined;
 };
 export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormSpec; onClose: () => void; onSuccess: (message: string) => void }) {
     const id = useId();
@@ -124,7 +125,7 @@ export default function AcademicForm({ spec, onClose, onSuccess }: { spec: FormS
                             }
 
                             const flash = page.props.flash as { success?: string } | undefined;
-                            const message = flash?.success ?? page.props.success;
+                            const message = flash?.success ?? page.props.success ?? spec.confirmedStateMessage?.(page);
                             if (typeof message === 'string' && message.trim()) {
                                 onSuccess(message);
                             } else if (spec.requireSuccessFlash) {

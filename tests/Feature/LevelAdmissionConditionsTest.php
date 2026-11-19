@@ -17,6 +17,7 @@ class LevelAdmissionConditionsTest extends TestCase
     {
         $admin = User::factory()->create();
         $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $admin->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('manage academic access', 'web'));
         $faculty = Faculty::create(['name' => 'Sciences', 'code' => 'SCI']);
         $level = $faculty->levels()->create(['title' => 'Licence 1', 'code' => 'L1']);
         $tab = route('dashboard.admin.levels.details.show', ['id' => $level->id, 'tab' => 'conditions']);
@@ -32,6 +33,7 @@ class LevelAdmissionConditionsTest extends TestCase
     {
         $admin = User::factory()->create();
         $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $admin->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('manage academic access', 'web'));
         $faculty = Faculty::create(['name' => 'Sciences', 'code' => 'SCI']);
         $other = Faculty::create(['name' => 'Droit', 'code' => 'DR']);
         [$first, $second, $third] = collect([1, 2, 3])->map(fn ($year) => $faculty->levels()->create([

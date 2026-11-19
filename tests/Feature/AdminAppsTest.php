@@ -119,7 +119,7 @@ class AdminAppsTest extends TestCase
         $this->assertDatabaseHas('level_details', ['level_id' => $level]);
 
         $admin->academicFaculties()->attach($other);
-        $this->get($details)->assertOk()->assertInertia(fn (Assert $page) => $page->where('canManageCourses', false));
+        $this->get($details)->assertForbidden();
         $this->post(route('dashboard.admin.levels.details.courses.store', $level), [])->assertForbidden();
         $this->actingAs($this->user(false))->get($legacy)->assertForbidden();
     }

@@ -1,0 +1,43 @@
+{
+  "profil": "usk_qa_e2e-rectorat",
+  "controle_utc": "2026-11-19T12:04:34.835Z",
+  "mode": "SQLite en lecture seule",
+  "evenements": [
+    {
+      "action": "official_result_appeal_admissible",
+      "audits": 20,
+      "recours": 20
+    },
+    {
+      "action": "official_result_appeal_filed",
+      "audits": 20,
+      "recours": 20
+    },
+    {
+      "action": "official_result_appeal_investigating",
+      "audits": 20,
+      "recours": 20
+    },
+    {
+      "action": "official_result_appeal_rejected",
+      "audits": 20,
+      "recours": 20
+    },
+    {
+      "action": "official_result_appeal_under_review",
+      "audits": 20,
+      "recours": 20
+    }
+  ],
+  "acteurs": {
+    "demandes": 20,
+    "instructeurs": 1,
+    "decideurs": 5,
+    "depots_par_le_titulaire": 20,
+    "decision_par_un_autre_compte": 20
+  },
+  "requetes_sql": [
+    "SELECT a.action,COUNT(*) AS audits,COUNT(DISTINCT s.id) AS recours FROM academic_audits a JOIN student_service_requests s ON s.id=a.entity_id AND a.entity_type='student_service_requests' JOIN academic_official_results r ON r.id=s.academic_official_result_id WHERE s.category='appeal' AND s.status='rejected' AND a.action LIKE 'official_result_appeal_%' GROUP BY a.action ORDER BY a.action",
+    "SELECT COUNT(DISTINCT s.id) AS demandes,COUNT(DISTINCT s.assigned_to) AS instructeurs,COUNT(DISTINCT s.responded_by) AS decideurs,SUM(CASE WHEN a.actor_id=p.user_id THEN 1 ELSE 0 END) AS depots_par_le_titulaire,SUM(CASE WHEN s.assigned_to<>s.responded_by THEN 1 ELSE 0 END) AS decision_par_un_autre_compte FROM student_service_requests s JOIN academic_audits a ON a.action='official_result_appeal_filed' AND a.entity_type='student_service_requests' AND a.entity_id=s.id JOIN academic_enrollments e ON e.id=s.academic_enrollment_id JOIN student_profiles p ON p.id=e.student_profile_id WHERE s.academic_official_result_id IS NOT NULL"
+  ]
+}

@@ -134,6 +134,23 @@ class AcademicStructureAuthorizationTest extends TestCase
         $this->assertNull($group->refresh()->academic_promotion_id);
         $this->actingAs($this->scienceAgent)->post($this->reference('group-promotion', $group->id), $groupChange)->assertSessionHasNoErrors()->assertRedirect();
         $this->assertEquals($promotionId, $group->refresh()->academic_promotion_id);
+
+        $create = route('dashboard.admin.academic-structure.groups.store', $promotionId);
+        $input = ['name' => 'Travaux pratiques A', 'capacity' => 24];
+        $this->actingAs($this->lawAgent)->post($create, $input)->assertForbidden();
+        $this->actingAs($this->scienceAgent)->post($create, $input + ['level_id' => $level->id + 1])->assertSessionHasErrors('level_id');
+        foreach ([1, 2] as $attempt) {
+            $this->post($create, $input)->assertStatus(303)->assertSessionHasNoErrors()
+                ->assertRedirect(route('dashboard.admin.academic-structure.index', ['tab' => 'programs', 'program' => $program->id]));
+        }
+        $created = Classes::where('academic_promotion_id', $promotionId)->where('capacity', 24)->sole();
+        $this->assertEquals($level->id, $created->level_id);
+        $this->assertEquals($this->sciences->id, $created->faculty_id);
+        $this->assertStringStartsWith('Travaux pratiques A', $created->intake->name);
+        $this->assertSame(1, \App\Models\Student\AcademicAudit::where('entity_id', $created->id)->where('action', 'promotion_group_created')->count());
+        $this->post($create, array_replace($input, ['capacity' => 12]))->assertSessionHasErrors('name');
+        $year->forceFill(['status' => 'closed'])->save();
+        $this->post($create, ['name' => 'Nouveau groupe'])->assertSessionHasErrors('name');
     }
 
     public function test_institutional_references_require_an_unrestricted_scope(): void

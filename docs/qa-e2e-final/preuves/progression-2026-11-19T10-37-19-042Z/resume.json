@@ -1,0 +1,74 @@
+{
+  "version": {
+    "port": 8071,
+    "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b",
+    "branch": "",
+    "tracked_changes": null,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "7bbfba884e5fc30d5785fd556595a3f195eea98b"
+    }
+  },
+  "rows": [
+    {
+      "id": "passage-01",
+      "status": "VALIDÉ",
+      "action": "Préparer la destination depuis le résultat officiel",
+      "obtained": "L2 — Droit privé",
+      "proof": "passage-01.png"
+    },
+    {
+      "id": "passage-02",
+      "status": "VALIDÉ",
+      "action": "Publier la décision depuis le dossier institutionnel",
+      "obtained": "En attente de la démarche de l’étudiant.",
+      "proof": "passage-02.png"
+    },
+    {
+      "id": "passage-03",
+      "status": "VALIDÉ",
+      "action": "Consulter la décision dans Mes inscriptions",
+      "obtained": "L2 — Droit privé · 2026-2027",
+      "proof": "passage-03.png"
+    },
+    {
+      "id": "passage-04",
+      "status": "VALIDÉ",
+      "action": "Relire le dossier annuel et conserver le matricule",
+      "obtained": "L2 — Droit privé · 2026-2027 · DR0001",
+      "proof": "passage-04.png"
+    },
+    {
+      "id": "redoublement-01",
+      "status": "VALIDÉ",
+      "action": "Préparer la destination depuis le résultat officiel",
+      "obtained": "L1 — Droit privé",
+      "proof": "redoublement-01.png"
+    },
+    {
+      "id": "redoublement-02",
+      "status": "VALIDÉ",
+      "action": "Publier la décision depuis le dossier institutionnel",
+      "obtained": "En attente de la démarche de l’étudiant.",
+      "proof": "redoublement-02.png"
+    },
+    {
+      "id": "redoublement-03",
+      "status": "VALIDÉ",
+      "action": "Consulter la décision dans Mes inscriptions",
+      "obtained": "L1 — Droit privé · 2026-2027",
+      "proof": "redoublement-03.png"
+    },
+    {
+      "id": "redoublement-04",
+      "status": "VALIDÉ",
+      "action": "Relire le dossier annuel et conserver le matricule",
+      "obtained": "L1 — Droit privé · 2026-2027 · DR0002",
+      "proof": "redoublement-04.png"
+    }
+  ]
+}

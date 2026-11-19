@@ -1,0 +1,89 @@
+{
+  "startedAt": "2026-11-19T10:24:30.780Z",
+  "med": {
+    "context": {
+      "year": {
+        "value": "2",
+        "label": "2026-2027"
+      },
+      "faculty": {
+        "value": "1",
+        "label": "Faculté de Médecine — Recette"
+      },
+      "program": {
+        "value": "1",
+        "label": "RV2-MED-LIC · Licence en Médecine — Recette"
+      },
+      "level": {
+        "value": "1",
+        "label": "Licence 1 — Médecine — Recette"
+      }
+    },
+    "name": "Candidat Médecine — RECETTE USK",
+    "uuid": "e9a38050-83b9-4169-9e73-e44c35b8b62b",
+    "documents": [
+      {
+        "input": "document-diplome_ou_titre_equivalent_fictif",
+        "filename": "qa-med-1.pdf"
+      }
+    ],
+    "id": 12,
+    "preview": "http://127.0.0.1:8068/app/dashboard/admin/enrollments/documents/722e43bb-6828-4e84-9f93-c7650831ca68/preview",
+    "correctedDocument": "722e43bb-6828-4e84-9f93-c7650831ca68",
+    "academic": 13
+  },
+  "droit": {
+    "context": {
+      "year": {
+        "value": "2",
+        "label": "2026-2027"
+      },
+      "faculty": {
+        "value": "2",
+        "label": "Faculté de Droit — Recette"
+      },
+      "program": {
+        "value": "2",
+        "label": "RV2-DR-LIC · Licence en Droit — Recette"
+      },
+      "level": {
+        "value": "3",
+        "label": "Licence 1 — Droit — Recette"
+      }
+    },
+    "uuid": "a79f5de0-01a1-41e2-8b27-9a99486e5e7c",
+    "documents": [
+      {
+        "input": "document-diplome_ou_titre_equivalent_fictif",
+        "filename": "qa-droit-1.png"
+      }
+    ],
+    "id": 13
+  },
+  "mails": [
+    {
+      "recipient": "candidat.med@usk.test",
+      "subject": "USK — Votre candidature a bien été reçue",
+      "created": "2026-11-19T11:26:32.3961363+01:00",
+      "evidence": "S03-MAIL-01-mailhog.png"
+    },
+    {
+      "recipient": "candidat.med@usk.test",
+      "subject": "USK — Des pièces de votre dossier sont à compléter",
+      "created": "2026-11-19T11:28:41.6882315+01:00",
+      "evidence": "S03-MAIL-02-mailhog.png"
+    },
+    {
+      "recipient": "candidat.med@usk.test",
+      "subject": "USK — Votre candidature a été acceptée",
+      "created": "2026-11-19T11:29:31.3283924+01:00",
+      "evidence": "S03-MAIL-03-mailhog.png"
+    },
+    {
+      "recipient": "candidat.droit@usk.test",
+      "subject": "USK — Décision concernant votre candidature",
+      "created": "2026-11-19T11:31:12.8249721+01:00",
+      "evidence": "S03-MAIL-04-mailhog.png"
+    }
+  ]
+}

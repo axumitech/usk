@@ -35,7 +35,8 @@ function catalog() {
     const Administration = load(administration, {
         react: { useState: (initial) => [initial, (value) => { spec = value; }] },
         '@inertiajs/react': { Head: placeholder, Link: placeholder, router: {} },
-        '@/components/admin/PageHeading': placeholder,
+        'lucide-react': new Proxy({}, { get: () => placeholder }),
+        '../../../../css/dashboard/official-documents.css': {},
         '@/components/admin/Pagination': placeholder,
         '@/components/layouts/Dashboard/Dashboard': placeholder,
         '@/pages/dashboard/studentAcademic/AcademicForm': placeholder,

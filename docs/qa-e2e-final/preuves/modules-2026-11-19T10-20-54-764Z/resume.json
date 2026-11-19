@@ -1,0 +1,71 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-BPCWFe7Y.js",
+      "manifest_sha256": "a22855a266b9c4a9a776ac482de789231f43b39011f679645adaa0f9f1756c72",
+      "entry_sha256": "5ae9004472637405bd636ac7137694a5770a3d189145cd6e9223995b56c4877f",
+      "revision": "a36ed79dd7f9c26c548c9fbf415775b123b267c6"
+    }
+  },
+  "rows": [
+    {
+      "id": "MOD-01",
+      "action": "Publier une annonce pour un cours de Droit L1",
+      "status": "BLOQUÉ",
+      "detail": "locator.selectOption: Timeout 35000ms exceeded.",
+      "proof": "MOD-01-blocage.png"
+    },
+    {
+      "id": "MOD-02",
+      "action": "Retrouver le titre dans la liste, ouvrir le détail et lire le message dans son année",
+      "status": "BLOQUÉ",
+      "detail": "The expression evaluated to a falsy value:",
+      "proof": "MOD-02-blocage.png"
+    },
+    {
+      "id": "MOD-03",
+      "action": "Ouvrir la notification individuelle et vérifier le renvoi au détail de la même annonce",
+      "status": "BLOQUÉ",
+      "detail": "The expression evaluated to a falsy value:",
+      "proof": "MOD-03-blocage.png"
+    },
+    {
+      "id": "MOD-04",
+      "action": "Filtrer le rapport de présence et télécharger son export CSV",
+      "status": "BLOQUÉ",
+      "detail": "locator.selectOption: Timeout 35000ms exceeded.",
+      "proof": "MOD-04-blocage.png"
+    },
+    {
+      "id": "MOD-05",
+      "action": "Modifier la ville dans les paramètres, relire puis restaurer la valeur du profil",
+      "status": "BLOQUÉ",
+      "detail": "locator.fill: Timeout 35000ms exceeded.",
+      "proof": "MOD-05-blocage.png"
+    },
+    {
+      "id": "MOD-06",
+      "status": "VALIDÉ",
+      "action": "Publier une actualité institutionnelle depuis la rubrique Communication",
+      "obtained": {
+        "article": 1,
+        "titre": "Journée universitaire fictive 1795083652822",
+        "statut": "published"
+      },
+      "proof": "MOD-06.png"
+    },
+    {
+      "id": "MOD-07",
+      "action": "Retrouver l’actualité à partir du journal public et lire son contenu sans connexion",
+      "status": "BLOQUÉ",
+      "detail": "locator.waitFor: Error: strict mode violation: getByRole('heading', { name: 'Journée universitaire fictive 1795083652822', exact: true }) resolved to 2 elements:",
+      "proof": "MOD-07-blocage.png"
+    }
+  ]
+}

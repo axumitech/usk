@@ -138,7 +138,9 @@ export default function FinanceAccount(props: Props) {
     const [allocating, setAllocating] = useState<Payment | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const [dismissedPaymentFlash, setDismissedPaymentFlash] = useState<FinancePaymentFlash | null>(null);
-    const paymentFlash = usePage().flash?.financePayment as FinancePaymentFlash | undefined;
+    const page = usePage<{ auth?: { user?: { delegatedAreas?: string[] | null } } }>();
+    const paymentFlash = page.flash?.financePayment as FinancePaymentFlash | undefined;
+    const delegatedAreas = page.props?.auth?.user?.delegatedAreas;
     const feedback = paymentFlash?.accountId === props.selected.id && paymentFlash !== dismissedPaymentFlash ? paymentFlash.message : notice;
     const enrollment = props.enrollmentConfirmation;
     const pendingEnrollment = enrollment.status === 'pending_confirmation';
@@ -764,12 +766,11 @@ export default function FinanceAccount(props: Props) {
                     ))}
                     <Pagination value={props.refunds} preserveScroll preserveState />
                 </details>
-                <Link
-                    className="finance-account-link"
-                    href={route('dashboard.admin.student-academic.show', { academic: props.selected.id, section: 'Finances' })}
-                >
-                    Dossier étudiant 360° <ArrowRight size={15} aria-hidden="true" />
-                </Link>
+                {(!delegatedAreas || delegatedAreas.includes('student-academic')) && (
+                    <Link className="finance-account-link" href={route('dashboard.admin.student-academic.show', { academic: props.selected.id, section: 'Finances' })}>
+                        Dossier étudiant 360° <ArrowRight size={15} aria-hidden="true" />
+                    </Link>
+                )}
             </div>
         </Dashboard>
     );

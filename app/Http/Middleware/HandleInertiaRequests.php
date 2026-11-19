@@ -82,6 +82,8 @@ class HandleInertiaRequests extends Middleware
                     'post_name' => $request->user()->post_name,
                     'email' => $request->user()->email,
                     'roles' => $request->user()->getRoleNames(),
+                    'administration' => $request->user()->hasRole('admin'),
+                    'delegatedAreas' => $request->user()->delegatedAreas(),
                     'permissions' => $request->user()->getAllPermissions()->pluck('name'),
                     'hasAcademicFacultyScope' => $request->user()->hasRole('admin') && $request->user()->academicFaculties()->exists(),
                 ] : null,
@@ -121,7 +123,7 @@ class HandleInertiaRequests extends Middleware
             'studentNotifications' => function () use ($request) {
                 $user = $request->user();
 
-                return $user && ! $request->is('app/dashboard/teacher', 'app/dashboard/teacher/*')
+                return $user && ! $user->hasRole('super-admin') && ! $request->is('app/dashboard/teacher', 'app/dashboard/teacher/*')
                     ? app(StudentNotifications::class)->summary($user)
                     : null;
             },

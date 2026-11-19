@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-19",
+  "environment": "Tests Laravel isolés avec RefreshDatabase pour les scénarios HTTP, sans donnée du profil de présentation",
+  "working_tree_base": "7bbfba8",
+  "runtime": "PHP 8.4.5",
+  "runner": "PHPUnit 11.5.57",
+  "command": "php vendor/bin/phpunit --filter 'test_a_terminal_licence|test_only_the_later_published_resit|test_resit_keeps_ordinary|test_resit_preserves_existing|test_in_person_exam_uses'",
+  "tests": 5,
+  "assertions": 66,
+  "elapsed": "02:28.680",
+  "peak_memory_mib": 84,
+  "result": "OK (5 tests, 66 assertions)",
+  "scope": [
+    "Licence L1-L3 certifiée et nouvelle admission en Master contrôlée par les routes de progression",
+    "Réinscription après un résultat de rattrapage déjà publié avec conservation de la décision ordinaire",
+    "Deux règles de calcul du rattrapage avec maintien des acquis et de la compensation",
+    "Examen de rattrapage en présentiel avec absence transmise sans note fictive"
+  ]
+}

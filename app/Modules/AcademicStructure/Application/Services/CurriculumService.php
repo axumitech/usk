@@ -241,14 +241,16 @@ class CurriculumService
         }, 3);
     }
 
-    public function annualFacultyPack(University $institution, int $yearId): array
+    public function annualFacultyPack(University $institution, int $yearId, ?array $facultyIds): array
     {
         $versions = CurriculumVersion::where('academic_year_id', $yearId)->whereNotIn('status', ['archived', 'replaced'])
-            ->whereHas('program.faculty', fn ($query) => $query->where('university_id', $institution->id))
+            ->whereHas('program.faculty', fn ($query) => $query->where('university_id', $institution->id)
+                ->when($facultyIds !== null, fn ($faculty) => $faculty->whereIn('id', $facultyIds)))
             ->with(['program.levels', 'units.items'])->latest('id')->get()->unique('academic_program_id')->groupBy('program.faculty_id');
 
         return Faculty::where('is_active', true)
             ->where(fn ($query) => $query->where('university_id', $institution->id)->orWhereNull('university_id'))
+            ->when($facultyIds !== null, fn ($query) => $query->whereIn('id', $facultyIds))
             ->with(['levels' => fn ($query) => $query->where('is_active', true)])->orderBy('name')->get()
             ->map(function (Faculty $faculty) use ($versions) {
                 $reviews = collect();

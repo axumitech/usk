@@ -1,0 +1,55 @@
+{
+  "actions": [
+    {
+      "niveau": "DPU-L1",
+      "plafond_fictif": 60
+    },
+    {
+      "niveau": "DPU-L1",
+      "cours": 1
+    },
+    {
+      "niveau_valide": 1
+    },
+    {
+      "niveau": "DPU-L2",
+      "plafond_fictif": 60
+    },
+    {
+      "niveau": "DPU-L2",
+      "cours": 2
+    },
+    {
+      "niveau_valide": 2
+    },
+    {
+      "niveau": "DPU-L3",
+      "plafond_fictif": 60
+    },
+    {
+      "niveau": "DPU-L3",
+      "cours": 3
+    },
+    {
+      "niveau_valide": 3
+    },
+    {
+      "action": "Valider la maquette",
+      "id": 1,
+      "status": "validated",
+      "revision": 4,
+      "published_at": null,
+      "validated_at": "2026-11-19 11:14:51"
+    },
+    {
+      "action": "Publier la maquette",
+      "id": 1,
+      "status": "published",
+      "revision": 5,
+      "published_at": "2026-11-19 11:15:00",
+      "validated_at": "2026-11-19 11:14:51"
+    }
+  ],
+  "step": "Publier la maquette",
+  "credit_control": "Modifier : Crédits requis"
+}

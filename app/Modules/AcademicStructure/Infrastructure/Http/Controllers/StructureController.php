@@ -54,25 +54,25 @@ class StructureController extends Controller
         }
         abort_if($program && ! TeachingScope::allows($request->user(), (int) $program->faculty_id), 403);
         $years = AcademicYear::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))
-            ->orderByDesc('start_date')->get(['id', 'title', 'university_id', 'start_date', 'end_date']);
+            ->orderByDesc('start_date')->get(['id', 'title', 'university_id', 'start_date', 'end_date', 'status']);
         $packYear = $version?->academic_year_id ?? ($filters['year'] ?? $years->first()?->id);
         $scheduleYear = $version?->academic_year_id ?? $version?->cohort?->academic_year_id;
+        $facultyIds = $request->user()->academicFaculties()->pluck('faculties.id')->all() ?: null;
         $facultyPack = $institution && $years->contains('id', $packYear) && (($filters['tab'] ?? null) === 'curriculum' || $version)
-            ? $this->curricula->annualFacultyPack($institution, (int) $packYear)
+            ? $this->curricula->annualFacultyPack($institution, (int) $packYear, $facultyIds)
             : [];
 
         $manage = Gate::allows('manage', AcademicProgram::class);
         $finance = $request->user()->can('manage academic finance');
         $canPublish = Gate::allows('curriculum', AcademicProgram::class);
         $canGenerateFees = $finance && $canPublish;
-        $hasFacultyScope = $request->user()->academicFaculties()->exists();
-        $canGenerateAnnualFees = $canGenerateFees && ! $hasFacultyScope;
+        $canGenerateAnnualFees = $canGenerateFees && $facultyIds === null;
         $annualBatch = session('annualBatch');
         if (! $canGenerateAnnualFees) {
             unset($annualBatch['finance']);
         }
         $programs = AcademicProgram::with(['faculty:id,name', 'cycle:id,name', 'levels:id,title,code'])->withCount('versions')->whereHas('faculty', $scope)
-            ->when($hasFacultyScope, fn ($q) => $q->whereIn('faculty_id', $request->user()->academicFaculties()->select('faculties.id')))
+            ->when($facultyIds !== null, fn ($q) => $q->whereIn('faculty_id', $facultyIds))
             ->when($filters['q'] ?? null, fn ($q, $search) => $q->where(fn ($q) => $q->where('name', 'like', '%'.$search.'%')->orWhere('code', 'like', '%'.$search.'%')))->orderBy('name')->paginate(20, ['*'], 'programs_page')->withQueryString();
         $studentQuery = fn () => AcademicStaffScope::apply(AcademicEnrollment::query(), $request->user())->with(['profile.user:id,first_name,last_name', 'level:id,title', 'academicYear:id,title'])
             ->when($filters['student_q'] ?? null, fn ($q, $value) => $q->where(fn ($q) => $q->where('matricule', 'like', '%'.$value.'%')->orWhereHas('profile.user', fn ($q) => $q->where('first_name', 'like', '%'.$value.'%')->orWhere('last_name', 'like', '%'.$value.'%'))))
@@ -80,13 +80,16 @@ class StructureController extends Controller
 
         return Inertia::render('dashboard/academicStructure/Index', [
             'institution' => $institution, 'sites' => Site::get(['id', 'site_name', 'address', 'contact_email', 'contact_phone']),
-            'faculties' => Faculty::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))->orderBy('name')->get(['id', 'name', 'university_id']),
+            'faculties' => Faculty::where(fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))
+                ->when($facultyIds !== null, fn ($q) => $q->whereIn('id', $facultyIds))->orderBy('name')->get(['id', 'name', 'university_id']),
             'years' => $years, 'packYear' => $packYear === null ? null : (int) $packYear, 'facultyPack' => $facultyPack,
             'annualFinance' => fn () => $finance && $institution && $years->contains('id', $packYear) && (($filters['tab'] ?? null) === 'curriculum' || $version)
                 ? $this->fees->view($institution, (int) $packYear, $request->user(), $program, isset($filters['level']) ? (int) $filters['level'] : null)
                 : null,
-            'levels' => Level::whereHas('faculty', fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))->orderBy('title')->get(['id', 'faculty_id', 'title', 'code']),
-            'departments' => AcademicDepartment::whereHas('faculty', $scope)->orderBy('name')->get(),
+            'levels' => Level::whereHas('faculty', fn ($q) => $q->whereNull('university_id')->orWhere('university_id', $institution?->id ?? -1))
+                ->when($facultyIds !== null, fn ($q) => $q->whereIn('faculty_id', $facultyIds))->orderBy('title')->get(['id', 'faculty_id', 'title', 'code']),
+            'departments' => AcademicDepartment::whereHas('faculty', $scope)
+                ->when($facultyIds !== null, fn ($q) => $q->whereIn('faculty_id', $facultyIds))->orderBy('name')->get(),
             'cycles' => AcademicCycle::where('university_id', $institution?->id ?? -1)->orderBy('name')->get(),
             'programs' => $programs, 'selectedProgram' => $program,
             'cohorts' => $program ? AdmissionCohort::where('academic_program_id', $program->id)->orderBy('name')->get() : [],
@@ -127,10 +130,22 @@ class StructureController extends Controller
             'university' => ['tab' => 'institution'],
             'year-context' => ['tab' => 'programs'],
             'program' => ['program' => $model->id],
+            'group-promotion' => ['tab' => 'programs', 'program' => $model->promotion->academic_program_id],
             default => [],
         };
 
         return redirect()->route('dashboard.admin.academic-structure.index', $destination)->with('success', $kind === 'university' ? 'Informations de l’établissement enregistrées.' : 'Référentiel enregistré.');
+    }
+
+    public function createGroup(Request $request, int $promotion)
+    {
+        Gate::authorize('manage', AcademicProgram::class);
+        $data = $request->validate(['name' => 'required|string|max:120', 'capacity' => 'nullable|integer|min:1|max:2147483647',
+            'faculty_id' => 'prohibited', 'level_id' => 'prohibited', 'academic_year_id' => 'prohibited']);
+        $group = $this->structure->createGroup($promotion, $data['name'], isset($data['capacity']) ? (int) $data['capacity'] : null, $request->user());
+
+        return to_route('dashboard.admin.academic-structure.index', ['tab' => 'programs', 'program' => $group->promotion->academic_program_id], 303)
+            ->with('success', 'Groupe enregistré dans la promotion.');
     }
 
     public function annualDrafts(Request $request)

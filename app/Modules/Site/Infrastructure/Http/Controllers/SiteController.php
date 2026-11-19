@@ -77,7 +77,11 @@ class SiteController extends Controller
             description: $request->validated('description')
         );
 
-        $site = $this->saveSiteInfo->execute($dto);
+        $site = $this->saveSiteInfo->execute(
+            $dto,
+            updateLogo: $request->hasFile('logo') || $request->has('logoUrl'),
+            updateFavicon: $request->hasFile('favicon') || $request->has('faviconUrl'),
+        );
 
         return response()->json($site);
     }

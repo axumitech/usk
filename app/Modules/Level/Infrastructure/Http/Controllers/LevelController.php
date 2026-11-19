@@ -20,10 +20,11 @@ use Illuminate\Support\Facades\Gate;
 
 final class LevelController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('dashboard/levels/Index', [
-            'faculties' => \App\Models\Faculty::with('levels')->orderBy('name')->paginate(12)
+            'faculties' => \App\Models\Faculty::with('levels')->when($request->user()->academicFaculties()->exists(),
+                fn ($query) => $query->whereIn('id', $request->user()->academicFaculties()->select('faculties.id')))->orderBy('name')->paginate(12),
         ]);
     }
 

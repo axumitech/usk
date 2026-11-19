@@ -1,0 +1,93 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    }
+  },
+  "rows": [
+    {
+      "id": "EVA-01",
+      "status": "VALIDÉ",
+      "action": "Publier le devoir individuel avec sa fenêtre de remise et un barème de 20",
+      "obtained": {
+        "offer": 13,
+        "resource": 18,
+        "deadline": "2026-11-19 10:49:00"
+      },
+      "proof": "EVA-01.png"
+    },
+    {
+      "id": "EVA-02",
+      "status": "VALIDÉ",
+      "action": "Déposer une réponse et une pièce depuis le compte de l’étudiant",
+      "obtained": {
+        "entry": 9,
+        "resource": 18,
+        "submission": 21,
+        "version": 1
+      },
+      "proof": "EVA-02.png"
+    },
+    {
+      "id": "EVA-03",
+      "status": "VALIDÉ",
+      "action": "Planifier une séance publiée et renseigner la présence du même étudiant",
+      "obtained": {
+        "entry": 9,
+        "offer": 13,
+        "session": 17,
+        "status": "present"
+      },
+      "proof": "EVA-03.png"
+    },
+    {
+      "id": "EVA-04",
+      "status": "VALIDÉ",
+      "action": "Consulter la copie et enregistrer puis finaliser la note de 16/20",
+      "obtained": {
+        "entry": 9,
+        "record": 21,
+        "points": 1600,
+        "feedback": "Argumentation claire et sources bien identifiées dans la copie fictive."
+      },
+      "proof": "EVA-04.png"
+    },
+    {
+      "id": "EVA-05",
+      "status": "VALIDÉ",
+      "action": "Relire le devoir avant diffusion des corrections",
+      "obtained": "La rubrique de correction et l’appréciation sont encore privées.",
+      "proof": "EVA-05.png"
+    },
+    {
+      "id": "EVA-06",
+      "status": "VALIDÉ",
+      "action": "Valider les corrections et publier l’appréciation de l’étudiant",
+      "obtained": {
+        "record": 21,
+        "handoffs": 1
+      },
+      "proof": "EVA-06.png"
+    },
+    {
+      "id": "EVA-07",
+      "status": "VALIDÉ",
+      "action": "Lire la note et l’appréciation individuelles après publication",
+      "obtained": {
+        "entry": 9,
+        "score": "16/20",
+        "resource": 18
+      },
+      "proof": "EVA-07.png"
+    }
+  ]
+}

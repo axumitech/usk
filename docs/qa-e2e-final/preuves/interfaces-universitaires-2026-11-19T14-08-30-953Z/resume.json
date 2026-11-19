@@ -1,0 +1,143 @@
+{
+  "version": {
+    "port": 8075,
+    "revision": "58d975f63d11422eb86ed0e93d3ab578772edf59",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-B0GO58tW.js",
+      "manifest_sha256": "3963d4de73da10f560851c8947531d9d348c7170220786c06a48ba8083bbd260",
+      "entry_sha256": "3a554c3ba478b57359539eec248fc55d7d5c836cc9f9ae0e9565496803fd05ff",
+      "revision": "58d975f63d11422eb86ed0e93d3ab578772edf59"
+    }
+  },
+  "rows": [
+    {
+      "id": "GUIDE",
+      "status": "VALIDÉ",
+      "action": "Terminer les cinq étapes et recharger le tableau de bord étudiant",
+      "obtained": {
+        "premiereVisite": true,
+        "inscription": 203
+      },
+      "proof": "GUIDE.png"
+    },
+    {
+      "id": "ANNEES",
+      "status": "VALIDÉ",
+      "action": "Ouvrir les années au clavier sur mobile en thème sombre",
+      "obtained": {
+        "options": 2,
+        "menu": {
+          "x": 12,
+          "y": 127,
+          "width": 352,
+          "height": 128.46875
+        },
+        "couleur": {
+          "background": "rgba(0, 0, 0, 0)",
+          "color": "rgb(238, 244, 237)",
+          "border": "solid",
+          "height": 57.640625
+        }
+      },
+      "proof": "ANNEES.png"
+    },
+    {
+      "id": "RECTORAT",
+      "status": "VALIDÉ",
+      "action": "Comparer les effectifs affichés aux inscriptions et consulter les finances",
+      "obtained": {
+        "students": 171,
+        "enrollments": 171,
+        "confirmed": 105,
+        "finances": [
+          {
+            "currency": "USD",
+            "waived_cents": 0,
+            "due_cents": 1710000,
+            "balance_cents": 975800,
+            "overdue_cents": 0,
+            "billed_cents": 1710000,
+            "gross_cents": 734200,
+            "pending_cents": 0,
+            "cancelled_cents": 21600,
+            "refunded_cents": 0,
+            "legacy_reversal_cents": 0,
+            "net_cents": 734200
+          }
+        ],
+        "resultats": {
+          "students": 0,
+          "in_session": 0,
+          "awaiting_publication": 0,
+          "published": 0
+        }
+      },
+      "proof": "RECTORAT.png"
+    },
+    {
+      "id": "RAPPORT",
+      "status": "VALIDÉ",
+      "action": "Afficher le rapport imprimable de l’année précédente",
+      "obtained": {
+        "annee": "2025-2026"
+      },
+      "proof": "RAPPORT.png"
+    },
+    {
+      "id": "RECTORAT-MOBILE",
+      "status": "VALIDÉ",
+      "action": "Lire le rapport annuel sur téléphone",
+      "obtained": {
+        "annee": "2025-2026"
+      },
+      "proof": "RECTORAT-MOBILE.png"
+    },
+    {
+      "id": "JURYS",
+      "status": "VALIDÉ",
+      "action": "Filtrer les délibérations et lire le circuit de publication",
+      "obtained": {
+        "annee": "2025-2026",
+        "peutPublier": true
+      },
+      "proof": "JURYS.png"
+    },
+    {
+      "id": "SESSION",
+      "status": "VALIDÉ",
+      "action": "Relire une édition publiée avec le compte du doyen",
+      "obtained": {
+        "jury": 4
+      },
+      "proof": "SESSION.png"
+    },
+    {
+      "id": "DOCUMENTS",
+      "status": "VALIDÉ",
+      "action": "Vérifier les filtres et les sections documentaires en thème sombre",
+      "obtained": {
+        "types": 2,
+        "filtre": {
+          "background": "rgb(32, 92, 71)",
+          "color": "rgb(255, 255, 255)",
+          "border": "solid",
+          "height": 42.390625
+        }
+      },
+      "proof": "DOCUMENTS.png"
+    },
+    {
+      "id": "DOCUMENTS-MOBILE",
+      "status": "VALIDÉ",
+      "action": "Réinitialiser les filtres et rejoindre les demandes sur mobile",
+      "obtained": {
+        "rubrique": "#demandes"
+      },
+      "proof": "DOCUMENTS-MOBILE.png"
+    }
+  ]
+}

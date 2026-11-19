@@ -84,6 +84,9 @@ final class TeachingTeam
                 'lead' => 'professor_id', 'primary_assistant' => 'assistant_professor_id', default => null
             };
             $remove = ($data['action'] ?? 'assign') === 'end';
+            if (! $remove) {
+                abort_unless(TeachingScope::professors($actor)->whereKey($professor->id)->exists(), 403);
+            }
             if ($field) {
                 $before = $offering->only(['professor_id', 'assistant_professor_id']);
                 if ($remove || (int) $offering->$field === $professor->id) {

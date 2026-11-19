@@ -12,7 +12,7 @@ class SaveSiteInfo
         private SiteRepository $repository
     ) {}
 
-    public function execute(SiteDto $dto): SiteDto
+    public function execute(SiteDto $dto, bool $updateLogo = true, bool $updateFavicon = true): SiteDto
     {
         $site = new Site(
             $dto->id,
@@ -27,7 +27,7 @@ class SaveSiteInfo
             $dto->description
         );
 
-        $savedSite = $this->repository->save($site);
+        $savedSite = $this->repository->save($site, $updateLogo, $updateFavicon);
 
         return SiteDto::fromEntity($savedSite);
     }

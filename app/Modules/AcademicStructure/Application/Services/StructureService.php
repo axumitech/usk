@@ -11,6 +11,7 @@ use App\Models\AcademicStructure\University;
 use App\Models\AcademicYear;
 use App\Models\Classes;
 use App\Models\Faculty;
+use App\Models\Intake;
 use App\Models\Level;
 use App\Models\Site;
 use App\Models\Student\AcademicEnrollment;
@@ -44,9 +45,47 @@ class StructureService
         return $year;
     }
 
-    public function save(string $kind, array $data, User $actor, ?int $id = null): Model
+    public function createGroup(int $promotionId, string $name, ?int $capacity, User $actor): Classes
     {
         Gate::forUser($actor)->authorize('manage', AcademicProgram::class);
+
+        return DB::transaction(function () use ($promotionId, $name, $capacity, $actor) {
+            $promotion = AcademicPromotion::lockForUpdate()->findOrFail($promotionId);
+            $program = $this->program($promotion->academic_program_id);
+            abort_unless(TeachingScope::allows($actor, (int) $program->faculty_id), 403);
+            $level = $program->levels->find($promotion->level_id);
+            $year = AcademicYear::lockForUpdate()->findOrFail($promotion->academic_year_id);
+            abort_if($year->university_id && (int) $year->university_id !== (int) $program->faculty->university_id, 404);
+            if (! $level || ! $level->is_active || (int) $level->faculty_id !== (int) $program->faculty_id || ! $program->is_active || ! $promotion->is_active || $year->status === 'closed') {
+                throw ValidationException::withMessages(['name' => 'Cette promotion doit être active, liée à un niveau actif du programme et à une année non clôturée.']);
+            }
+
+            // Intake names are globally unique. Qualifying the label allows a new Group A every year.
+            $intake = Intake::firstOrCreate(['name' => $name.' · promotion '.$promotion->id]);
+            $group = Classes::firstOrNew(['faculty_id' => $program->faculty_id, 'level_id' => $level->id, 'intake_id' => $intake->id]);
+            if ($group->exists) {
+                if ((int) $group->academic_promotion_id !== $promotion->id || ($group->capacity === null ? null : (int) $group->capacity) !== $capacity) {
+                    throw ValidationException::withMessages(['name' => 'Ce nom est déjà utilisé avec une autre affectation ou capacité.']);
+                }
+
+                return $group;
+            }
+            $group->forceFill(['academic_promotion_id' => $promotion->id, 'status' => 'OPEN', 'capacity' => $capacity])->save();
+            Audit::record($actor->id, 'promotion_group_created', $group, 'Création du groupe dans sa promotion.', [
+                'academic_promotion_id' => $promotion->id, 'level_id' => $level->id, 'academic_year_id' => $year->id,
+            ]);
+
+            return $group;
+        }, 3);
+    }
+
+    public function save(string $kind, array $data, User $actor, ?int $id = null): Model
+    {
+        if ($kind === 'university' && $actor->hasRole('super-admin')) {
+            Gate::forUser($actor)->authorize('configure platform institution');
+        } else {
+            Gate::forUser($actor)->authorize('manage', AcademicProgram::class);
+        }
         if (in_array($kind, ['university', 'cycle', 'faculty-context', 'year-context'], true)) {
             abort_if($actor->academicFaculties()->exists(), 403);
         }
@@ -69,8 +108,16 @@ class StructureService
                     if ((int) $group->faculty_id !== (int) $program->faculty_id || (int) $group->level_id !== (int) $promotion->level_id || ($group->academic_promotion_id !== null && (int) $group->academic_promotion_id !== $promotion->id)) {
                         throw ValidationException::withMessages(['group' => 'Ce groupe ne correspond pas à la promotion ou possède déjà un rattachement historique.']);
                     }
+                    if ((int) $group->academic_promotion_id === $promotion->id) {
+                        return $group;
+                    }
                     if (AcademicOffering::where('class_id', $group->id)->where('academic_year_id', '!=', $promotion->academic_year_id)->exists() || AcademicEnrollment::where('class_id', $group->id)->where('academic_year_id', '!=', $promotion->academic_year_id)->exists()) {
                         throw ValidationException::withMessages(['group' => 'Ce groupe est déjà utilisé dans une autre année. Conservez son contexte historique.']);
+                    }
+                    if (AcademicOffering::where('class_id', $group->id)
+                        ->whereHas('curriculumItem.unit.version', fn ($version) => $version->where('academic_program_id', '!=', $program->id))
+                        ->exists()) {
+                        throw ValidationException::withMessages(['group' => 'Une offre de ce groupe relève déjà de la maquette d’un autre programme.']);
                     }
                     if (AcademicEnrollment::where('class_id', $group->id)->where(fn ($entries) => $entries
                         ->whereHas('curriculumVersion', fn ($q) => $q->where('academic_program_id', '!=', $program->id))

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Teaching\Infrastructure\Http\Requests;
 
+use App\Modules\Teaching\Application\Services\TeachingScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,7 @@ class SaveProfessorRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->hasRole('admin');
+        return TeachingScope::canManageProfiles($this->user());
     }
 
     public function rules(): array

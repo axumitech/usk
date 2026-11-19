@@ -110,9 +110,16 @@ final class FeeTariffService
 
     public function revision(FinanceTariff $tariff, int $latestVersion): string
     {
+        // MySQL stores JSON object keys in its own order. Preserve the order of instalments.
+        $schedule = array_map(static function (array $instalment): array {
+            ksort($instalment);
+
+            return $instalment;
+        }, $tariff->schedule ?? []);
+
         return hash('sha256', json_encode([
             $tariff->id, $tariff->status, $tariff->title, $tariff->valid_from->toDateString(),
-            $tariff->valid_until?->toDateString(), $tariff->schedule, $tariff->reason,
+            $tariff->valid_until?->toDateString(), $schedule, $tariff->reason,
             $tariff->status === 'active' ? $latestVersion : $tariff->version,
         ], JSON_THROW_ON_ERROR));
     }

@@ -1,0 +1,159 @@
+[
+  {
+    "role": "plateforme",
+    "account": "plateforme@usk.test",
+    "allowed": "/app/dashboard/platform",
+    "forbidden": "/app/dashboard/admin/finance",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "operation": "Actualisation du cache enregistrée.",
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "institution",
+    "account": "admin@usk.test",
+    "allowed": "/app/dashboard",
+    "forbidden": "/app/dashboard/platform",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "rectorat",
+    "account": "rectorat@usk.test",
+    "allowed": "/app/dashboard/delegation",
+    "forbidden": "/app/dashboard/admin/enrollments",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "secretariat",
+    "account": "academique@usk.test",
+    "allowed": "/app/dashboard/admin/enrollments",
+    "forbidden": "/app/dashboard/platform",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "doyen",
+    "account": "dean.dr@usk.test",
+    "allowed": "/app/dashboard/admin/enrollments",
+    "forbidden": "/app/dashboard/admin/levels/details/7",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "vice-doyen",
+    "account": "vice-dean.dr@usk.test",
+    "allowed": "/app/dashboard/admin/teaching",
+    "forbidden": "/app/dashboard/admin/finance",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "appariteur",
+    "account": "registrar.dr@usk.test",
+    "allowed": "/app/dashboard/admin/student-academic",
+    "forbidden": "/app/dashboard/admin/finance",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "admissions",
+    "account": "admissions-officer.dr@usk.test",
+    "allowed": "/app/dashboard/admin/enrollments",
+    "forbidden": "/app/dashboard/admin/finance",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "comptabilite",
+    "account": "finance-officer.dr@usk.test",
+    "allowed": "/app/dashboard/admin/finance",
+    "forbidden": "/app/dashboard/admin/teaching",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "departement",
+    "account": "department-head.dpu@usk.test",
+    "allowed": "/app/dashboard/delegation",
+    "forbidden": "/app/dashboard/admin/student-academic",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "professeur",
+    "account": "professeur.dpu@usk.test",
+    "allowed": "/app/dashboard/teacher",
+    "forbidden": "/app/dashboard/admin/finance",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "chef-promotion",
+    "account": "etudiant.dpu.01@usk.test",
+    "allowed": "/app/dashboard/delegation",
+    "forbidden": "/app/dashboard/admin/enrollments",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "publishedStatus": 303,
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "etudiant",
+    "account": "etudiant.dpu.06@usk.test",
+    "allowed": "/app/dashboard/student",
+    "forbidden": "/app/dashboard/admin/student-academic",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "operation": "Message du chef de promotion lu dans la boîte étudiante.",
+    "forbiddenStatus": 403
+  },
+  {
+    "role": "candidat",
+    "account": "candidat@usk.test",
+    "allowed": "/app/dashboard/enrollments",
+    "forbidden": "/app/dashboard/admin/enrollments",
+    "status": "VALIDÉ",
+    "javascriptErrors": [],
+    "allowedStatus": 200,
+    "bundle": true,
+    "forbiddenStatus": 403
+  }
+]

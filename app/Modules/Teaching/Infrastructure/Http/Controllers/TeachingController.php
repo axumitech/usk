@@ -9,7 +9,6 @@ use App\Models\AcademicStructure\CurriculumUnit;
 use App\Models\AcademicStructure\CurriculumVersion;
 use App\Models\AcademicYear;
 use App\Models\Classes;
-use App\Models\Professor;
 use App\Models\Student\AcademicEnrollment;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\AcademicSemester;
@@ -79,7 +78,7 @@ final class TeachingController extends Controller
             ]),
             'sessions' => $selected?->sessions()->latest('starts_at')->paginate(15, ['id', 'starts_at', 'ends_at', 'room', 'is_published', 'cancelled_at'], 'sessions_page')->withQueryString(),
             'resources' => $selected?->resources()->whereNull('student_profile_id')->latest('id')->paginate(15, ['id', 'kind', 'title', 'is_published'], 'resources_page')->withQueryString(),
-            'professors' => $selected && $canPublish ? Professor::where('is_active', true)->orderBy('last_name')->get(['id', 'first_name', 'last_name']) : [],
+            'professors' => $selected && $canPublish ? TeachingScope::professors($actor)->where('is_active', true)->orderBy('last_name')->get(['id', 'first_name', 'last_name']) : [],
             'years' => AcademicYear::orderByDesc('start_date')->get(['id', 'title']),
             'programs' => $programs->orderBy('name')->get(['id', 'name']),
             'versions' => isset($filters['program']) ? $versions->orderByDesc('id')->get(['id', 'code', 'name', 'status']) : [],

@@ -1,0 +1,125 @@
+{
+  "version": {
+    "port": 8066,
+    "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c",
+    "branch": "",
+    "tracked_changes": false,
+    "opcache_cli": false,
+    "assets": {
+      "mode": "build",
+      "entry": "assets/app-CTeWqyuC.js",
+      "manifest_sha256": "a73b73149032db0f51cac2ddf5eafcd999af93b058c4a92ec3254d2443add20f",
+      "entry_sha256": "dfb1d12b41182e46bcad1fc6acee302bf62bf620b13bf9f0a228fe0e0b0953f8",
+      "revision": "2e9c69d01d847475ec4460512179ce3ebe60054c"
+    }
+  },
+  "rows": [
+    {
+      "id": "UX-01a",
+      "status": "VALIDÉ",
+      "action": "Relire la description complète hors du formulaire",
+      "obtained": {
+        "faculty": 2,
+        "characters": 1000,
+        "database": "SQLite"
+      },
+      "proof": "UX-01a.png"
+    },
+    {
+      "id": "UX-01",
+      "status": "VALIDÉ",
+      "action": "Enregistrer 1 000 caractères dans la description d’une faculté et relire la valeur",
+      "obtained": {
+        "faculty": 2,
+        "characters": 1000,
+        "restoredCharacters": 0
+      },
+      "proof": "UX-01.png"
+    },
+    {
+      "id": "UX-02a",
+      "status": "VALIDÉ",
+      "action": "Relire le niveau et l’onglet après rechargement",
+      "obtained": {
+        "id": 3,
+        "tag": "Recette UX 1795084581562",
+        "location": "/app/dashboard/admin/levels/details/3?tab=prof"
+      },
+      "proof": "UX-02a.png"
+    },
+    {
+      "id": "UX-02",
+      "status": "VALIDÉ",
+      "action": "Modifier un niveau depuis son onglet Enseignants et conserver ce contexte",
+      "obtained": {
+        "id": 3,
+        "location": "/app/dashboard/admin/levels/details/3?tab=prof"
+      },
+      "proof": "UX-02.png"
+    },
+    {
+      "id": "UX-03a",
+      "status": "VALIDÉ",
+      "action": "Vérifier la lisibilité du nom de faculté dans le sélecteur de niveau",
+      "obtained": {
+        "gapPixels": 10
+      },
+      "proof": "UX-03a.png"
+    },
+    {
+      "id": "UX-03",
+      "status": "VALIDÉ",
+      "action": "Utiliser les onglets et la modale au clavier",
+      "obtained": {
+        "keys": [
+          "End",
+          "ArrowLeft",
+          "Enter",
+          "Tab × 18",
+          "Escape"
+        ]
+      },
+      "proof": "UX-03.png"
+    },
+    {
+      "id": "UX-04-light",
+      "status": "VALIDÉ",
+      "action": "Examiner le formulaire en thème Clair sur mobile",
+      "obtained": {
+        "theme": "light",
+        "contrast": 5.958,
+        "bounds": {
+          "width": 390,
+          "height": 844,
+          "bodyWidth": 390,
+          "modalLeft": 14,
+          "modalRight": 376,
+          "modalTop": 12,
+          "modalBottom": 832,
+          "saveVisible": true
+        }
+      },
+      "proof": "UX-04-light.png"
+    },
+    {
+      "id": "UX-04-dark",
+      "status": "VALIDÉ",
+      "action": "Examiner le formulaire en thème Sombre sur mobile",
+      "obtained": {
+        "theme": "dark",
+        "contrast": 11.065,
+        "bounds": {
+          "width": 390,
+          "height": 844,
+          "bodyWidth": 390,
+          "modalLeft": 14,
+          "modalRight": 376,
+          "modalTop": 12,
+          "modalBottom": 832,
+          "saveVisible": true
+        }
+      },
+      "proof": "UX-04-dark.png"
+    }
+  ]
+}

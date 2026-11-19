@@ -1,0 +1,14 @@
+{
+  "required": false,
+  "maxLength": -1,
+  "label": "Nom du site",
+  "invalid": false,
+  "valueMissing": false,
+  "focus": false,
+  "message": "",
+  "requetesEcriture": [
+    "POST"
+  ],
+  "memeFiche": true,
+  "donneesInchangees": true
+}
