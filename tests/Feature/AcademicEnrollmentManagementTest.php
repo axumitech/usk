@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AcademicStructure\AcademicCycle;
 use App\Models\AcademicStructure\AcademicProgram;
+use App\Models\AcademicStructure\AcademicPromotion;
+use App\Models\AcademicStructure\AdmissionCohort;
 use App\Models\AcademicStructure\University;
 use App\Models\AcademicYear;
 use App\Models\Classes;
@@ -111,6 +113,38 @@ class AcademicEnrollmentManagementTest extends TestCase
         $this->post($url, $this->data('confirmed') + ['class_id' => null])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('academic_enrollment_changes', ['academic_enrollment_id' => $entry->id]);
         $this->assertSame($group->id, EnrollmentChange::latest('id')->firstOrFail()->before['class_id']);
+    }
+
+    public function test_group_assignment_restores_an_annual_promotion_and_preserves_the_admission_cohort(): void
+    {
+        [$admin,, $entry] = $this->context();
+        $faculty = $entry->level->faculty;
+        $university = University::create(['context_key' => 'current', 'code' => 'U', 'name' => 'Université']);
+        $faculty->forceFill(['university_id' => $university->id])->save();
+        $cycle = AcademicCycle::create(['university_id' => $university->id, 'code' => 'C', 'name' => 'Cycle', 'normal_duration' => 2,
+            'progression_mode' => 'annual', 'weighting_mode' => 'credits', 'periods' => [['code' => 'AN', 'name' => 'Année']]]);
+        foreach (['A', 'B'] as $code) {
+            $program = AcademicProgram::create(['faculty_id' => $faculty->id, 'academic_cycle_id' => $cycle->id, 'code' => $code, 'name' => 'Programme '.$code]);
+            $program->levels()->attach($entry->level_id, ['position' => 1]);
+            $promotion = AcademicPromotion::create(['academic_program_id' => $program->id, 'academic_year_id' => $entry->academic_year_id, 'level_id' => $entry->level_id,
+                'code' => $code, 'name' => 'Promotion '.$code]);
+            $intake = DB::table('intakes')->insertGetId(['name' => 'Section '.$code]);
+            $groups[$code] = Classes::forceCreate(['faculty_id' => $faculty->id, 'level_id' => $entry->level_id, 'academic_promotion_id' => $promotion->id, 'intake_id' => $intake, 'status' => 'OPEN']);
+            if ($code === 'A') {
+                $cohort = AdmissionCohort::create(['academic_program_id' => $program->id, 'academic_year_id' => $entry->academic_year_id, 'code' => 'ENTREE', 'name' => 'Cohorte d’origine']);
+                $entry->forceFill(['admission_cohort_id' => $cohort->id])->save();
+            }
+        }
+        $url = '/app/dashboard/admin/student-academic/'.$entry->id.'/transition';
+        $this->actingAs($admin)->post($url, $this->data('confirmed') + ['class_id' => $groups['B']->id])->assertSessionHasErrors('class_id');
+        $this->post($url, $this->data('confirmed') + ['class_id' => $groups['A']->id])->assertSessionHasNoErrors();
+        $this->assertSame($groups['A']->academic_promotion_id, $entry->fresh()->academic_promotion_id);
+        $this->assertSame($cohort->id, $entry->fresh()->admission_cohort_id);
+        $change = EnrollmentChange::latest('id')->firstOrFail();
+        $this->assertNull($change->before['academic_promotion_id']);
+        $this->assertSame($groups['A']->academic_promotion_id, $change->after['academic_promotion_id']);
+        $this->post($url, $this->data('confirmed') + ['class_id' => null])->assertSessionHasNoErrors();
+        $this->assertSame($groups['A']->academic_promotion_id, $entry->fresh()->academic_promotion_id);
     }
 
     public function test_closure_requires_resolved_cases_and_explicit_reopening(): void

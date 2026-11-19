@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AcademicStructure\AcademicCycle;
 use App\Models\AcademicStructure\AcademicProgram;
+use App\Models\AcademicStructure\AcademicPromotion;
+use App\Models\AcademicStructure\AdmissionCohort;
 use App\Models\AcademicStructure\CurriculumVersion;
 use App\Models\AcademicStructure\University;
 use App\Models\AcademicYear;
@@ -72,13 +74,26 @@ final class AcademicLifecycleTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('lifecycle.0.kind', 'graduation')->where('lifecycle.0.status', 'approved'));
     }
 
-    public function test_conditional_progression_preserves_result_and_creates_only_pending_enrollment(): void
+    public static function renewalCohorts(): array
+    {
+        return ['cohorte du programme' => [true], 'cohorte historique d’un autre programme' => [false]];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('renewalCohorts')]
+    public function test_conditional_progression_preserves_result_and_creates_only_pending_enrollment(bool $sameProgram): void
     {
         $this->travelTo(now()->setDate(2027, 11, 10));
         [$student, $entry, $program, $manager, $approver, $next] = $this->context(twoLevels: true);
         $sourceVersion = $this->version($entry, $program, $entry->academicYear, 'SOURCE');
-        $entry->forceFill(['curriculum_version_id' => $sourceVersion->id])->save();
+        $cohortProgram = $program;
+        if (! $sameProgram) {
+            $cohortProgram = $program->replicate()->forceFill(['code' => 'AUTRE-P']);
+            $cohortProgram->save();
+        }
+        $cohort = AdmissionCohort::create(['academic_program_id' => $cohortProgram->id, 'academic_year_id' => $entry->academic_year_id, 'code' => 'ENTREE', 'name' => 'Cohorte d’origine']);
+        $entry->forceFill(['curriculum_version_id' => $sourceVersion->id, 'admission_cohort_id' => $cohort->id])->save();
         $year = $this->nextYear();
+        $promotion = AcademicPromotion::create(['academic_program_id' => $program->id, 'academic_year_id' => $year->id, 'level_id' => $next->id, 'code' => 'PROMO', 'name' => 'Promotion annuelle']);
         $targetVersion = $this->version($entry, $program, $year, 'TARGET');
         $data = ['level_id' => $next->id, 'academic_year_id' => $year->id, 'target_curriculum_version_id' => $targetVersion->id, 'reason' => self::REASON];
         $endpoint = route('dashboard.admin.student-academic.progression', $entry);
@@ -99,6 +114,9 @@ final class AcademicLifecycleTest extends TestCase
         $this->assertSame($entry->matricule, $target->matricule);
         $this->assertSame('pending_confirmation', $target->enrollment_status);
         $this->assertSame($targetVersion->id, $target->curriculum_version_id);
+        $this->assertSame($sameProgram ? $cohort->id : null, $target->admission_cohort_id);
+        $this->assertSame($promotion->id, $target->academic_promotion_id);
+        $this->assertSame($cohort->id, $entry->fresh()->admission_cohort_id);
         $this->assertSame($sourceVersion->id, $entry->fresh()->curriculum_version_id);
         $this->assertSame(0, $result->fresh()->snapshot['credits']['earned']);
         $this->assertDatabaseCount('academic_course_registrations', 0);

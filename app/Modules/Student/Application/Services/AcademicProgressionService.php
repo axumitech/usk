@@ -3,6 +3,7 @@
 namespace App\Modules\Student\Application\Services;
 
 use App\Models\AcademicStructure\AcademicProgram;
+use App\Models\AcademicStructure\AcademicPromotion;
 use App\Models\AcademicStructure\CurriculumVersion;
 use App\Models\AcademicYear;
 use App\Models\Level;
@@ -171,9 +172,14 @@ final class AcademicProgressionService
             $category = in_array($source->fee_category, ['national', 'foreign'], true)
                 ? $source->fee_category
                 : $user->feeCategoryFromNationality();
+            $cohort = $source->admissionCohort;
+            $promotionId = $program ? AcademicPromotion::where('academic_program_id', $program->id)
+                ->where('academic_year_id', $year->id)->where('level_id', $level->id)->where('is_active', true)->value('id') : null;
             $target = $profile->enrollments()->create([
                 'application_id' => $source->application_id,
                 'level_id' => $level->id, 'academic_year_id' => $year->id,
+                'admission_cohort_id' => $program && $cohort && (int) $cohort->academic_program_id === (int) $program->id ? $cohort->id : null,
+                'academic_promotion_id' => $promotionId,
                 'academic_department_id' => $departmentId, 'matricule' => $source->matricule ?? $profile->matricule,
                 'enrollment_status' => 'pending_confirmation', 'currency' => $source->currency, 'fee_category' => $category,
             ]);

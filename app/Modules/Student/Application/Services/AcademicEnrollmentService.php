@@ -34,7 +34,7 @@ final class AcademicEnrollmentService
 
     public static function contextToken(AcademicEnrollment $entry): string
     {
-        return hash('sha256', json_encode($entry->only(['id', 'enrollment_status', 'class_id', 'academic_department_id', 'curriculum_version_id', 'updated_at']), JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode($entry->only(['id', 'enrollment_status', 'class_id', 'academic_promotion_id', 'academic_department_id', 'curriculum_version_id', 'updated_at']), JSON_THROW_ON_ERROR));
     }
 
     private function assertContext(AcademicEnrollment $entry, array $data): void
@@ -80,7 +80,7 @@ final class AcademicEnrollmentService
             if (in_array($entry->enrollment_status, ['completed', 'cancelled', 'transferred'], true)) {
                 $this->fail('enrollment_status', 'Ce contexte historique est terminal et ne peut plus être modifié.');
             }
-            $before = $entry->only(['enrollment_status', 'class_id', 'academic_department_id']) + ['student_status' => $entry->profile->student_status];
+            $before = $entry->only(['enrollment_status', 'class_id', 'academic_promotion_id', 'academic_department_id']) + ['student_status' => $entry->profile->student_status];
             $next = $data['enrollment_status'];
             if (($data['student_status'] ?? null) === 'graduated' && $entry->profile->student_status !== 'graduated') {
                 $this->fail('student_status', 'La diplomation exige une validation officielle de fin de cursus.');
@@ -147,14 +147,20 @@ final class AcademicEnrollmentService
         }
         $group = Classes::lockForUpdate()->findOrFail($id);
         $promotion = $group->promotion;
-        $programId = $entry->promotion?->academic_program_id ?? $entry->admissionCohort?->academic_program_id ?? $entry->curriculumVersion?->academic_program_id;
         if ($group->status !== 'OPEN') {
             $this->fail('class_id', 'Ce groupe est fermé.');
         }
         if ((int) $group->level_id !== (int) $entry->level_id || (int) $group->faculty_id !== (int) $entry->level->faculty_id
             || ($promotion && (! $promotion->is_active || (int) $promotion->academic_year_id !== (int) $entry->academic_year_id
-                || ($programId !== null && (int) $promotion->academic_program_id !== (int) $programId)))) {
+                || (int) $promotion->level_id !== (int) $entry->level_id || (int) $promotion->program->faculty_id !== (int) $group->faculty_id))) {
             $this->fail('class_id', 'Le groupe et sa promotion ne correspondent pas au contexte annuel.');
+        }
+        if ($promotion) {
+            foreach ([$entry->curriculumVersion, $entry->admissionCohort, $entry->promotion] as $context) {
+                if ($context && (int) $context->academic_program_id !== (int) $promotion->academic_program_id) {
+                    $this->fail('class_id', 'Le groupe doit appartenir au même programme que le dossier annuel.');
+                }
+            }
         }
         $occupied = AcademicEnrollment::where('class_id', $id)->where('academic_year_id', $entry->academic_year_id)
             ->whereNotIn('enrollment_status', ['cancelled', 'withdrawn', 'transferred'])->whereKeyNot($entry->id)->count();
@@ -162,6 +168,10 @@ final class AcademicEnrollmentService
             $this->fail('class_id', 'La capacité du groupe est atteinte.');
         }
         $entry->class_id = $id;
+        if ($promotion) {
+            $entry->academic_promotion_id = $promotion->id;
+            $entry->setRelation('promotion', $promotion);
+        }
     }
 
     public function transfer(AcademicEnrollment $entry, User $actor, array $data): AcademicEnrollment
@@ -209,7 +219,7 @@ final class AcademicEnrollmentService
             if ((int) $entry->level_id === (int) $level->id && (int) $entry->curriculumVersion?->academic_program_id === (int) $version->academic_program_id) {
                 $this->fail('curriculum_version_id', 'Un changement de groupe ou de département utilise une transition ; le programme reste identique.');
             }
-            $before = $entry->only(['enrollment_status', 'level_id', 'curriculum_version_id', 'class_id', 'academic_department_id']);
+            $before = $entry->only(['enrollment_status', 'level_id', 'curriculum_version_id', 'class_id', 'academic_promotion_id', 'academic_department_id']);
             $entry->forceFill(['context_slot' => null, 'enrollment_status' => 'transferred'])->save();
             $target = $profile->enrollments()->create([
                 'application_id' => $entry->application_id, 'matricule' => $profile->matricule ?? $entry->matricule,
@@ -238,7 +248,7 @@ final class AcademicEnrollmentService
 
     private function record(AcademicEnrollment $entry, User $actor, string $action, array $before, array $data, ?AcademicEnrollment $target = null): void
     {
-        $after = ($target ?? $entry)->only(['enrollment_status', 'level_id', 'curriculum_version_id', 'class_id', 'academic_department_id']) + ['student_status' => $entry->profile->student_status];
+        $after = ($target ?? $entry)->only(['enrollment_status', 'level_id', 'curriculum_version_id', 'class_id', 'academic_promotion_id', 'academic_department_id']) + ['student_status' => $entry->profile->student_status];
         if (! empty($data['service_request_id'])) {
             $ticket = ServiceRequest::where('academic_enrollment_id', $entry->id)->lockForUpdate()->findOrFail($data['service_request_id']);
             if ($ticket->status !== 'open') {
