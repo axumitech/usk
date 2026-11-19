@@ -80,7 +80,10 @@ try {
         $actual = $users->keys()->sort()->values()->all();
         $check($users->count() === 21 && $actual === $expected && $users->every(fn ($user) => str_ends_with($user->email, '@usk.test')), '21 comptes attendus, exclusivement fictifs.');
         $check($users->count() === 21 && $users->every(fn ($user) => $user->getRawOriginal('password') !== 'password' && Hash::check('password', $user->getRawOriginal('password'))), 'Les 21 mots de passe de test sont correctement hachés et utilisables.');
-        $rolesValid = $users['admin']->getRoleNames()->contains('admin') && $users['superadmin']->getRoleNames()->contains('super admin');
+        $technical = $users['superadmin'];
+        $rolesValid = $users['admin']->getRoleNames()->contains('admin') && $technical->hasRole('super-admin')
+            && $technical->can('view platform') && ! $technical->hasRole('admin')
+            && ! $technical->canAny(['manage academic access', 'manage academic finance', 'publish official results']);
         foreach (['med', 'droit'] as $faculty) {
             $rolesValid = $rolesValid && $users['professeur.'.$faculty]->hasRole('professor') && $users['candidat.'.$faculty]->hasRole('candidate');
         }

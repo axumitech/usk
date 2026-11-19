@@ -115,12 +115,12 @@ final class StudentFinanceFixtures
         return $entries;
     }
 
-    private function tariffs(User $admin, array $catalog, string $phase): void
+    public function tariffs(User $admin, array $catalog, string $phase): void
     {
         /** @var AcademicYear $year */
         $year = $catalog[$phase === 'past' ? 'past_year' : 'current_year'];
-        foreach (['med', 'droit'] as $faculty) {
-            foreach (['L1', 'L2'] as $level) {
+        foreach (array_keys($catalog['programs']) as $faculty) {
+            foreach (array_keys($catalog['levels'][$faculty]) as $level) {
                 $scope = ['academic_year_id' => $year->id, 'level_id' => $catalog['levels'][$faculty][$level]->id, 'kind' => 'tuition', 'category' => 'national', 'currency' => 'USD'];
                 $tariff = FinanceTariff::where($scope)->first();
                 if (! $tariff) {
@@ -135,10 +135,10 @@ final class StudentFinanceFixtures
         }
     }
 
-    private function admit(User $user, User $admin, array $catalog, string $phase, string $faculty): AcademicEnrollment
+    public function admit(User $user, User $admin, array $catalog, string $phase, string $faculty, string $levelKey = 'L1'): AcademicEnrollment
     {
         $year = $catalog[$phase === 'past' ? 'past_year' : 'current_year'];
-        $level = $catalog['levels'][$faculty]['L1'];
+        $level = $catalog['levels'][$faculty][$levelKey];
         $program = $catalog['programs'][$faculty];
         $application = Enrollment::where('student_id', $user->id)->where('academic_year_id', $year->id)->where('level_id', $level->id)->first();
         if (! $application || $application->status === EnrollmentStatus::DRAFT) {
@@ -176,12 +176,12 @@ final class StudentFinanceFixtures
         }
         $entry = AcademicEnrollment::where('application_id', $application->id)->where('academic_year_id', $year->id)->sole();
         app(StudentFinanceService::class)->assess($entry, $admin, 'national', reason: self::REASON);
-        $this->assignGroup($entry->refresh(), $admin, $catalog, $phase, $faculty, 'L1');
+        $this->assignGroup($entry->refresh(), $admin, $catalog, $phase, $faculty, $levelKey);
 
         return $entry->refresh();
     }
 
-    private function assignGroup(AcademicEnrollment $entry, User $admin, array $catalog, string $phase, string $faculty, string $level): void
+    public function assignGroup(AcademicEnrollment $entry, User $admin, array $catalog, string $phase, string $faculty, string $level): void
     {
         $group = $catalog['groups'][$phase][$faculty][$level];
         $department = $catalog['departments'][$faculty];
@@ -196,12 +196,12 @@ final class StudentFinanceFixtures
         }
     }
 
-    private function firstObligation(AcademicEnrollment $entry): StudentObligation
+    public function firstObligation(AcademicEnrollment $entry): StudentObligation
     {
         return $entry->obligations()->where('kind', 'tuition')->where('installment', 1)->sole();
     }
 
-    private function pay(AcademicEnrollment $entry, User $recorder, User $confirmer, string $amount, StudentObligation $obligation, string $key): void
+    public function pay(AcademicEnrollment $entry, User $recorder, User $confirmer, string $amount, StudentObligation $obligation, string $key): void
     {
         $finance = app(StudentFinanceService::class);
         $payment = $finance->record($entry, $recorder, [
@@ -214,7 +214,7 @@ final class StudentFinanceFixtures
         ], self::REASON);
     }
 
-    private function register(AcademicEnrollment $entry, User $admin, array $catalog, string $phase, string $faculty, string $level): void
+    public function register(AcademicEnrollment $entry, User $admin, array $catalog, string $phase, string $faculty, string $level): void
     {
         foreach ($catalog['offerings'][$phase][$faculty][$level] as $offering) {
             app(CourseRegistrationService::class)->register($offering, $entry, $admin, 'mandatory', self::REASON);
