@@ -9,7 +9,7 @@ import { route } from 'ziggy-js';
 import '../../../../css/dashboard/admin-sidebar.css';
 
 // Types pour les rôles
-type UserRole = 'user' | 'candidate' | 'student' | 'professor' | 'admin' | 'super admin';
+type UserRole = string;
 
 // Configuration des permissions par rôle
 const rolePermissions: Record<UserRole, string[]> = {
@@ -18,7 +18,6 @@ const rolePermissions: Record<UserRole, string[]> = {
     student: ['dashboard', 'enrollments'],
     professor: ['teaching'],
     admin: [],
-    'super admin': [],
 };
 
 const Sidebar = ({
@@ -43,14 +42,14 @@ const Sidebar = ({
     userRole?: UserRole | UserRole[] | null;
 }) => {
     const roles = Array.isArray(userRole) ? userRole : [userRole];
-    const isAdministration = roles.includes('admin') || roles.includes('super admin');
     const page = usePage<{
         studentPortalActive?: boolean;
         teachingProfileActive?: boolean;
         academic?: { id: number };
         permissions?: Record<string, Permission>;
-        auth?: { user?: { permissions?: string[]; hasAcademicFacultyScope?: boolean } | null };
+        auth?: { user?: { administration?: boolean; permissions?: string[]; hasAcademicFacultyScope?: boolean; delegatedAreas?: string[] | null } | null };
     }>();
+    const isAdministration = page.props.auth?.user?.administration ?? roles.includes('admin');
     const adminGroups = isAdministration ? visibleAdminNavigation(page.props.auth?.user) : [];
     const adminActive = isAdministration ? activeAdminDestination(adminGroups, page.url) : null;
     const expandedMenu = isAdministration && isMobile && !isMobileSidebarOpen ? null : currentActiveMenu;

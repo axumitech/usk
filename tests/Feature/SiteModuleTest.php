@@ -19,6 +19,7 @@ class SiteModuleTest extends TestCase
         parent::setUp();
         $admin = User::factory()->create();
         $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $admin->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('configure settings', 'web'));
         $this->actingAs($admin);
     }
 

@@ -49,6 +49,12 @@ class EnrollmentNotificationController extends Controller
     public function openStudent(Request $request, string $notification, StudentNotifications $notifications)
     {
         $notice = $notifications->find($request->user(), $notification);
+        if ($notice->type === \App\Notifications\PromotionMessage::class) {
+            abort_unless($request->user()->hasRole('student'), 403);
+            $notice->markAsRead();
+
+            return to_route('dashboard.student.notifications.index', ['academic' => $notice->data['academic_enrollment_id']], 303);
+        }
         if ($notice->type === StudentRequestAnswered::class) {
             abort_unless($request->user()->hasRole('student'), 403);
             $academic = $request->user()->studentProfile?->enrollments()->whereHas('application')->findOrFail($notice->data['academic_enrollment_id']);

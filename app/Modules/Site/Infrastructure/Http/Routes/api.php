@@ -5,6 +5,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('site')->group(function () {
     Route::get('/', [SiteController::class, 'show']);
-    Route::post('/', [SiteController::class, 'store'])->middleware(['web', 'auth', 'verified', 'role:admin']);
-    Route::put('/', [SiteController::class, 'update'])->middleware(['web', 'auth', 'verified', 'role:admin']);
+    Route::post('/', [SiteController::class, 'store'])->middleware(['web', 'auth', 'verified', 'role:admin', 'can:configure settings']);
+    Route::put('/', [SiteController::class, 'update'])->middleware(['web', 'auth', 'verified', 'role:admin', 'can:configure settings']);
 });

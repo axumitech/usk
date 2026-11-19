@@ -46,7 +46,11 @@ class StructureService
 
     public function save(string $kind, array $data, User $actor, ?int $id = null): Model
     {
-        Gate::forUser($actor)->authorize('manage', AcademicProgram::class);
+        if ($kind === 'university' && $actor->hasRole('super-admin')) {
+            Gate::forUser($actor)->authorize('configure platform institution');
+        } else {
+            Gate::forUser($actor)->authorize('manage', AcademicProgram::class);
+        }
         if (in_array($kind, ['university', 'cycle', 'faculty-context', 'year-context'], true)) {
             abort_if($actor->academicFaculties()->exists(), 403);
         }
