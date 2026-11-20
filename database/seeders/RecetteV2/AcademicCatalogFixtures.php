@@ -249,7 +249,7 @@ final class AcademicCatalogFixtures
                 $catalog['promotions'][$scope][$facultyKey][$levelKey] = $promotion;
                 $catalog['groups'][$scope][$facultyKey][$levelKey] = $group;
                 AdmissionCampaign::firstOrCreate(['academic_program_id' => $program->id, 'academic_year_id' => $year->id, 'level_id' => $level->id], ['is_open' => true, 'additional_documents' => []]);
-                $items = $version->units()->where('level_id', $level->id)->sole()->items()->orderBy('position')->get();
+                $items = $version->units()->where('level_id', $level->id)->sole()->items()->get();
                 foreach ($items as $index => $item) {
                     $offer = AcademicOffering::where('academic_year_id', $year->id)->where('curriculum_item_id', $item->id)->where('class_id', $group->id)->first();
                     if (! $offer) {

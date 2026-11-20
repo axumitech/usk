@@ -4,13 +4,14 @@
 
 ## Charger la démonstration
 
-Dans une copie dédiée avec les dépendances installées et une clé Laravel configurée, créez un fichier SQLite vide nommé `usk-demo.sqlite`, hors de `public/`. Dans le `.env` de cette copie, réglez `APP_ENV=local` (ou `staging` sur une préproduction dédiée), `DB_CONNECTION=sqlite` et `DB_DATABASE` sur le chemin absolu du fichier. Laissez `DB_URL` vide. Utilisez le stockage propre à cette installation pour les justificatifs et les documents. Pour une démo sans serveur de courrier ni worker, choisissez `MAIL_MAILER=log` et `QUEUE_CONNECTION=sync`.
+Dans le `.env`, configurez la connexion de l’installation. Pour PostgreSQL, utilisez `DB_CONNECTION=pgsql` et les valeurs fournies par l’hébergeur pour `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` et `DB_PASSWORD`. Pour le registre des documents, réglez `APP_URL=https://usk.axumindustries.com` sur cet hébergement. Le nom de la base est libre. Avec SQLite, indiquez le chemin du fichier dans `DB_DATABASE`. Après une modification du `.env` en hébergement, lancez `php artisan config:clear`.
+
+Pour recréer toutes les tables et charger les deux années universitaires et les comptes fictifs, lancez cette commande depuis le dossier contenant `artisan`. **Elle efface toutes les tables de la base configurée.**
 
 ```bash
-php artisan config:clear
-php artisan migrate --seed
+php artisan migrate:fresh --seed
 ```
 
-Sur cette base, le seeder charge les deux années universitaires. Pour le relancer sur une base déjà migrée, utilisez `php artisan db:seed --class=UniversityDemoSeeder`. Un second passage conserve les dossiers et les pièces. La commande `migrate:fresh` efface la base sélectionnée ; l’installation courante utilise simplement `migrate`.
+En production, Laravel demande confirmation. Pour un terminal non interactif, ajoutez `--force` après avoir vérifié la base cible. Si les tables sont déjà créées et vides, `php artisan db:seed` suffit. Relancer cette commande sur une démonstration déjà initialisée conserve les dossiers et les comptes.
 
 Ouvrez `/app/login`. Les comptes fictifs utilisent tous `password`. Par exemple, `candidat.dpu@usk.test` a déjà soumis un dossier en Droit public et `rectorat@usk.test` accède aux indicateurs institutionnels. Les règles, durées et décisions du jeu de données sont fictives.

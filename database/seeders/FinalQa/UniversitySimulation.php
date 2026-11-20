@@ -90,21 +90,6 @@ final class UniversitySimulation
 
     public function installDemo(): void
     {
-        $connection = DB::connection();
-        $path = $connection->getDatabaseName();
-        if (! app()->environment('local', 'testing', 'staging') || $connection->getDriverName() !== 'sqlite'
-            || ! is_string($path) || basename($path) !== 'usk-demo.sqlite' || ! is_file($path) || is_link($path)
-            || ! preg_match('~^(?:[A-Za-z]:[/\\\\]|/(?!/))~', $path)) {
-            throw new RuntimeException('La démonstration exige une base SQLite dédiée : chemin absolu vers usk-demo.sqlite en local, testing ou staging.');
-        }
-        $pdo = $connection->getPdo();
-        $databases = $pdo->query('PRAGMA database_list')->fetchAll(\PDO::FETCH_ASSOC);
-        $active = array_column($databases, 'file', 'name')['main'] ?? '';
-        if (realpath($active) !== realpath($path) || basename(realpath($path)) !== 'usk-demo.sqlite'
-            || (stat($path)['nlink'] ?? 0) > 1 || $connection->getReadPdo() !== $pdo
-            || ! (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn()) {
-            throw new RuntimeException('Connexion SQLite de démonstration ou intégrité référentielle invalide.');
-        }
         $this->populateUniversity('password', false, true);
     }
 
@@ -112,7 +97,8 @@ final class UniversitySimulation
     {
         // Ces tables peuvent déjà être remplies par les migrations ou le cache Laravel.
         $system = ['migrations', 'roles', 'permissions', 'role_has_permissions', 'institutional_acl_migration_journal', 'cache', 'cache_locks'];
-        foreach (DB::connection()->getSchemaBuilder()->getTableListing(null, false) as $table) {
+        $schema = DB::connection()->getSchemaBuilder();
+        foreach ($schema->getTableListing($schema->getCurrentSchemaName(), false) as $table) {
             if (! in_array($table, $system, true) && DB::table($table)->exists()) {
                 throw new RuntimeException('La base de démonstration contient déjà des données dans '.$table.'.');
             }
@@ -229,16 +215,17 @@ final class UniversitySimulation
             'absences_justifiees' => AbsenceJustification::where('status', 'accepted')->count(),
             'recours_instruits' => ServiceRequest::whereNotNull('academic_official_result_id')->where('status', 'rejected')->count(),
         ];
+        $foreignKeyViolations = DB::connection()->getDriverName() === 'sqlite' ? count(DB::select('PRAGMA foreign_key_check')) : null;
         if (Faculty::count() !== 5 || count($byDepartment) !== 10 || array_sum($byDepartment) !== 200 || $past->status !== 'closed'
             || $current->status !== 'open' || $published !== 200 || ! $progressions->get('repeat') || ! $progressions->get('advance')
             || $departments->groupBy('faculty_id')->contains(fn ($group) => $group->count() !== 2)
             || min($historicalRecords) < 10 || $mandates !== 10
-            || DB::select('PRAGMA foreign_key_check') !== [] || User::where('email', 'not like', '%@usk.test')->exists()) {
+            || $foreignKeyViolations > 0 || User::where('email', 'not like', '%@usk.test')->exists()) {
             throw new RuntimeException('Contrôles finaux de la simulation universitaire incomplets.');
         }
 
         return ['faculties' => Faculty::count(), 'historical_students_by_department' => $byDepartment, 'published_results' => $published, 'archives' => $historicalRecords,
             'enrollments_current' => AcademicEnrollment::where('academic_year_id', $current->id)->count(), 'renewals' => $progressions,
-            'active_promotion_mandates' => $mandates, 'foreign_key_violations' => 0];
+            'active_promotion_mandates' => $mandates, 'foreign_key_violations' => $foreignKeyViolations];
     }
 }
