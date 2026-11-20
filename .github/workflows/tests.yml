@@ -103,3 +103,8 @@ jobs:
         run: ./vendor/bin/phpunit --filter='PhaseOneSecurityTest|CredentialRevocationTest|DraftStorageTransactionTest|StudentAcademicJourneyTest|AdminEnrollmentManagementTest|ScheduleModuleTest|EnrollmentJourneyTest|AcademicStructureTest|AcademicStructureMigrationTest|AdmissionConsolidationTest|EnrollmentReviewWorkflowTest|AcademicTeachingTest|UniversityFinanceTest|PaymentRecordingNavigationTest|StudentPaymentProofTest|OfficialDocumentWorkflowTest|AcademicLifecycleTest|ProductionReadinessTest|ProfessorDirectoryScopeTest|AnnualFacultyPackScopeTest|GroupPromotionCurriculumTest|InstitutionalRoleCatalogMigrationTest|StudentAttendanceDashboardTest|SiteModuleTest'
       - name: PostgreSQL concurrency (two connections)
         run: ./vendor/bin/phpunit tests/Integration/PostgresConcurrencyTest.php
+      - name: Initialize the full university dataset on PostgreSQL
+        env:
+          APP_ENV: production
+          APP_URL: https://campus.example.test
+        run: php -d memory_limit=1G artisan migrate:fresh --seed --force --no-interaction
