@@ -135,7 +135,7 @@ final class StudentFinanceFixtures
         }
     }
 
-    public function admit(User $user, User $admin, array $catalog, string $phase, string $faculty, string $levelKey = 'L1'): AcademicEnrollment
+    public function submit(User $user, array $catalog, string $phase, string $faculty, string $levelKey = 'L1'): Enrollment
     {
         $year = $catalog[$phase === 'past' ? 'past_year' : 'current_year'];
         $level = $catalog['levels'][$faculty][$levelKey];
@@ -167,6 +167,12 @@ final class StudentFinanceFixtures
             $application = app(SaveProgressUseCase::class)->execute(new SaveProgressDTO($application->uuid, $user->id, 4, $snapshot));
             $application = app(SubmitEnrollmentUseCase::class)->execute(new SubmitEnrollmentDTO($application->uuid, $user->id, self::REASON));
         }
+        return $application;
+    }
+
+    public function admit(User $user, User $admin, array $catalog, string $phase, string $faculty, string $levelKey = 'L1'): AcademicEnrollment
+    {
+        $application = $this->submit($user, $catalog, $phase, $faculty, $levelKey);
         if ($application->status !== EnrollmentStatus::VALIDATED) {
             app(ReviewEnrollment::class)->start($application->id, $admin->id);
             foreach ($application->documents()->get() as $document) {
@@ -174,7 +180,7 @@ final class StudentFinanceFixtures
             }
             $application = app(ValidateEnrollmentUseCase::class)->execute($application->id, $admin->id, self::REASON);
         }
-        $entry = AcademicEnrollment::where('application_id', $application->id)->where('academic_year_id', $year->id)->sole();
+        $entry = AcademicEnrollment::where('application_id', $application->id)->where('academic_year_id', $application->academic_year_id)->sole();
         app(StudentFinanceService::class)->assess($entry, $admin, 'national', reason: self::REASON);
         $this->assignGroup($entry->refresh(), $admin, $catalog, $phase, $faculty, $levelKey);
 

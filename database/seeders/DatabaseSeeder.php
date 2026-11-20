@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,6 +12,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $connection = DB::connection();
+        if ($connection->getDriverName() === 'sqlite' && basename($connection->getDatabaseName()) === 'usk-demo.sqlite') {
+            $this->call(UniversityDemoSeeder::class);
+
+            return;
+        }
+
         $this->call([
             RolePermissionSeeder::class,
             LevelCodeSeeder::class,
