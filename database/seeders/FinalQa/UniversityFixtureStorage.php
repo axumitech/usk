@@ -9,18 +9,27 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
-/** Stage reversible QA files on the same local volume as the dedicated database. */
+/** Stage fixture files on the same volume as their final storage. */
 final class UniversityFixtureStorage
 {
     public static function transaction(Closure $populate): void
     {
         $roots = ['local' => 'private', 'private' => 'private', 'public' => 'public'];
+        File::ensureDirectoryExists(storage_path('app'));
         $appStorage = realpath(storage_path('app'));
+        if ($appStorage === false) {
+            throw new RuntimeException('Le dossier de stockage de la démonstration est inaccessible.');
+        }
         foreach ($roots as $disk => $directory) {
-            if (! $appStorage || realpath(config("filesystems.disks.$disk.root")) !== $appStorage.DIRECTORY_SEPARATOR.$directory) {
+            $expected = $appStorage.DIRECTORY_SEPARATOR.$directory;
+            if (! is_dir($expected) && ! is_link($expected)) {
+                File::ensureDirectoryExists($expected, $directory === 'private' ? 0700 : 0755);
+            }
+            if (config("filesystems.disks.$disk.driver") !== 'local' || realpath(config("filesystems.disks.$disk.root")) !== $expected) {
                 throw new RuntimeException('Le stockage des fixtures doit être local au profil QA final.');
             }
         }
+        File::ensureDirectoryExists(storage_path('framework'));
         $stage = storage_path('framework/fixtures-'.bin2hex(random_bytes(12)));
         if (! mkdir($stage, 0700)) {
             throw new RuntimeException('Impossible de créer le stockage temporaire de simulation.');

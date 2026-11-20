@@ -11,6 +11,9 @@ use App\Models\Student\AcademicRoom;
 use App\Models\User;
 use App\Modules\AcademicStructure\Application\Services\StructureService;
 use Database\Seeders\RecetteV2\AcademicCatalogFixtures;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 final class UniversityCatalog
 {
@@ -35,7 +38,7 @@ final class UniversityCatalog
     {
         $service = app(StructureService::class);
         $base = ['is_active' => true, 'revision' => 0, 'reason' => self::REASON];
-        $institution = $service->save('university', $base + ['code' => 'USK-QA', 'name' => 'Université fictive de recette USK', 'acronym' => 'USK QA'], $admin);
+        $institution = $service->save('university', $base + ['code' => 'USK', 'name' => 'Université Simon Kimbangu', 'acronym' => 'USK'], $admin);
         $cycles = [];
         foreach (self::CYCLES as $code => [$name, $levels]) {
             $cycles[$code] = $service->save('cycle', $base + ['code' => $code, 'name' => $name.' — simulation',
@@ -49,7 +52,7 @@ final class UniversityCatalog
             $accounts->facultyStaff($facultyCode, $faculty);
             foreach ($departments as $key => [$name, $cycleCode]) {
                 $department = $service->save('department', $base + ['faculty_id' => $faculty->id, 'code' => strtoupper($key), 'name' => $name], $admin);
-                $accounts->departmentStaff($key, $department);
+                $teacher = $accounts->departmentStaff($key, $department);
                 [$cycleName, $labels] = self::CYCLES[$cycleCode];
                 foreach ($labels as $position => $label) {
                     $level = Level::create(['faculty_id' => $faculty->id, 'code' => strtoupper($key).'-'.$label, 'title' => $label.' — '.$name, 'is_active' => true]);
@@ -66,9 +69,14 @@ final class UniversityCatalog
                 $program = $service->save('program', $base + ['faculty_id' => $faculty->id, 'academic_department_id' => $department->id, 'academic_cycle_id' => $cycles[$cycleCode]->id,
                     'code' => 'QA-'.strtoupper($key), 'name' => $cycleName.' — '.$name, 'degree' => $cycleName.' de simulation',
                     'normal_duration' => count($labels), 'level_ids' => array_map(fn ($level) => $level->id, array_values($catalog['levels'][$key]))], $admin);
-                $teacher = $accounts->create('professeur.'.$key, 'Professeur', $name, 'professor');
-                $catalog['professors'][$key] = Professor::forceCreate(['user_id' => $teacher->id, 'email' => $teacher->email, 'first_name' => $teacher->first_name,
+                $professor = Professor::forceCreate(['user_id' => $teacher->id, 'email' => $teacher->email, 'first_name' => $teacher->first_name,
                     'last_name' => $teacher->last_name, 'is_active' => true, 'speciality' => $name]);
+                $portrait = 'professor-portraits/'.$professor->id.'/specimen.jpg';
+                if (! Storage::disk('local')->put($portrait, File::get(base_path('public/assets/usk/card-specimen-portrait.jpg')), 'private')) {
+                    throw new RuntimeException('Le portrait fictif du professeur ne peut pas être enregistré.');
+                }
+                $professor->update(['photo' => $portrait]);
+                $catalog['professors'][$key] = $professor;
                 $catalog['rooms'][$key] = AcademicRoom::create(['university_id' => $institution->id, 'code' => strtoupper($key),
                     'name' => 'Auditoire '.$name, 'campus' => 'Campus fictif', 'building' => 'Bâtiment '.$facultyName,
                     'capacity' => 30, 'type' => 'classroom', 'is_active' => true]);

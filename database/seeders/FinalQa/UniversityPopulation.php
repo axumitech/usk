@@ -100,6 +100,11 @@ final class UniversityPopulation
                     Carbon::withTestNow('2026-06-22 10:00:00 Africa/Kinshasa',
                         fn () => app(UniversityRecords::class)->appeal(array_values($entries)[2], $admin, $publisher));
                 }
+                if ($key === 'dpu' && $level === 'L1') {
+                    $convoked = AcademicOfficialResult::published()->whereIn('academic_enrollment_id', collect($entries)->pluck('id'))
+                        ->where('decision', 'resit_demo')->pluck('academic_enrollment_id')->all();
+                    app(UniversityRecords::class)->resit($catalog['offerings']['past'][$key][$level][1], $teacher, $admin, $entries, $convoked);
+                }
                 Carbon::withTestNow('2026-09-20 10:00:00 Africa/Kinshasa', function () use ($entries, $admin) {
                     foreach ($entries as $entry) {
                         $entry->refresh();
@@ -117,6 +122,12 @@ final class UniversityPopulation
     public function renew(array $catalog, array $students, User $admin, UniversityAccounts $accounts): void
     {
         $service = app(AcademicProgressionService::class);
+        $candidateNames = ['dpu' => ['Mireille', 'Nkulu'], 'epi' => ['Yvette', 'Mwamba']];
+        foreach (array_intersect_key($candidateNames, $catalog['programs']) as $key => [$name, $surname]) {
+            $candidate = $accounts->create('candidat.'.$key, $name, $surname, 'user', 'female');
+            $candidate->assignRole('candidate');
+            $this->finance->submit($candidate, $catalog, 'current', $key, array_key_first($catalog['levels'][$key]));
+        }
         foreach ($students as $key => $byLevel) {
             $levels = array_keys($catalog['levels'][$key]);
             $cashier = $this->staff($catalog, $key, 'finance-officer');
@@ -171,6 +182,8 @@ final class UniversityPopulation
                     }
                 }
             }
+            app(UniversityRecords::class)->currentExam($catalog['offerings']['current'][$key][$levels[0]][1],
+                User::findOrFail($catalog['professors'][$key]->user_id));
             fwrite(STDERR, "Réinscriptions préparées pour $key.".PHP_EOL);
         }
     }

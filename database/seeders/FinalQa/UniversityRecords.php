@@ -8,6 +8,7 @@ use App\Models\Student\AcademicOfficialResult;
 use App\Models\Student\AcademicOffering;
 use App\Models\Student\OfficialDocumentType;
 use App\Models\User;
+use App\Modules\Assessment\Application\AssessmentCorrections;
 use App\Modules\Assessment\Application\AssessmentSubmissions;
 use App\Modules\Assessment\Application\AssessmentWorkflow;
 use App\Modules\Documents\Application\DocumentCatalog;
@@ -23,6 +24,64 @@ use Illuminate\Support\Str;
 
 final class UniversityRecords
 {
+    public function currentExam(AcademicOffering $offer, User $teacher): void
+    {
+        $workflow = app(AssessmentWorkflow::class);
+        $work = $workflow->draft($offer, $teacher, [
+            'title' => 'Interrogation en auditoire — '.$offer->course->title,
+            'body' => 'Présentez-vous à la séance indiquée avec votre carte et le support du cours.',
+            'category' => 'exam', 'session_code' => 'ordinaire', 'modality' => 'in_person',
+            'academic_session_id' => $offer->sessions()->sole()->id, 'maximum_points' => '20',
+            'attempt_limit' => 1, 'late_minutes' => 0, 'group_work' => false, 'feedback_policy' => 'validated', 'reason' => UniversityCatalog::REASON,
+        ]);
+        $workflow->lifecycle($work, $teacher, ['action' => 'publish', 'revision' => $work->assessment()->sole()->revision,
+            'notify' => false, 'reason' => UniversityCatalog::REASON]);
+    }
+
+    public function resit(AcademicOffering $offer, User $teacher, User $admin, array $entries, array $convoked): void
+    {
+        $workflow = app(AssessmentWorkflow::class);
+        $work = Carbon::withTestNow('2026-07-03 10:00:00 Africa/Kinshasa', function () use ($workflow, $offer, $teacher) {
+            $work = $workflow->draft($offer, $teacher, [
+                'title' => 'Épreuve de rattrapage — cas pratique de droit public',
+                'body' => 'Pour les étudiants convoqués par le jury ordinaire : rédiger un recours motivé contre une décision administrative fictive.',
+                'category' => 'exam', 'session_code' => 'rattrapage', 'modality' => 'submission',
+                'opens_at' => '2026-07-06T08:00', 'closes_at' => '2026-07-10T17:00', 'maximum_points' => '20',
+                'attempt_limit' => 1, 'late_minutes' => 0, 'group_work' => false, 'feedback_policy' => 'validated', 'reason' => UniversityCatalog::REASON,
+            ]);
+            $workflow->lifecycle($work, $teacher, ['action' => 'publish', 'revision' => $work->assessment()->sole()->revision,
+                'notify' => false, 'reason' => UniversityCatalog::REASON]);
+
+            return $work;
+        });
+        Carbon::withTestNow('2026-07-08 11:00:00 Africa/Kinshasa', function () use ($entries, $convoked, $work) {
+            foreach ($entries as $entry) {
+                if (in_array($entry->id, $convoked, true)) {
+                    app(AssessmentSubmissions::class)->submit($entry, $work, ['body' => 'Recours fictif : contrôle de la compétence et motivation de la décision.',
+                        'operation_key' => (string) Str::uuid(), 'expected_version' => 0], null, $entry->profile->user_id);
+                }
+            }
+        });
+        Carbon::withTestNow('2026-07-13 10:00:00 Africa/Kinshasa', function () use ($workflow, $work, $teacher, $admin, $convoked) {
+            $assessment = $work->assessment()->sole();
+            $workflow->lifecycle($work, $teacher, ['action' => 'close', 'revision' => $assessment->revision, 'reason' => UniversityCatalog::REASON]);
+            $corrections = app(AssessmentCorrections::class);
+            foreach ($assessment->records()->get() as $record) {
+                $submitted = in_array($record->academic_enrollment_id, $convoked, true);
+                $corrections->save($work, $teacher, $record, ['revision' => $record->revision,
+                    'participation' => $submitted ? 'submitted' : 'exempt', 'points' => $submitted ? '13.00' : null,
+                    'feedback' => $submitted ? 'Recours argumenté, recevabilité à préciser.' : 'Dispensé par la décision du jury ordinaire.',
+                    'reason' => UniversityCatalog::REASON], null);
+                $corrections->record($work, $teacher, $record->refresh(), ['action' => 'finalize', 'revision' => $record->revision,
+                    'reason' => UniversityCatalog::REASON]);
+            }
+            foreach (['validate', 'release'] as $action) {
+                $corrections->batch($work, $admin, ['action' => $action, 'revision' => $assessment->refresh()->revision,
+                    'notify' => false, 'reason' => UniversityCatalog::REASON]);
+            }
+        });
+    }
+
     public function practice(AcademicOffering $offer, User $teacher, array $entries): void
     {
         $workflow = app(AssessmentWorkflow::class);

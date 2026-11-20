@@ -28,16 +28,39 @@ final class UniversityAccounts
 
     public function facultyStaff(string $key, Faculty $faculty): void
     {
-        foreach (['dean', 'vice-dean', 'registrar', 'admissions-officer', 'finance-officer'] as $role) {
-            $staff = $this->create($role.'.'.$key, 'Agent fictif', $faculty->name, $role);
+        $staffRoles = [
+            'dean' => ['Augustin', 'male'], 'vice-dean' => ['Béatrice', 'female'],
+            'registrar' => ['Clément', 'male'], 'admissions-officer' => ['Francine', 'female'],
+            'finance-officer' => ['Pascal', 'male'],
+        ];
+        $surnames = [
+            'dr' => ['Lukusa', 'Kabongo', 'Mulumba', 'Makiese', 'Mabiala'],
+            'med' => ['Kanku', 'Musau', 'Mbuyamba', 'Luzolo', 'Nkulu'],
+            'sp' => ['Katende', 'Ngoy', 'Lutumba', 'Banza', 'Nsenga'],
+            'sspa' => ['Kabeya', 'Kambale', 'Malemba', 'Tshilombo', 'Mayamba'],
+            'theo' => ['Mbala', 'Kasongo', 'Nlandu', 'Mwanza', 'Tshibanda'],
+        ];
+        foreach (array_keys($staffRoles) as $index => $role) {
+            [$name, $gender] = $staffRoles[$role];
+            $staff = $this->create($role.'.'.$key, $name, $surnames[$key][$index], $role, $gender);
             $staff->academicFaculties()->attach($faculty->id);
         }
     }
 
-    public function departmentStaff(string $key, AcademicDepartment $department): void
+    public function departmentStaff(string $key, AcademicDepartment $department): User
     {
-        $head = $this->create('department-head.'.$key, 'Responsable fictif', $department->name, 'department-head');
+        $identities = [
+            'dpu' => ['Félix', 'Kisimba', 'Cécile', 'Kalonji'], 'dpr' => ['Mathieu', 'Bofala', 'Thérèse', 'Mubenga'],
+            'scl' => ['Jacques', 'Yamba', 'Patricia', 'Mukendi'], 'sbm' => ['Éric', 'Lusamba', 'Mireille', 'Lubaki'],
+            'epi' => ['Jean', 'Katumba', 'Esther', 'Kasongo'], 'sco' => ['Amos', 'Ilunga', 'Grâce', 'Mpoyi'],
+            'soc' => ['André', 'Kabasele', 'Ruth', 'Mbayo'], 'adm' => ['Aimé', 'Lukau', 'Sylvie', 'Kitenge'],
+            'the' => ['Benoît', 'Ngandu', 'Carine', 'Kambale'], 'rel' => ['Simon', 'Mbuyi', 'Solange', 'Muteba'],
+        ];
+        [$headName, $headSurname, $teacherName, $teacherSurname] = $identities[$key];
+        $head = $this->create('department-head.'.$key, $headName, $headSurname, 'department-head');
         DB::table('department_staff')->insert(['user_id' => $head->id, 'department_id' => $department->id]);
+
+        return $this->create('professeur.'.$key, $teacherName, $teacherSurname, 'professor', 'female');
     }
 
     public function student(string $key, int $departmentIndex, int $position): User

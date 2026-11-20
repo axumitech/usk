@@ -25,11 +25,7 @@ Les douze étudiants initiaux couvrent, dans chaque faculté : confirmé L1 grou
 
 ## Préparer une nouvelle instance
 
-Depuis le dépôt, exécuter `docs/recette-finale/scripts/preparer-demo.ps1` avec un `-DemoRoot` neuf, extérieur au dépôt. Les paramètres `-Php`, `-Node` et `-Repo` permettent d’indiquer les exécutables installés. Le script crée exclusivement une base SQLite dédiée, utilise les services/factories existants, génère un secret et un build séparé, puis démarre le serveur sur loopback dans une fenêtre masquée. Il n’efface ni ne réutilise un répertoire existant.
-
-Le lanceur et les scripts de recette sont des outils locaux de test. Les scripts Chromium nécessitent Playwright et un Chromium compatibles ; les chemins de l’environnement ayant exécuté la recette sont conservés comme valeurs de secours et peuvent être fournis par `USK_RECIPE_PLAYWRIGHT` et `USK_RECIPE_CHROMIUM`. Le lanceur portable est vérifié syntaxiquement ; la recette décrite dans la matrice a été exécutée sur l’instance et le jeu isolés indiqués ci-dessus.
-
-Ne pas exposer ce serveur `testing` sur le réseau. Les paramètres de test (coût bcrypt réduit, transport mail en mémoire, règles pédagogiques ouvertes et horloge simulée) sont réservés à cette démonstration. Ne pas employer les comptes ou données officiels sur cette instance.
+Pour la démonstration actuelle et ses comptes, suivez le [guide d’utilisation USK](../Guide-utilisation-USK.docx) et la [procédure Artisan](../../README.md). Les résultats des sections précédentes décrivent l’ancienne recette. Son environnement et ses lanceurs sont archivés dans le commit `5458413`.
 
 ## Règles à faire valider par l’université
 
